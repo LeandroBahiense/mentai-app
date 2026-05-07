@@ -571,11 +571,9 @@ function initApp() {
   APP.supabaseKey = localStorage.getItem('mentai-sb-key') || '';
   APP.activeNotes = new Set(APP.notes.map(n => n.id));
 
-  if (APP.apiKey) {
-    APP.apiConnected = true;
-    updateAPIStatus(true);
-    document.getElementById('api-key-global').value = APP.apiKey;
-  }
+  APP.apiConnected = true;
+  APP.apiKey = 'server';
+  updateAPIStatus(true);
   if (APP.supabaseUrl && APP.supabaseKey) {
     APP.supabaseConnected = true;
     document.getElementById('db-dot').classList.add('on');
@@ -1180,10 +1178,7 @@ function renderChatCtx(){
 }
 function toggleCtxNote(id){ if(APP.activeNotes.has(id))APP.activeNotes.delete(id);else APP.activeNotes.add(id); renderChatCtx(); }
 function connectChatAPI(){
-  const k=document.getElementById('chat-api-key').value.trim();
-  if(!k||!k.startsWith('sk-ant')){document.getElementById('chat-api-key').style.borderColor='var(--coral)';setTimeout(()=>document.getElementById('chat-api-key').style.borderColor='',1200);return;}
-  chatApiKey=k; APP.apiKey=k; chatConnected=true; APP.apiConnected=true;
-  localStorage.setItem('mentai-api-key',k);
+  chatConnected=true; APP.apiConnected=true;
   document.getElementById('chat-conn-btn').textContent='✓ Conectado';
   document.getElementById('chat-conn-btn').style.color='#4cba8a';
   updateAPIStatus(true);
@@ -1221,7 +1216,7 @@ async function sendChat(){
   try{
     let reply;
     if(APP.apiConnected&&APP.apiKey){
-      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSysPrompt(),messages:APP.chatHistory.slice(-10)})});
+      const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSysPrompt(),messages:APP.chatHistory.slice(-10)})});
       if(!res.ok) throw new Error('API '+res.status);
       const data=await res.json();
       reply=data.content[0]?.text||'';
@@ -1339,7 +1334,7 @@ async function processVoice(){
   document.getElementById('va-proc').disabled=false;
 }
 async function processVoiceWithAPI(text){
-  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:`Transcrição de voz: "${text}"\n\nNotas existentes: ${APP.notes.map(n=>n.title).join(', ')}\n\nResponda APENAS com JSON:\n{"title":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."],"content":"...markdown com [[wikilinks]]...","connections":["..."]}`}]})});
+  const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:`Transcrição de voz: "${text}"\n\nNotas existentes: ${APP.notes.map(n=>n.title).join(', ')}\n\nResponda APENAS com JSON:\n{"title":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."],"content":"...markdown com [[wikilinks]]...","connections":["..."]}`}]})});
   if(!res.ok) throw new Error('API '+res.status);
   const d=await res.json();
   return JSON.parse((d.content[0]?.text||'{}').replace(/```json|```/g,'').trim());
