@@ -747,49 +747,50 @@ function newNote() {
   APP.notes.unshift(note);
   APP.currentNoteId = id;
   saveNotes();
-  navigate('editor');
 
-  requestAnimationFrame(() => {
-    // render sidebar first
-    const list = document.getElementById('notes-list-sidebar');
-    if (list) {
-      const all = APP.notes;
-      let html = '';
-      all.forEach(n => {
-        const active = n.id === id ? ' active' : '';
-        const color = CLUSTER_COLORS[n.cluster] || '#6b7fe8';
-        html += `<div class="note-row${active}" data-id="${n.id}">
-          <div class="note-row-title">${n.title}</div>
-          <div class="note-row-meta">
-            <span class="note-cluster" style="background:${color}22;color:${color}">${n.tags?.[0]||n.cluster}</span>
-            <span>${n.date||''}</span>
-          </div>
-        </div>`;
-      });
-      list.innerHTML = html;
-      list.querySelectorAll('.note-row').forEach(el => {
-        el.addEventListener('click', () => openNote(el.dataset.id));
-      });
-      const upd = (eid, val) => { const el = document.getElementById(eid); if(el) el.textContent = val; };
-      upd('cnt-all', all.length);
-      upd('cnt-inbox', all.filter(n=>n.folder==='inbox').length);
-    }
+  // update editor directly — sem navigate para nao interferir no render
+  const titleEl = document.getElementById('note-title');
+  const contentEl = document.getElementById('editor-content');
+  if (titleEl) titleEl.value = note.title;
+  if (contentEl) contentEl.innerHTML = renderMD(note.content);
+  renderNoteMeta(note);
+  renderBacklinks();
+  renderOutlinks();
+  updateWordCount();
 
-    // populate editor
-    const titleEl = document.getElementById('note-title');
-    const contentEl = document.getElementById('editor-content');
-    if (titleEl) { titleEl.value = note.title; }
-    if (contentEl) { contentEl.innerHTML = renderMD(note.content); }
-    renderNoteMeta(note);
-    renderBacklinks();
-    renderOutlinks();
-    updateWordCount();
-
-    // focus title
-    requestAnimationFrame(() => {
-      if (titleEl) { titleEl.focus(); titleEl.select(); }
+  // atualiza sidebar inline, sem requestAnimationFrame
+  const list = document.getElementById('notes-list-sidebar');
+  if (list) {
+    let html = '';
+    APP.notes.forEach(n => {
+      const active = n.id === id ? ' active' : '';
+      const color = CLUSTER_COLORS[n.cluster] || '#6b7fe8';
+      html += '<div class="note-row' + active + '" data-id="' + n.id + '">'
+        + '<div class="note-row-title">' + n.title + '</div>'
+        + '<div class="note-row-meta">'
+        + '<span class="note-cluster" style="background:' + color + '22;color:' + color + '">' + (n.tags?.[0]||n.cluster) + '</span>'
+        + '<span>' + (n.date||'') + '</span>'
+        + '</div></div>';
     });
-  });
+    list.innerHTML = html;
+    list.querySelectorAll('.note-row').forEach(el => {
+      el.addEventListener('click', () => openNote(el.dataset.id));
+    });
+    const upd = (eid, val) => { const el = document.getElementById(eid); if(el) el.textContent = val; };
+    upd('cnt-all', APP.notes.length);
+    upd('cnt-inbox', APP.notes.filter(n=>n.folder==='inbox').length);
+  }
+
+  // garante que a view do editor esta visivel
+  document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display='none'; });
+  const ev = document.getElementById('view-editor');
+  if (ev) { ev.classList.add('active'); ev.style.display='flex'; }
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const nb = document.getElementById('nav-editor');
+  if (nb) nb.classList.add('active');
+  APP.currentView = 'editor';
+
+  if (titleEl) { titleEl.focus(); titleEl.select(); }
 }
 
 function addTag() {
