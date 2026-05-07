@@ -661,36 +661,33 @@ function getFilteredNotes() {
 }
 
 function renderSidebar() {
-  requestAnimationFrame(() => {
-    const list = document.getElementById('notes-list-sidebar');
-    if (!list) return;
-    const notes = getFilteredNotes();
-    let html = '';
-    notes.forEach(n => {
-      const active = n.id === APP.currentNoteId ? ' active' : '';
-      const color = CLUSTER_COLORS[n.cluster] || '#6b7fe8';
-      const tag = n.tags?.[0] || n.cluster;
-      html += `<div class="note-row${active}" data-id="${n.id}">
-        <div class="note-row-title">${n.title}</div>
-        <div class="note-row-meta">
-          <span class="note-cluster" style="background:${color}22;color:${color}">${tag}</span>
-          <span>${n.date||''}</span>
-        </div>
-      </div>`;
-    });
-    list.innerHTML = html;
-    // bind clicks after innerHTML set
-    list.querySelectorAll('.note-row').forEach(el => {
-      el.addEventListener('click', () => openNote(el.dataset.id));
-    });
-    const all = APP.notes;
-    const upd = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-    upd('cnt-all',   all.length);
-    upd('cnt-inbox', all.filter(n=>n.folder==='inbox').length);
-    upd('cnt-proj',  all.filter(n=>n.folder==='projetos').length);
-    upd('cnt-dec',   all.filter(n=>n.folder==='decisoes').length);
-    upd('cnt-reu',   all.filter(n=>n.folder==='reunioes').length);
+  const list = document.getElementById('notes-list-sidebar');
+  if (!list) return;
+  const notes = getFilteredNotes();
+  let html = '';
+  notes.forEach(n => {
+    const active = n.id === APP.currentNoteId ? ' active' : '';
+    const color = CLUSTER_COLORS[n.cluster] || '#6b7fe8';
+    const tag = n.tags?.[0] || n.cluster;
+    html += `<div class="note-row${active}" data-id="${n.id}">
+      <div class="note-row-title">${n.title}</div>
+      <div class="note-row-meta">
+        <span class="note-cluster" style="background:${color}22;color:${color}">${tag}</span>
+        <span>${n.date||''}</span>
+      </div>
+    </div>`;
   });
+  list.innerHTML = html;
+  list.querySelectorAll('.note-row').forEach(el => {
+    el.addEventListener('click', () => openNote(el.dataset.id));
+  });
+  const all = APP.notes;
+  const upd = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  upd('cnt-all',   all.length);
+  upd('cnt-inbox', all.filter(n=>n.folder==='inbox').length);
+  upd('cnt-proj',  all.filter(n=>n.folder==='projetos').length);
+  upd('cnt-dec',   all.filter(n=>n.folder==='decisoes').length);
+  upd('cnt-reu',   all.filter(n=>n.folder==='reunioes').length);
 }
 
 function filterNotes(q) { searchQuery = q; renderSidebar(); }
@@ -720,15 +717,7 @@ function openNote(id) {
   renderBacklinks();
   renderOutlinks();
   updateWordCount();
-
-  // update sidebar active state without full re-render
-  document.querySelectorAll('.note-row').forEach(el => el.classList.remove('active'));
-  const rows = document.querySelectorAll('.note-row');
-  rows.forEach(el => {
-    if (el.querySelector('.note-row-title')?.textContent === note.title) {
-      el.classList.add('active');
-    }
-  });
+  renderSidebar();
 }
 
 function renderNoteMeta(note) {
@@ -758,28 +747,7 @@ function newNote() {
   renderOutlinks();
   updateWordCount();
 
-  // atualiza sidebar inline, sem requestAnimationFrame
-  const list = document.getElementById('notes-list-sidebar');
-  if (list) {
-    let html = '';
-    APP.notes.forEach(n => {
-      const active = n.id === id ? ' active' : '';
-      const color = CLUSTER_COLORS[n.cluster] || '#6b7fe8';
-      html += '<div class="note-row' + active + '" data-id="' + n.id + '">'
-        + '<div class="note-row-title">' + n.title + '</div>'
-        + '<div class="note-row-meta">'
-        + '<span class="note-cluster" style="background:' + color + '22;color:' + color + '">' + (n.tags?.[0]||n.cluster) + '</span>'
-        + '<span>' + (n.date||'') + '</span>'
-        + '</div></div>';
-    });
-    list.innerHTML = html;
-    list.querySelectorAll('.note-row').forEach(el => {
-      el.addEventListener('click', () => openNote(el.dataset.id));
-    });
-    const upd = (eid, val) => { const el = document.getElementById(eid); if(el) el.textContent = val; };
-    upd('cnt-all', APP.notes.length);
-    upd('cnt-inbox', APP.notes.filter(n=>n.folder==='inbox').length);
-  }
+  renderSidebar();
 
   // garante que a view do editor esta visivel
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display='none'; });
@@ -1595,7 +1563,7 @@ async function deleteFromSupabase(id){
   }catch(e){ console.warn('delete error',e); }
 }
 function updateAPIStatus(on){
-  document.getElementById('api-dot').classList.toggle('on',on);
+  document.getElementById('db-dot').classList.toggle('on',on);
   document.getElementById('db-label').textContent=on?'IA + '+( APP.supabaseConnected?'Supabase':'local'):'Banco local';
 }
 function updateSystemStatus(){
