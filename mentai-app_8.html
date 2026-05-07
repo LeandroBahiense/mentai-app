@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MentAI — Segundo Cérebro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:      #080c18;
+  --bg2:     #0d1220;
+  --bg3:     #111828;
+  --border:  rgba(100,120,220,0.12);
+  --border2: rgba(100,120,220,0.25);
+  --accent:  #6b7fe8;
+  --accent2: #a8b4f0;
+  --text:    #c8d0f0;
+  --text2:   #7a86b0;
+  --text3:   #3a4260;
+  --green:   #1D9E75;
+  --coral:   #D85A30;
+  --pink:    #D4537E;
+  --gold:    #BA7517;
+  --purple:  #534AB7;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── TOPBAR ── */
+#topbar{height:48px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;z-index:100;}
+#logo{font-family:'DM Serif Display',serif;font-size:19px;color:var(--accent2);letter-spacing:.3px;margin-right:8px;cursor:pointer;}
+#logo em{color:var(--accent);font-style:normal;}
+.nav-btn{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:12px;font-family:'Sora',sans-serif;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2);transition:all .15s;white-space:nowrap;}
+.nav-btn:hover{background:rgba(107,127,232,.08);color:var(--text);}
+.nav-btn.active{background:rgba(107,127,232,.18);color:var(--accent2);border-color:rgba(107,127,232,.3);}
+.nav-sep{width:1px;height:20px;background:var(--border);}
+#topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+#db-badge{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:11px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;transition:all .15s;}
+#db-badge:hover{border-color:var(--accent);}
+#db-dot{width:6px;height:6px;border-radius:50%;background:var(--coral);transition:background .3s;}
+#db-dot.on{background:var(--green);}
+#user-avatar{width:30px;height:30px;border-radius:50%;background:rgba(107,127,232,.2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--accent2);cursor:pointer;}
+
+/* ── LAYOUT ── */
+#app-body{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+#sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;transition:width .2s;}
+#sidebar.collapsed{width:52px;}
+#search-wrap{padding:10px;border-bottom:1px solid var(--border);}
+#search{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 10px 7px 28px;font-size:12px;font-family:'Sora',sans-serif;color:var(--text);outline:none;transition:border-color .15s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%233a4260' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:8px center;}
+#search:focus{border-color:var(--border2);}
+#search::placeholder{color:var(--text3);}
+.s-label{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--text3);padding:10px 14px 5px;}
+.s-item{display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:12px;color:var(--text2);cursor:pointer;border-left:2px solid transparent;transition:all .1s;}
+.s-item:hover{background:rgba(107,127,232,.06);color:var(--text);}
+.s-item.active{background:rgba(107,127,232,.1);color:var(--accent2);border-left-color:var(--accent);}
+.s-count{margin-left:auto;font-size:10px;color:var(--text3);background:var(--bg3);padding:1px 6px;border-radius:10px;}
+#notes-list-sidebar{flex:1;overflow-y:auto;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+.note-row{padding:8px 14px;cursor:pointer;border-left:2px solid transparent;transition:all .1s;}
+.note-row:hover{background:rgba(107,127,232,.05);}
+.note-row.active{background:rgba(107,127,232,.1);border-left-color:var(--accent);}
+.note-row-title{font-size:12px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
+.note-row-meta{font-size:10px;color:var(--text3);display:flex;gap:5px;}
+.note-cluster{padding:1px 6px;border-radius:10px;font-size:9px;font-weight:500;}
+#new-note-btn{margin:8px 10px;padding:8px;border-radius:8px;border:1px dashed var(--border2);background:transparent;color:var(--text2);font-size:12px;font-family:'Sora',sans-serif;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;}
+#new-note-btn:hover{background:rgba(107,127,232,.1);color:var(--accent2);border-color:var(--accent);}
+
+/* ── MAIN AREA ── */
+#main-area{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+
+/* ── VIEWS ── */
+.view{display:none;flex:1;overflow:hidden;}
+.view.active{display:flex;}
+
+/* === EDITOR VIEW === */
+#view-editor{flex-direction:row;}
+#editor-pane{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#editor-header{padding:20px 32px 0;flex-shrink:0;}
+#note-title{font-family:'DM Serif Display',serif;font-size:26px;color:var(--text);background:transparent;border:none;outline:none;width:100%;margin-bottom:10px;}
+#note-title::placeholder{color:var(--text3);}
+#note-meta{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.meta-tag{padding:2px 10px;border-radius:20px;font-size:11px;border:1px solid var(--border);cursor:pointer;transition:all .12s;}
+.meta-tag:hover{border-color:var(--border2);}
+#editor-toolbar{display:flex;align-items:center;gap:2px;padding:7px 32px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.tool{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:transparent;border:none;color:var(--text2);font-size:12px;cursor:pointer;transition:all .1s;font-family:'DM Mono',monospace;}
+.tool:hover{background:rgba(107,127,232,.12);color:var(--text);}
+.tool-sep{width:1px;height:18px;background:var(--border);margin:0 3px;}
+#wiki-tip{margin:8px 32px;padding:7px 12px;background:rgba(107,127,232,.06);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text2);display:flex;align-items:center;gap:8px;}
+#wiki-tip code{font-family:'DM Mono',monospace;background:rgba(107,127,232,.15);padding:1px 5px;border-radius:4px;color:var(--accent2);font-size:11px;}
+#editor-scroll{flex:1;overflow-y:auto;padding:14px 32px 40px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+#editor-content{min-height:280px;outline:none;font-size:15px;line-height:1.85;color:var(--text);caret-color:var(--accent);white-space:pre-wrap;word-break:break-word;}
+#editor-content .wikilink{color:#8b9ff5;background:rgba(107,127,232,.12);border-radius:4px;padding:1px 4px;cursor:pointer;border-bottom:1px solid rgba(107,127,232,.3);}
+#editor-content .wikilink.broken{color:var(--coral);background:rgba(216,90,48,.1);border-bottom-color:rgba(216,90,48,.3);}
+#editor-content h1{font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);margin:18px 0 6px;}
+#editor-content h2{font-family:'DM Serif Display',serif;font-size:18px;color:var(--text);margin:14px 0 5px;}
+#editor-content h3{font-size:14px;font-weight:600;color:var(--accent2);margin:10px 0 4px;letter-spacing:.4px;}
+#editor-content strong{color:var(--accent2);font-weight:600;}
+#editor-content em{color:var(--text2);font-style:italic;}
+#editor-content code{font-family:'DM Mono',monospace;font-size:12px;background:var(--bg3);padding:1px 5px;border-radius:4px;color:var(--green);border:1px solid var(--border);}
+#editor-content blockquote{border-left:3px solid var(--accent);padding-left:12px;color:var(--text2);font-style:italic;margin:6px 0;}
+#editor-content hr{border:none;border-top:1px solid var(--border);margin:14px 0;}
+#backlinks-pane{width:230px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
+#bl-header{padding:12px 14px 8px;border-bottom:1px solid var(--border);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);}
+#bl-list{flex:1;overflow-y:auto;padding:8px;scrollbar-width:thin;}
+.bl-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:5px;cursor:pointer;transition:all .12s;}
+.bl-card:hover{border-color:var(--border2);}
+.bl-title{font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px;}
+.bl-excerpt{font-size:11px;color:var(--text2);line-height:1.4;}
+.bl-excerpt .hl{color:var(--accent2);background:rgba(107,127,232,.1);border-radius:2px;padding:0 2px;}
+#ol-section{padding:8px;border-top:1px solid var(--border);}
+.ol-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;padding:0 4px;}
+.ol-item{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;font-size:11px;color:#8b9ff5;cursor:pointer;transition:background .1s;}
+.ol-item:hover{background:rgba(107,127,232,.08);}
+
+/* autocomplete */
+#autocomplete{position:absolute;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:4px;min-width:200px;z-index:200;display:none;box-shadow:0 8px 32px rgba(0,0,0,.5);}
+.ac-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .1s;}
+.ac-item:hover,.ac-item.sel{background:rgba(107,127,232,.12);color:var(--text);}
+.ac-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.ac-new{color:var(--green);font-style:italic;}
+
+/* === GRAPH VIEW === */
+#view-graph{flex-direction:row;}
+#graph-controls{width:190px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:12px 0;flex-shrink:0;}
+#graph-canvas-wrap{flex:1;position:relative;overflow:hidden;}
+#graph-canvas{display:block;}
+#graph-tooltip{position:absolute;pointer-events:none;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--text);opacity:0;transition:opacity .15s;max-width:210px;z-index:20;line-height:1.5;}
+#graph-tooltip strong{color:var(--accent2);display:block;margin-bottom:2px;font-size:13px;}
+#minimap{position:absolute;bottom:14px;right:14px;width:110px;height:74px;background:rgba(13,18,32,.85);border:1px solid var(--border2);border-radius:8px;overflow:hidden;}
+#graph-preview{width:230px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;transition:width .2s;overflow:hidden;}
+#graph-preview.hidden{width:0;}
+#gp-header{padding:12px 14px 8px;border-bottom:1px solid var(--border);}
+#gp-title{font-family:'DM Serif Display',serif;font-size:16px;color:var(--text);margin-bottom:5px;}
+#gp-body{flex:1;overflow-y:auto;padding:12px 14px;font-size:12px;color:var(--text2);line-height:1.7;scrollbar-width:thin;}
+#gp-body .wikilink{color:#8b9ff5;}
+#gp-open{margin:10px 14px;padding:8px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--accent2);font-size:12px;font-family:'Sora',sans-serif;cursor:pointer;transition:all .15s;text-align:center;}
+#gp-open:hover{background:rgba(107,127,232,.12);}
+.gc-row{display:flex;align-items:center;gap:8px;padding:6px 14px;cursor:pointer;font-size:12px;color:var(--text2);border-left:2px solid transparent;transition:all .1s;}
+.gc-row:hover{background:rgba(107,127,232,.06);color:var(--text);}
+.gc-row.active{background:rgba(107,127,232,.1);color:var(--text);border-left-color:var(--accent);}
+.gc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.gc-count{margin-left:auto;font-size:10px;color:var(--text3);}
+.gc-ctrl{padding:6px 14px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text2);}
+.gc-ctrl label{font-size:10px;color:var(--text3);min-width:56px;}
+.gc-ctrl input[type=range]{flex:1;accent-color:var(--accent);height:3px;cursor:pointer;}
+
+/* === CHAT VIEW === */
+#view-chat{flex-direction:row;}
+#chat-ctx{width:200px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+#chat-main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#messages{flex:1;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+.msg{display:flex;gap:9px;animation:fadeUp .2s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg.user{flex-direction:row-reverse;}
+.avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px;}
+.avatar.ai{background:rgba(107,127,232,.2);color:var(--accent2);border:1px solid var(--border2);}
+.avatar.user{background:rgba(29,158,117,.2);color:#4cba8a;border:1px solid rgba(29,158,117,.25);}
+.bubble{max-width:74%;border-radius:12px;padding:10px 13px;font-size:13px;line-height:1.7;}
+.bubble.ai{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-top-left-radius:3px;}
+.bubble.user{background:rgba(107,127,232,.12);border:1px solid rgba(107,127,232,.2);color:var(--text);border-top-right-radius:3px;}
+.bubble.ai strong{color:var(--accent2);}
+.bubble.ai .wikilink{color:#8b9ff5;background:rgba(107,127,232,.1);border-radius:3px;padding:0 3px;cursor:pointer;border-bottom:1px solid rgba(107,127,232,.3);}
+.bubble.ai code{font-family:'DM Mono',monospace;font-size:11px;background:rgba(107,127,232,.1);padding:1px 5px;border-radius:4px;color:var(--accent2);}
+.msg-time{font-size:10px;color:var(--text3);margin-top:3px;padding:0 2px;}
+.msg.user .msg-time{text-align:right;}
+.sources-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;}
+.src-chip{display:flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:10px;background:rgba(107,127,232,.08);border:1px solid var(--border);color:var(--accent2);cursor:pointer;}
+.src-dot{width:5px;height:5px;border-radius:50%;}
+#typing{display:none;align-items:center;gap:9px;padding:0 4px;}
+.t-dots{display:flex;gap:3px;padding:10px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;border-top-left-radius:3px;}
+.t-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:.4;animation:tdot 1.2s ease-in-out infinite;}
+.t-dot:nth-child(2){animation-delay:.2s;}
+.t-dot:nth-child(3){animation-delay:.4s;}
+@keyframes tdot{0%,60%,100%{opacity:.4;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+#chat-sugs{display:flex;gap:6px;flex-wrap:wrap;padding:8px 20px;border-top:1px solid var(--border);}
+.sug{padding:5px 12px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:11px;color:var(--text2);cursor:pointer;font-family:'Sora',sans-serif;transition:all .12s;white-space:nowrap;}
+.sug:hover{background:rgba(107,127,232,.1);color:var(--text);border-color:var(--border2);}
+#chat-input-wrap{padding:10px 18px 14px;border-top:1px solid var(--border);background:var(--bg2);flex-shrink:0;}
+#chat-row{display:flex;gap:9px;align-items:flex-end;}
+#chat-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:9px 13px;font-size:13px;font-family:'Sora',sans-serif;color:var(--text);outline:none;resize:none;min-height:40px;max-height:110px;line-height:1.5;transition:border-color .15s;scrollbar-width:thin;}
+#chat-input:focus{border-color:var(--border2);}
+#chat-input::placeholder{color:var(--text3);}
+#chat-send{width:40px;height:40px;border-radius:12px;background:var(--accent);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;font-size:15px;color:#fff;flex-shrink:0;}
+#chat-send:hover{opacity:.85;}
+#chat-send:disabled{opacity:.3;cursor:not-allowed;}
+.ctx-note-item{display:flex;align-items:flex-start;gap:7px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);margin:0 8px 4px;cursor:pointer;transition:all .12s;}
+.ctx-note-item:hover{border-color:var(--border2);}
+.ctx-note-item.on{border-color:var(--accent);background:rgba(107,127,232,.08);}
+.ctx-dot2{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:3px;}
+.ctx-check{margin-left:auto;width:13px;height:13px;border-radius:3px;border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:8px;color:transparent;flex-shrink:0;}
+.ctx-note-item.on .ctx-check{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* === VOZ VIEW === */
+#view-voice{flex-direction:row;align-items:stretch;}
+#voice-main{flex:1;display:flex;flex-direction:column;align-items:center;padding:28px 36px;overflow-y:auto;scrollbar-width:thin;}
+#mic-wrap{position:relative;width:110px;height:110px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;}
+.m-ring{position:absolute;border-radius:50%;border:1px solid rgba(107,127,232,.2);animation:rp 2.5s ease-out infinite;opacity:0;}
+.m-ring:nth-child(1){width:110px;height:110px;animation-delay:0s;}
+.m-ring:nth-child(2){width:150px;height:150px;animation-delay:.6s;}
+.m-ring:nth-child(3){width:190px;height:190px;animation-delay:1.2s;}
+@keyframes rp{0%{opacity:0;transform:scale(.85)}35%{opacity:.6}100%{opacity:0;transform:scale(1.1)}}
+.m-ring.on{border-color:rgba(107,127,232,.5);animation:rpf .9s ease-out infinite;}
+@keyframes rpf{0%{opacity:0;transform:scale(.88)}40%{opacity:.8}100%{opacity:0;transform:scale(1.15)}}
+#mic-btn{width:74px;height:74px;border-radius:50%;background:rgba(107,127,232,.15);border:2px solid rgba(107,127,232,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;position:relative;z-index:2;font-size:28px;}
+#mic-btn:hover{background:rgba(107,127,232,.25);transform:scale(1.04);}
+#mic-btn.on{background:rgba(107,127,232,.3);border-color:var(--accent);animation:mp 1s ease-in-out infinite;}
+@keyframes mp{0%,100%{box-shadow:0 0 0 0 rgba(107,127,232,.4)}50%{box-shadow:0 0 0 10px rgba(107,127,232,0)}}
+#mic-btn.proc{background:rgba(186,117,23,.2);border-color:var(--gold);}
+#voice-viz{display:flex;align-items:center;justify-content:center;gap:2px;height:44px;width:190px;margin-bottom:14px;}
+.v-bar{width:3px;background:var(--accent);border-radius:2px;opacity:.6;transition:height .08s ease;min-height:3px;}
+#mic-label{font-size:13px;color:var(--text2);letter-spacing:.4px;margin-bottom:18px;min-height:20px;transition:all .2s;}
+#mic-label.on{color:var(--accent2);}
+#mic-label.proc{color:var(--gold);}
+#mic-label.done{color:var(--green);}
+#live-tx{width:100%;max-width:620px;min-height:58px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:13px 16px;font-size:14px;color:var(--text2);line-height:1.7;font-style:italic;margin-bottom:16px;transition:border-color .2s;}
+#live-tx.on{border-color:var(--border2);color:var(--text);font-style:normal;}
+#live-tx .cur{display:inline-block;width:2px;height:15px;background:var(--accent);margin-left:1px;vertical-align:middle;animation:bl .8s step-end infinite;}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:0}}
+#voice-actions{display:flex;gap:9px;margin-bottom:22px;flex-wrap:wrap;justify-content:center;}
+.va-btn{padding:8px 17px;border-radius:20px;font-size:12px;font-family:'Sora',sans-serif;cursor:pointer;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);transition:all .15s;display:flex;align-items:center;gap:5px;}
+.va-btn:hover{background:rgba(107,127,232,.1);color:var(--text);}
+.va-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.va-btn.primary:hover{opacity:.88;}
+.va-btn:disabled{opacity:.3;cursor:not-allowed;}
+#voice-result{width:100%;max-width:620px;display:none;animation:fadeUp .3s ease;}
+.vr-card{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;overflow:hidden;margin-bottom:10px;}
+.vr-head{padding:12px 16px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;}
+.vr-title{font-family:'DM Serif Display',serif;font-size:17px;color:var(--text);flex:1;}
+.vr-cluster{padding:2px 9px;border-radius:20px;font-size:10px;font-weight:500;}
+.vr-body{padding:12px 16px;font-size:13px;color:var(--text2);line-height:1.8;}
+.vr-body strong{color:var(--accent2);}
+.vr-body .wikilink{color:#8b9ff5;background:rgba(107,127,232,.1);border-radius:3px;padding:0 3px;border-bottom:1px solid rgba(107,127,232,.3);}
+.vr-conns{padding:8px 16px 12px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px;}
+.conn-chip{display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);cursor:pointer;transition:all .12s;}
+.conn-chip:hover{border-color:var(--border2);}
+.conn-dot{width:5px;height:5px;border-radius:50%;}
+.vr-actions{display:flex;gap:7px;}
+#voice-history{width:240px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+#vh-list{flex:1;overflow-y:auto;padding:4px 8px;scrollbar-width:thin;}
+.vh-item{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;margin-bottom:5px;cursor:pointer;transition:all .12s;}
+.vh-item:hover{border-color:var(--border2);}
+.vh-title{font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px;}
+.vh-meta{font-size:10px;color:var(--text3);display:flex;gap:6px;}
+
+/* === SETTINGS VIEW === */
+#view-settings{flex-direction:column;padding:32px 40px;overflow-y:auto;}
+#view-settings h2{font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);margin-bottom:6px;}
+#view-settings p{color:var(--text2);font-size:13px;margin-bottom:28px;}
+.settings-section{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px;max-width:640px;}
+.ss-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.ss-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.ss-label{font-size:12px;color:var(--text2);min-width:140px;}
+.ss-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;font-family:'DM Mono',monospace;color:var(--text);outline:none;transition:border-color .15s;}
+.ss-input:focus{border-color:var(--border2);}
+.ss-input::placeholder{color:var(--text3);}
+.ss-btn{padding:8px 18px;border-radius:8px;font-size:12px;font-family:'Sora',sans-serif;cursor:pointer;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);transition:all .15s;}
+.ss-btn:hover{background:rgba(107,127,232,.1);color:var(--text);}
+.ss-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.ss-btn.primary:hover{opacity:.88;}
+.ss-status{font-size:11px;padding:4px 10px;border-radius:6px;margin-top:4px;}
+.ss-status.ok{background:rgba(29,158,117,.1);color:#4cba8a;border:1px solid rgba(29,158,117,.2);}
+.ss-status.err{background:rgba(216,90,48,.1);color:var(--coral);border:1px solid rgba(216,90,48,.2);}
+
+/* STATUS BAR */
+#statusbar{height:26px;background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:14px;font-size:10px;color:var(--text3);flex-shrink:0;letter-spacing:.4px;}
+#statusbar span{display:flex;align-items:center;gap:4px;}
+#save-indicator{color:var(--green);}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.fade-in{animation:fadeIn .2s ease;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div id="logo" onclick="navigate('editor')">Ment<em>AI</em></div>
+  <button class="nav-btn active" id="nav-editor"  onclick="navigate('editor')">✎ Notas</button>
+  <button class="nav-btn"        id="nav-graph"   onclick="navigate('graph')">⬡ Graph</button>
+  <button class="nav-btn"        id="nav-chat"    onclick="navigate('chat')">◎ Chat IA</button>
+  <button class="nav-btn"        id="nav-voice"   onclick="navigate('voice')">🎙 Voz</button>
+  <div class="nav-sep"></div>
+  <div id="topbar-right">
+    <div id="db-badge" onclick="navigate('settings')">
+      <div id="db-dot"></div>
+      <span id="db-label">Banco local</span>
+    </div>
+    <div id="user-avatar">V</div>
+  </div>
+</div>
+
+<!-- APP BODY -->
+<div id="app-body">
+
+  <!-- SIDEBAR (notas) -->
+  <div id="sidebar">
+    <div id="search-wrap">
+      <input id="search" placeholder="Buscar notas..." oninput="filterNotes(this.value)"/>
+    </div>
+    <div class="s-label">Pastas</div>
+    <div class="s-item active" onclick="selectFolder('all',this)">◈ Todas <span class="s-count" id="cnt-all">0</span></div>
+    <div class="s-item" onclick="selectFolder('inbox',this)"><span style="color:var(--gold)">↓</span> Inbox <span class="s-count" id="cnt-inbox">0</span></div>
+    <div class="s-item" onclick="selectFolder('projetos',this)"><span style="color:var(--accent)">◻</span> Projetos <span class="s-count" id="cnt-proj">0</span></div>
+    <div class="s-item" onclick="selectFolder('decisoes',this)"><span style="color:var(--coral)">⬡</span> Decisões <span class="s-count" id="cnt-dec">0</span></div>
+    <div class="s-item" onclick="selectFolder('reunioes',this)"><span style="color:var(--green)">◎</span> Reuniões <span class="s-count" id="cnt-reu">0</span></div>
+    <div class="s-label">Notas</div>
+    <div id="notes-list-sidebar"></div>
+    <button id="new-note-btn" onclick="newNote()">+ Nova nota</button>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div id="main-area">
+
+    <!-- EDITOR -->
+    <div class="view active" id="view-editor">
+      <div id="editor-pane">
+        <div id="editor-header">
+          <input id="note-title" placeholder="Título da nota..." oninput="onTitleChange(this.value)"/>
+          <div id="note-meta"></div>
+        </div>
+        <div id="editor-toolbar">
+          <button class="tool" onclick="fmt('bold')" title="Negrito"><b>B</b></button>
+          <button class="tool" onclick="fmt('italic')" title="Itálico"><i>I</i></button>
+          <button class="tool" onclick="insH(2)" title="H2">H2</button>
+          <button class="tool" onclick="insH(3)" title="H3">H3</button>
+          <div class="tool-sep"></div>
+          <button class="tool" onclick="ins('> ')" title="Citação">❝</button>
+          <button class="tool" onclick="ins('- ')" title="Lista">≡</button>
+          <button class="tool" onclick="insCode()" title="Código">&lt;/&gt;</button>
+          <div class="tool-sep"></div>
+          <button class="tool" onclick="insWiki()" title="Wikilink" style="color:var(--accent)">[[]]</button>
+          <button class="tool" onclick="ins('\n---\n')" title="Separador">—</button>
+          <div style="flex:1"></div>
+          <span style="font-size:10px;color:var(--text3)" id="wc">0 palavras</span>
+          <button class="tool" onclick="deleteCurrentNote()" title="Apagar nota" style="color:var(--coral);margin-left:4px">🗑</button>
+        </div>
+        <div id="wiki-tip">💡 Digite <code>[[</code> para conectar a outra nota. A IA cria conexões automaticamente.</div>
+        <div id="editor-scroll">
+          <div id="editor-content" contenteditable="true" spellcheck="false"
+               onkeyup="onEKey(event)" onkeydown="onEKeyDown(event)" oninput="onEInput()"></div>
+        </div>
+      </div>
+      <div id="backlinks-pane">
+        <div id="bl-header">Conexões</div>
+        <div id="bl-list"></div>
+        <div id="ol-section">
+          <div class="ol-label">Links desta nota</div>
+          <div id="ol-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRAPH -->
+    <div class="view" id="view-graph">
+      <div id="graph-controls">
+        <div class="s-label">Clusters</div>
+        <div class="gc-row active" onclick="gFilter('all',this)" id="gcl-all"><div class="gc-dot" style="background:var(--accent)"></div>Todos<span class="gc-count" id="gcl-all-n">0</span></div>
+        <div class="gc-row" onclick="gFilter('produto',this)"   ><div class="gc-dot" style="background:#6b7fe8"></div>Produto   <span class="gc-count">0</span></div>
+        <div class="gc-row" onclick="gFilter('estrategia',this)"><div class="gc-dot" style="background:#D85A30"></div>Estratégia<span class="gc-count">0</span></div>
+        <div class="gc-row" onclick="gFilter('equipe',this)"    ><div class="gc-dot" style="background:#1D9E75"></div>Equipe    <span class="gc-count">0</span></div>
+        <div class="gc-row" onclick="gFilter('pessoal',this)"   ><div class="gc-dot" style="background:#D4537E"></div>Pessoal   <span class="gc-count">0</span></div>
+        <div class="s-label" style="margin-top:8px">Layout</div>
+        <div class="gc-row active" id="gl-force"   onclick="setLayout('force',this)"  >⬡ Força</div>
+        <div class="gc-row"        id="gl-cluster" onclick="setLayout('cluster',this)">◎ Clusters</div>
+        <div class="gc-row"        id="gl-radial"  onclick="setLayout('radial',this)" >✦ Radial</div>
+        <div class="s-label" style="margin-top:8px">Física</div>
+        <div class="gc-ctrl"><label>Repulsão</label><input type="range" min="50" max="400" value="180" id="gc-rep"/></div>
+        <div class="gc-ctrl"><label>Atração</label> <input type="range" min="10" max="200" value="80"  id="gc-att"/></div>
+      </div>
+      <div id="graph-canvas-wrap">
+        <canvas id="graph-canvas"></canvas>
+        <div id="graph-tooltip"></div>
+        <div id="minimap"><canvas id="mm-canvas" width="110" height="74"></canvas></div>
+      </div>
+      <div id="graph-preview" class="hidden">
+        <div id="gp-header">
+          <div id="gp-title">—</div>
+          <div id="gp-tags"></div>
+        </div>
+        <div id="gp-body"></div>
+        <div id="gp-conns" style="padding:8px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)"></div>
+        <button id="gp-open" onclick="openFromGraph()">✎ Abrir no editor</button>
+      </div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="view" id="view-chat">
+      <div id="chat-ctx">
+        <div class="s-label">Contexto</div>
+        <div id="chat-ctx-notes" style="flex:1;overflow-y:auto;padding:0 0 8px;scrollbar-width:thin;"></div>
+        <div style="padding:10px;border-top:1px solid var(--border);">
+          <input class="ss-input" id="chat-api-key" type="password" placeholder="sk-ant-api03-..." style="width:100%;margin-bottom:6px;font-size:11px;"/>
+          <button class="ss-btn" id="chat-conn-btn" onclick="connectChatAPI()" style="width:100%;font-size:11px;">Conectar IA</button>
+        </div>
+      </div>
+      <div id="chat-main-area">
+        <div id="messages">
+          <div id="typing">
+            <div class="avatar ai">M</div>
+            <div class="t-dots"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div></div>
+          </div>
+        </div>
+        <div id="chat-sugs">
+          <button class="sug" onclick="qSend('Qual é minha prioridade de hoje?')">Prioridade de hoje</button>
+          <button class="sug" onclick="qSend('Resuma meus projetos')">Projetos ativos</button>
+          <button class="sug" onclick="qSend('Que decisões tomei?')">Decisões recentes</button>
+          <button class="sug" onclick="qSend('Gere um briefing semanal')">Briefing semanal</button>
+        </div>
+        <div id="chat-input-wrap">
+          <div id="chat-row">
+            <textarea id="chat-input" rows="1" placeholder="Pergunte algo sobre suas notas..." oninput="onChatInput(this)" onkeydown="onChatKey(event)"></textarea>
+            <button id="chat-send" onclick="sendChat()">➤</button>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:5px;display:flex;justify-content:space-between">
+            <span>Enter para enviar · Shift+Enter nova linha</span>
+            <span id="chat-model">claude-sonnet-4-20250514</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VOZ -->
+    <div class="view" id="view-voice">
+      <div id="voice-main">
+        <div id="mic-wrap">
+          <div class="m-ring" id="mr1"></div><div class="m-ring" id="mr2"></div><div class="m-ring" id="mr3"></div>
+          <div id="mic-btn" onclick="toggleMic()">🎙</div>
+        </div>
+        <div id="voice-viz"></div>
+        <div id="mic-label">Pressione para falar</div>
+        <div id="live-tx"><span id="tx-text" style="color:var(--text3)">Sua fala aparecerá aqui...</span></div>
+        <div id="voice-actions">
+          <button class="va-btn" id="va-clear"   onclick="clearVoice()" disabled>✕ Limpar</button>
+          <button class="va-btn primary" id="va-proc" onclick="processVoice()" disabled>✦ Processar com IA</button>
+          <button class="va-btn" id="va-raw"    onclick="saveRaw()" disabled>↓ Salvar bruto</button>
+        </div>
+        <div id="voice-result"></div>
+      </div>
+      <div id="voice-history">
+        <div class="s-label">Histórico</div>
+        <div id="vh-list"></div>
+        <div style="padding:10px;border-top:1px solid var(--border);">
+          <input class="ss-input" id="voice-api-key" type="password" placeholder="sk-ant-api03-..." style="width:100%;margin-bottom:6px;font-size:11px;"/>
+          <button class="ss-btn" id="voice-conn-btn" onclick="connectVoiceAPI()" style="width:100%;font-size:11px;">Conectar IA</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="view" id="view-settings">
+      <div style="max-width:640px;width:100%">
+        <h2>Configurações</h2>
+        <p>Conecte o Supabase para salvar suas notas na nuvem e a API Anthropic para ativar a IA.</p>
+        <div class="settings-section">
+          <div class="ss-title">🗄 Supabase — banco de dados</div>
+          <div class="ss-row"><span class="ss-label">URL do projeto</span><input class="ss-input" id="sb-url" placeholder="https://xxxx.supabase.co"/></div>
+          <div class="ss-row"><span class="ss-label">Anon Key</span><input class="ss-input" id="sb-key" type="password" placeholder="eyJhbGciOiJIUzI1NiIs..."/></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="ss-btn primary" onclick="connectSupabase()">Conectar Supabase</button>
+            <button class="ss-btn" onclick="testSupabase()">Testar conexão</button>
+            <button class="ss-btn" onclick="pushAllToSupabase()">↑ Enviar todas as notas</button>
+            <button class="ss-btn" onclick="loadFromSupabase()">↓ Carregar do banco</button>
+          </div>
+          <span id="sb-status" class="ss-status" style="display:none;margin-top:6px"></span>
+          <div style="margin-top:12px;font-size:11px;color:var(--text3);line-height:1.6">
+            Crie sua conta gratuita em <strong style="color:var(--accent2)">supabase.com</strong> → New project → Settings → API
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="ss-title">🤖 Anthropic API — inteligência</div>
+          <div class="ss-row"><span class="ss-label">Chave de API</span><input class="ss-input" id="api-key-global" type="password" placeholder="sk-ant-api03-..."/></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="ss-btn primary" onclick="connectAPI()">Conectar IA</button>
+            <span id="api-status-badge" class="ss-status" style="display:none"></span>
+          </div>
+          <div style="margin-top:12px;font-size:11px;color:var(--text3);line-height:1.6">
+            Acesse <strong style="color:var(--accent2)">console.anthropic.com</strong> → API Keys → Create Key. Custo ~$1–3/mês para uso pessoal.
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="ss-title">🗂 Gerenciar notas</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="ss-btn" onclick="pushAllToSupabase()">↑ Enviar todas ao Supabase</button>
+            <button class="ss-btn" onclick="loadFromSupabase()">↓ Carregar do Supabase</button>
+            <button class="ss-btn" onclick="removeDuplicates()" style="color:var(--coral);border-color:rgba(216,90,48,.3)">✕ Remover títulos iguais</button>
+            <button class="ss-btn" onclick="clearTestNotes()" style="color:var(--coral);border-color:rgba(216,90,48,.3)">✕ Limpar notas de teste</button>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:6px">Dica: o ícone 🗑 na barra do editor apaga a nota atual.</div>
+          <div id="manage-status" style="font-size:11px;color:var(--green);margin-top:4px"></div>
+        </div>
+        <div class="settings-section">
+          <div class="ss-title">📊 Status do sistema</div>
+          <div id="system-status" style="font-size:12px;color:var(--text2);line-height:2"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-area -->
+</div><!-- /app-body -->
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+  <span>◈ MentAI v1.0</span>
+  <span>|</span>
+  <span id="sb-note-count">0 notas</span>
+  <span>|</span>
+  <span id="sb-conn-count">0 conexões</span>
+  <span>|</span>
+  <span id="save-indicator">✓ salvo localmente</span>
+  <span style="margin-left:auto;color:var(--text3)" id="sb-hint">Dica: [[NomeDaNota]] para criar conexões</span>
+</div>
+
+<!-- AUTOCOMPLETE -->
+<div id="autocomplete"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ══════════════════════════════════════════════════════════════════
+const APP = {
+  notes: [],
+  currentNoteId: null,
+  currentView: 'editor',
+  apiKey: '',
+  apiConnected: false,
+  supabaseUrl: '',
+  supabaseKey: '',
+  supabaseConnected: false,
+  chatHistory: [],
+  activeNotes: new Set(),
+  voiceTranscript: '',
+  voiceCaptures: [],
+  graphFilter: 'all',
+  graphLayout: 'force',
+  saveTimer: null,
+};
+
+const CLUSTER_COLORS = {
+  produto:    '#6b7fe8',
+  estrategia: '#D85A30',
+  equipe:     '#1D9E75',
+  pessoal:    '#D4537E',
+  inbox:      '#BA7517',
+};
+
+// NOTAS INICIAIS
+const SEED_NOTES = [
+  { id:'mvp', title:'MVP do Segundo Cérebro', folder:'projetos', cluster:'produto', tags:['produto','estratégia'], date:'hoje',
+    content:`## Objetivo\n\nConstruir a **Fase 1** do segundo cérebro digital pessoal.\nApp web que combina [[Graph View]], [[Chat com IA]] e [[Captura por Voz]].\n\n---\n\n## Por que isso importa\n\nNenhum produto no mercado tem as três capacidades juntas.\nO [[Obsidian]] tem o graph mas não tem IA nativa.\nO [[Posicionamento]] explica o gap de mercado em detalhes.\n\n---\n\n## Pilares da Fase 1\n\n- Editor de notas com [[wikilinks]] ✓\n- [[Graph View]] animado ✓\n- [[Chat com IA]] contextual ✓\n- [[Captura por Voz]] sem fricção ✓\n\n---\n\n## Decisão técnica\n\n> Usar Supabase para o banco de dados e Vercel para hospedagem.\n> Ver [[Decisão Supabase]] para o raciocínio completo.\n\n## Próximos passos\n\nApós unificar o app, conectar ao Supabase para persistência real.\nReunião de status em [[Reunião 06 Mai]].` },
+  { id:'graph', title:'Graph View', folder:'projetos', cluster:'produto', tags:['produto','design'], date:'ontem',
+    content:`## O que é\n\nVisualização da rede de notas como nós conectados.\nInspirado no [[Obsidian]] mas construído para web.\n\n## Comportamento\n\n- Nós pulsam como ondas\n- Hover destaca o nó e suas conexões\n- Clicar abre a nota\n- Cores por cluster\n\n## Parte do [[MVP do Segundo Cérebro]]` },
+  { id:'chat-ia', title:'Chat com IA', folder:'projetos', cluster:'produto', tags:['produto','ia'], date:'ontem',
+    content:`## Conceito\n\nA IA lê todas as notas do vault e responde com contexto real.\nNão é um chatbot genérico — é um assistente que conhece o seu trabalho.\n\n## Funcionalidades\n\n- Briefings automáticos\n- Resumo de decisões passadas\n- Preparação para reuniões\n- Geração de relatórios\n\n## Parte do [[MVP do Segundo Cérebro]]` },
+  { id:'voz', title:'Captura por Voz', folder:'projetos', cluster:'produto', tags:['produto','ux'], date:'ontem',
+    content:`## Conceito\n\nZero atrito para capturar ideias.\nFale — a IA transcreve, organiza e cria [[wikilinks]] automaticamente.\n\n## Fluxo\n\n1. Pressiona o microfone\n2. Fala naturalmente\n3. IA transcreve e identifica entidades\n4. Cria nota com links automáticos\n\n## Parte do [[MVP do Segundo Cérebro]]` },
+  { id:'decisao-supabase', title:'Decisão Supabase', folder:'decisoes', cluster:'estrategia', tags:['decisão','tecnologia'], date:'3 dias',
+    content:`## Contexto\n\nEscolha do banco de dados para o [[MVP do Segundo Cérebro]].\n\n## Opções consideradas\n\n- **Supabase** — open source, PostgreSQL, gratuito\n- Firebase — Google, NoSQL, mais complexo\n- PlanetScale — MySQL, mais caro\n\n## Decisão\n\nSupabase. PostgreSQL real, gratuito para uso pessoal, integra com Vercel.\n\n## Revisão em\n\n3 meses ou ao atingir 10k notas.` },
+  { id:'posicionamento', title:'Posicionamento', folder:'inbox', cluster:'estrategia', tags:['estratégia'], date:'2 dias',
+    content:`## Gap de mercado\n\nNenhum produto tem [[Graph View]] + IA + Voz juntos.\n\n## Público-alvo\n\nCTOs, fundadores, líderes de produto.\nPessoas que tomam muitas decisões e precisam de contexto.\n\n## Diferencial\n\nMemória contextual que acumula. O valor aumenta com o uso.\nO usuário não consegue sair sem perder o histórico.` },
+  { id:'obsidian', title:'Obsidian', folder:'inbox', cluster:'estrategia', tags:['referência'], date:'5 dias',
+    content:`## O que é\n\nApp de notas local com [[Graph View]] e wikilinks.\n\n## Faz bem\n\nGraph view, performance local, plugins.\n\n## Não tem\n\nIA nativa, voz, web multi-device.\n\n## Relevância\n\nInspiração para o [[MVP do Segundo Cérebro]].\nNosso [[Posicionamento]] parte do que o Obsidian não faz.` },
+  { id:'reuniao', title:'Reunião 06 Mai', folder:'reunioes', cluster:'equipe', tags:['reunião','produto'], date:'hoje',
+    content:`## Pauta\n\n- Status do [[MVP do Segundo Cérebro]]\n- Escolha da biblioteca para o [[Graph View]]\n- Próximas duas semanas\n\n## Decisões\n\nD3.js escolhido para o Graph View.\nPróximo milestone: app unificado.\n\n## Ações\n\n- [x] Finalizar editor de notas\n- [x] Criar Graph View\n- [x] Chat com IA\n- [x] Captura por Voz\n- [ ] Unificar app\n- [ ] Conectar Supabase` },
+];
+
+function initApp() {
+  APP.notes = JSON.parse(localStorage.getItem('mentai-notes') || 'null') || SEED_NOTES;
+  APP.apiKey = localStorage.getItem('mentai-api-key') || '';
+  APP.supabaseUrl = localStorage.getItem('mentai-sb-url') || '';
+  APP.supabaseKey = localStorage.getItem('mentai-sb-key') || '';
+  APP.activeNotes = new Set(APP.notes.map(n => n.id));
+
+  if (APP.apiKey) {
+    APP.apiConnected = true;
+    updateAPIStatus(true);
+    document.getElementById('api-key-global').value = APP.apiKey;
+  }
+  if (APP.supabaseUrl && APP.supabaseKey) {
+    APP.supabaseConnected = true;
+    document.getElementById('db-dot').classList.add('on');
+    document.getElementById('db-label').textContent = APP.apiConnected ? 'IA + Supabase' : 'Supabase';
+    setTimeout(() => {
+      document.getElementById('sb-url').value = APP.supabaseUrl;
+      document.getElementById('sb-key').value = APP.supabaseKey;
+      loadFromSupabase();
+    }, 300);
+  }
+
+  renderSidebar();
+  renderChatCtx();
+  initVoiceViz();
+  updateStatusBar();
+  updateSystemStatus();
+
+  // garante que só a view-editor está visível no início
+  document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
+  const editorView = document.getElementById('view-editor');
+  if (editorView) { editorView.classList.add('active'); editorView.style.display = 'flex'; }
+
+  if (APP.notes.length > 0) openNote(APP.notes[0].id);
+
+  setTimeout(() => {
+    initGraph();
+    addChatWelcome();
+    renderVoiceHistory();
+  }, 100);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// NAVEGAÇÃO
+// ══════════════════════════════════════════════════════════════════
+function navigate(view) {
+  document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('view-' + view);
+  if (el) { el.classList.add('active'); el.style.display = 'flex'; }
+  document.getElementById('nav-' + view)?.classList.add('active');
+  APP.currentView = view;
+  if (view === 'graph') {
+    setTimeout(() => {
+      const wrap = document.getElementById('graph-canvas-wrap');
+      const canvas = document.getElementById('graph-canvas');
+      GW = wrap.clientWidth || 600;
+      GH = wrap.clientHeight || 450;
+      canvas.width = GW;
+      canvas.height = GH;
+      if (!gCtx) {
+        gCtx = canvas.getContext('2d');
+        mmCtx2 = document.getElementById('mm-canvas').getContext('2d');
+        buildGraphData();
+        bindGraphEvents(canvas);
+        cancelAnimationFrame(gRAF);
+        gLoop();
+      } else {
+        buildGraphData();
+      }
+    }, 60);
+  }
+  document.getElementById('sb-hint').textContent = {
+    editor:   'Dica: [[NomeDaNota]] para criar conexões',
+    graph:    'Arraste · Scroll para zoom · Clique para explorar',
+    chat:     'Enter para enviar · Shift+Enter nova linha',
+    voice:    'Chrome/Edge para reconhecimento de voz real',
+    settings: 'Configure Supabase e API para ativar todas as funções',
+  }[view] || '';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SIDEBAR & NOTAS
+// ══════════════════════════════════════════════════════════════════
+let currentFolder = 'all';
+let searchQuery = '';
+
+function getFilteredNotes() {
+  return APP.notes.filter(n => {
+    const folderOk = currentFolder === 'all' || n.folder === currentFolder;
+    const searchOk = !searchQuery || n.title.toLowerCase().includes(searchQuery.toLowerCase());
+    return folderOk && searchOk;
+  });
+}
+
+function renderSidebar() {
+  const list = document.getElementById('notes-list-sidebar');
+  if (!list) return;
+
+  const notes = getFilteredNotes();
+
+  // rebuild entirely — avoids stale DOM
+  const frag = document.createDocumentFragment();
+  notes.forEach(n => {
+    const div = document.createElement('div');
+    div.className = 'note-row' + (n.id === APP.currentNoteId ? ' active' : '');
+    div.innerHTML = `
+      <div class="note-row-title">${n.title}</div>
+      <div class="note-row-meta">
+        <span class="note-cluster" style="background:${CLUSTER_COLORS[n.cluster]||'#6b7fe8'}22;color:${CLUSTER_COLORS[n.cluster]||'#6b7fe8'}">${n.tags?.[0]||n.cluster}</span>
+        <span>${n.date||''}</span>
+      </div>`;
+    div.addEventListener('click', () => openNote(n.id));
+    frag.appendChild(div);
+  });
+
+  list.innerHTML = '';
+  list.appendChild(frag);
+
+  // counts
+  const all = APP.notes;
+  const upd = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  upd('cnt-all',   all.length);
+  upd('cnt-inbox', all.filter(n=>n.folder==='inbox').length);
+  upd('cnt-proj',  all.filter(n=>n.folder==='projetos').length);
+  upd('cnt-dec',   all.filter(n=>n.folder==='decisoes').length);
+  upd('cnt-reu',   all.filter(n=>n.folder==='reunioes').length);
+}
+
+function filterNotes(q) { searchQuery = q; renderSidebar(); }
+
+function selectFolder(f, el) {
+  currentFolder = f;
+  document.querySelectorAll('#sidebar .s-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  renderSidebar();
+}
+
+function openNote(id) {
+  const note = APP.notes.find(n => n.id === id);
+  if (!note) return;
+  APP.currentNoteId = id;
+
+  // ensure editor is visible
+  if (APP.currentView !== 'editor') navigate('editor');
+
+  // update editor fields
+  const titleEl = document.getElementById('note-title');
+  const contentEl = document.getElementById('editor-content');
+  if (titleEl) titleEl.value = note.title;
+  if (contentEl) contentEl.innerHTML = renderMD(note.content || '');
+
+  renderNoteMeta(note);
+  renderBacklinks();
+  renderOutlinks();
+  updateWordCount();
+
+  // update sidebar active state without full re-render
+  document.querySelectorAll('.note-row').forEach(el => el.classList.remove('active'));
+  const rows = document.querySelectorAll('.note-row');
+  rows.forEach(el => {
+    if (el.querySelector('.note-row-title')?.textContent === note.title) {
+      el.classList.add('active');
+    }
+  });
+}
+
+function renderNoteMeta(note) {
+  const color = CLUSTER_COLORS[note.cluster] || '#6b7fe8';
+  document.getElementById('note-meta').innerHTML = `
+    <span class="meta-tag" style="background:${color}15;color:${color};border-color:${color}30">📁 ${note.folder||'inbox'}</span>
+    <span class="meta-tag" style="background:var(--bg3);color:var(--text2)">🕐 ${note.date||'agora'}</span>
+    ${(note.tags||[]).map(t=>`<span class="meta-tag" style="background:rgba(107,127,232,.1);color:var(--accent2)">${t}</span>`).join('')}
+    <span class="meta-tag" style="opacity:.5;cursor:pointer" onclick="addTag()">+ tag</span>
+  `;
+}
+
+function newNote() {
+  const id = 'note-' + Date.now();
+  const note = { id, title:'Nova nota', folder:'inbox', cluster:'produto', tags:['nova'], date:'agora', content:'## Nova nota\n\nComece a escrever...\n' };
+  APP.notes.unshift(note);
+  saveNotes();
+
+  // show editor view immediately
+  navigate('editor');
+
+  // populate editor
+  APP.currentNoteId = id;
+  const titleEl = document.getElementById('note-title');
+  const contentEl = document.getElementById('editor-content');
+  if (titleEl) { titleEl.value = note.title; }
+  if (contentEl) { contentEl.innerHTML = renderMD(note.content); }
+  renderNoteMeta(note);
+  renderBacklinks();
+  renderOutlinks();
+  updateWordCount();
+
+  // re-render sidebar so new note appears
+  renderSidebar();
+
+  setTimeout(() => {
+    if (titleEl) { titleEl.focus(); titleEl.select(); }
+  }, 60);
+}
+
+function addTag() {
+  const tag = prompt('Nova tag:');
+  if (!tag) return;
+  const note = APP.notes.find(n=>n.id===APP.currentNoteId);
+  if (note) { note.tags = [...(note.tags||[]), tag]; renderNoteMeta(note); saveNotes(); }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// EDITOR
+// ══════════════════════════════════════════════════════════════════
+function renderMD(text) {
+  return text
+    .replace(/\[\[([^\]]+)\]\]/g, (_,t) => {
+      const exists = APP.notes.find(n=>n.title.toLowerCase()===t.toLowerCase());
+      return `<span class="wikilink ${exists?'':'broken'}" onclick="wlClick('${exists?.id||''}','${t.replace(/'/g,'\\\'')}')" title="${exists?'Abrir: '+t:'Criar: '+t}">${t}</span>`;
+    })
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>')
+    .replace(/^---$/gm,'<hr/>')
+    .replace(/^- \[x\] (.+)$/gm,'<div style="display:flex;gap:7px;align-items:center;padding:2px 0"><input type="checkbox" checked style="accent-color:var(--accent)"/> <span style="text-decoration:line-through;color:var(--text2)">$1</span></div>')
+    .replace(/^- \[ \] (.+)$/gm,'<div style="display:flex;gap:7px;align-items:center;padding:2px 0"><input type="checkbox" style="accent-color:var(--accent)"/> <span>$1</span></div>')
+    .replace(/^- (.+)$/gm,'<div style="padding:2px 0 2px 12px;color:var(--text2)">· $1</div>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`(.+?)`/g,'<code>$1</code>')
+    .replace(/\n/g,'<br/>');
+}
+
+function wlClick(id, title) {
+  if (id) openNote(id);
+  else {
+    const newId = title.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+    const note = { id:newId, title, folder:'inbox', cluster:'produto', tags:['nova'], date:'agora', content:`## ${title}\n\nNota criada via wikilink.\n` };
+    APP.notes.push(note);
+    saveNotes();
+    openNote(newId);
+  }
+}
+
+let wikiMode = false, wikiQuery = '';
+function onEKeyDown(e) {
+  const ac = document.getElementById('autocomplete');
+  if (ac.style.display === 'block') {
+    if (e.key === 'Escape') { hideAC(); e.preventDefault(); }
+    if (e.key === 'Enter') { const s=ac.querySelector('.sel'); if(s){s.click();e.preventDefault();} }
+    if (e.key === 'ArrowDown') { moveAC(1); e.preventDefault(); }
+    if (e.key === 'ArrowUp')   { moveAC(-1); e.preventDefault(); }
+  }
+}
+function moveAC(dir) {
+  const items=[...document.querySelectorAll('#autocomplete .ac-item')];
+  const idx=items.findIndex(i=>i.classList.contains('sel'));
+  if(idx>=0) items[idx].classList.remove('sel');
+  const next=(idx+dir+items.length)%items.length;
+  items[next]?.classList.add('sel');
+}
+function onEKey(e) {
+  const sel=window.getSelection(); if(!sel.rangeCount) return;
+  const range=sel.getRangeAt(0); const node=range.startContainer;
+  if(!node.textContent) return;
+  const text=node.textContent; const pos=range.startOffset;
+  const before=text.lastIndexOf('[[',pos);
+  if(before!==-1 && !text.substring(before,pos).includes(']]')) {
+    wikiMode=true; wikiQuery=text.substring(before+2,pos);
+    const rect=range.getBoundingClientRect();
+    const edRect=document.getElementById('editor-content').getBoundingClientRect();
+    showAC(wikiQuery, rect.left-edRect.left+32, rect.top-edRect.top);
+  } else { hideAC(); }
+}
+function onEInput() {
+  const ed=document.getElementById('editor-content');
+  const note=APP.notes.find(n=>n.id===APP.currentNoteId);
+  if(note){ note.content=ed.innerText; }
+  updateWordCount(); renderOutlinks(); renderBacklinks();
+  triggerSave();
+}
+function updateWordCount() {
+  const ed=document.getElementById('editor-content');
+  const w=(ed.innerText||'').trim().split(/\s+/).filter(Boolean).length;
+  document.getElementById('wc').textContent=w+' palavras';
+}
+function onTitleChange(v) {
+  const note=APP.notes.find(n=>n.id===APP.currentNoteId);
+  if(note){ note.title=v; renderSidebar(); }
+  triggerSave();
+}
+function triggerSave() {
+  clearTimeout(APP.saveTimer);
+  document.getElementById('save-indicator').textContent='◌ salvando...';
+  document.getElementById('save-indicator').style.color='var(--text3)';
+  APP.saveTimer=setTimeout(async ()=>{
+    saveNotes();
+    renderSidebar();
+    if (APP.supabaseConnected) {
+      await syncSupabase();
+    } else {
+      document.getElementById('save-indicator').textContent='✓ salvo localmente';
+      document.getElementById('save-indicator').style.color='var(--green)';
+    }
+  },900);
+}
+function saveNotes() {
+  localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
+  updateStatusBar();
+}
+
+function refreshUI() {
+  renderSidebar();
+  renderChatCtx();
+  renderBacklinks();
+  renderOutlinks();
+  buildGraphData();
+  updateStatusBar();
+  updateSystemStatus();
+}
+
+function removeDuplicates() {
+  // remove notas com título exatamente igual (mantém a primeira)
+  const seen = new Set();
+  const before = APP.notes.length;
+  APP.notes = APP.notes.filter(n => {
+    const key = n.title.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const removed = before - APP.notes.length;
+  saveNotes(); refreshUI();
+  const el = document.getElementById('manage-status');
+  if (el) el.textContent = removed > 0 ? removed + ' duplicata(s) removida(s) ✓' : 'Nenhuma duplicata encontrada.';
+  if (APP.notes.length > 0 && !APP.notes.find(n=>n.id===APP.currentNoteId)) openNote(APP.notes[0].id);
+}
+
+function clearTestNotes() {
+  const testTitles = ['nova nota','testando','segundo teste','teste'];
+  const before = APP.notes.length;
+  APP.notes = APP.notes.filter(n => {
+    const t = n.title.trim().toLowerCase();
+    return !testTitles.some(test => t === test || t.startsWith('nova nota'));
+  });
+  const removed = before - APP.notes.length;
+  saveNotes(); refreshUI();
+  const el = document.getElementById('manage-status');
+  if (el) el.textContent = removed > 0 ? removed + ' nota(s) de teste removida(s) ✓' : 'Nenhuma nota de teste encontrada.';
+  if (APP.notes.length > 0) openNote(APP.notes[0].id);
+}
+
+function deleteCurrentNote() {
+  if (!APP.currentNoteId) return;
+  const note = APP.notes.find(n=>n.id===APP.currentNoteId);
+  if (!note) return;
+  if (!confirm('Apagar a nota "' + note.title + '"?')) return;
+  const deletedId = APP.currentNoteId;
+  APP.notes = APP.notes.filter(n=>n.id!==deletedId);
+  deleteFromSupabase(deletedId);
+  APP.currentNoteId = null;
+  saveNotes(); refreshUI();
+  if (APP.notes.length > 0) openNote(APP.notes[0].id);
+  else {
+    document.getElementById('note-title').value = '';
+    document.getElementById('editor-content').innerHTML = '';
+    document.getElementById('note-meta').innerHTML = '';
+    document.getElementById('bl-list').innerHTML = '';
+    document.getElementById('ol-list').innerHTML = '';
+  }
+}
+
+// autocomplete
+function showAC(q, x, y) {
+  const ac=document.getElementById('autocomplete');
+  const res=APP.notes.filter(n=>n.id!==APP.currentNoteId && n.title.toLowerCase().includes(q.toLowerCase())).slice(0,6);
+  const items=res.map((n,i)=>`<div class="ac-item ${i===0?'sel':''}" onclick="selectAC('${n.title.replace(/'/g,'\\\'')}')" style="color:var(--text2)"><span class="ac-dot" style="background:${CLUSTER_COLORS[n.cluster]||'#6b7fe8'}"></span>${n.title}</div>`).join('');
+  const create=q?`<div class="ac-item ac-new" onclick="selectAC('${q.replace(/'/g,'\\\'')}')" >+ Criar "${q}"</div>`:'';
+  ac.innerHTML=items+create;
+  if(!items&&!create){hideAC();return;}
+  const edRect=document.getElementById('editor-content').getBoundingClientRect();
+  ac.style.display='block'; ac.style.left=(edRect.left+x)+'px'; ac.style.top=(edRect.top+y+20)+'px';
+}
+function hideAC() { document.getElementById('autocomplete').style.display='none'; wikiMode=false; }
+function selectAC(title) {
+  const ed=document.getElementById('editor-content');
+  const sel=window.getSelection(); if(!sel.rangeCount) return;
+  const range=sel.getRangeAt(0); const node=range.startContainer;
+  const text=node.textContent; const pos=range.startOffset;
+  const before=text.lastIndexOf('[[',pos);
+  if(before!==-1){ node.textContent=text.substring(0,before)+'[['+title+']]'+text.substring(pos); }
+  hideAC(); onEInput();
+}
+
+// toolbar
+function fmt(cmd){ document.execCommand(cmd,false,null); }
+function insH(l){ document.execCommand('insertText',false,'\n'+'#'.repeat(l)+' '); }
+function ins(t){ document.execCommand('insertText',false,'\n'+t); }
+function insCode(){ document.execCommand('insertText',false,'`código`'); }
+function insWiki(){ document.execCommand('insertText',false,'[['); document.getElementById('editor-content').dispatchEvent(new KeyboardEvent('keyup')); }
+
+// backlinks / outlinks
+function renderBacklinks() {
+  const note=APP.notes.find(n=>n.id===APP.currentNoteId); if(!note) return;
+  const bl=APP.notes.filter(n=>n.id!==APP.currentNoteId&&(n.content||'').includes('[['+note.title+']]'));
+  const list=document.getElementById('bl-list');
+  list.innerHTML=bl.length?bl.map(n=>{
+    const idx=(n.content||'').indexOf('[['+note.title+']]');
+    const exc=(n.content||'').substring(Math.max(0,idx-30),idx+note.title.length+50).replace(/\n/g,' ');
+    const hl=exc.replace('[['+note.title+']]',`<span class="hl">${note.title}</span>`);
+    return `<div class="bl-card fade-in" onclick="openNote('${n.id}')"><div class="bl-title">${n.title}</div><div class="bl-excerpt">…${hl}…</div></div>`;
+  }).join(''):`<div style="padding:12px;font-size:11px;color:var(--text3)">Nenhuma nota aponta para cá.</div>`;
+  document.getElementById('sb-conn-count').textContent=bl.length+' backlinks';
+}
+function renderOutlinks() {
+  const note=APP.notes.find(n=>n.id===APP.currentNoteId); if(!note) return;
+  const matches=[...(note.content||'').matchAll(/\[\[([^\]]+)\]\]/g)];
+  const unique=[...new Set(matches.map(m=>m[1]))];
+  document.getElementById('ol-list').innerHTML=unique.map(t=>{
+    const target=APP.notes.find(n=>n.title.toLowerCase()===t.toLowerCase());
+    return `<div class="ol-item" onclick="${target?`openNote('${target.id}')`:`wlClick('','${t.replace(/'/g,'\\\'')}')`}">
+      <span style="width:5px;height:5px;border-radius:50%;background:${target?'var(--accent)':'var(--coral)'};flex-shrink:0"></span>${t}</div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GRAPH
+// ══════════════════════════════════════════════════════════════════
+let GW,GH,gCtx,mmCtx2,gNodes=[],gEdges=[],gPhase=0,gHover=null,gSelected=null,gDrag=null,gPan=false,gZoom=1,gPanX=0,gPanY=0,gLMX=0,gLMY=0,gLayout='force',gFilter2='all',gRAF=null;
+
+function buildGraphData() {
+  gNodes=APP.notes.map(n=>({
+    ...n, r:8+((n.content||'').match(/\[\[/g)||[]).length*1.5,
+    color:CLUSTER_COLORS[n.cluster]||'#6b7fe8',
+    x:GW/2+(Math.random()-.5)*280, y:GH/2+(Math.random()-.5)*200, vx:0,vy:0,
+  }));
+  gEdges=[];
+  APP.notes.forEach(n=>{
+    const matches=[...(n.content||'').matchAll(/\[\[([^\]]+)\]\]/g)];
+    matches.forEach(m=>{
+      const target=APP.notes.find(t=>t.title.toLowerCase()===m[1].toLowerCase());
+      if(target && !gEdges.find(e=>(e.s===n.id&&e.t===target.id)||(e.s===target.id&&e.t===n.id))) {
+        gEdges.push({s:n.id,t:target.id,src:gNodes.find(x=>x.id===n.id),tgt:gNodes.find(x=>x.id===target.id)});
+      }
+    });
+  });
+  document.getElementById('gcl-all-n').textContent=gNodes.length;
+}
+
+function initGraph() {
+  const wrap=document.getElementById('graph-canvas-wrap');
+  const canvas=document.getElementById('graph-canvas');
+  GW=wrap.clientWidth||600; GH=wrap.clientHeight||450;
+  canvas.width=GW; canvas.height=GH;
+  gCtx=canvas.getContext('2d');
+  mmCtx2=document.getElementById('mm-canvas').getContext('2d');
+  buildGraphData();
+  bindGraphEvents(canvas);
+  cancelAnimationFrame(gRAF);
+  gLoop();
+}
+function resizeGraph() {
+  const wrap=document.getElementById('graph-canvas-wrap');
+  const canvas=document.getElementById('graph-canvas');
+  GW=wrap.clientWidth||600; GH=wrap.clientHeight||450;
+  canvas.width=GW; canvas.height=GH;
+}
+function gSim() {
+  if(gLayout!=='force') { gApplyLayout(); return; }
+  const rep=+document.getElementById('gc-rep').value;
+  const att=+document.getElementById('gc-att').value;
+  const cx=GW/2,cy=GH/2;
+  for(let i=0;i<gNodes.length;i++) for(let j=i+1;j<gNodes.length;j++){
+    const a=gNodes[i],b=gNodes[j];
+    const dx=b.x-a.x,dy=b.y-a.y,d=Math.max(Math.hypot(dx,dy),1);
+    const f=rep/(d*d);
+    a.vx-=dx*f; a.vy-=dy*f; b.vx+=dx*f; b.vy+=dy*f;
+  }
+  gEdges.forEach(e=>{
+    if(!e.src||!e.tgt) return;
+    const dx=e.tgt.x-e.src.x,dy=e.tgt.y-e.src.y,d=Math.max(Math.hypot(dx,dy),1);
+    const f=(d-att)*0.005;
+    e.src.vx+=dx*f; e.src.vy+=dy*f; e.tgt.vx-=dx*f; e.tgt.vy-=dy*f;
+  });
+  gNodes.forEach(n=>{
+    n.vx+=(cx-n.x)*.0015; n.vy+=(cy-n.y)*.0015;
+    if(n===gDrag) return;
+    n.vx*=.82; n.vy*=.82;
+    n.x=Math.max(30,Math.min(GW-30,n.x+n.vx));
+    n.y=Math.max(30,Math.min(GH-30,n.y+n.vy));
+  });
+}
+function gApplyLayout() {
+  const cx=GW/2,cy=GH/2;
+  if(gLayout==='cluster'){
+    const pos={produto:{x:cx-140,y:cy-70},estrategia:{x:cx+130,y:cy-70},equipe:{x:cx,y:cy+110},pessoal:{x:cx-160,y:cy+100},inbox:{x:cx+100,y:cy+100}};
+    const cnt={},idx={};
+    gNodes.forEach(n=>{cnt[n.cluster]=(cnt[n.cluster]||0)+1; idx[n.cluster]=0;});
+    gNodes.forEach(n=>{
+      const c=pos[n.cluster]||{x:cx,y:cy};
+      const total=cnt[n.cluster],i=idx[n.cluster]++;
+      const angle=(2*Math.PI*i/total)-Math.PI/2;
+      const tx=c.x+(total>1?Math.cos(angle)*65:0);
+      const ty=c.y+(total>1?Math.sin(angle)*65:0);
+      n.vx+=(tx-n.x)*.08; n.vy+=(ty-n.y)*.08;
+      n.vx*=.8; n.vy*=.8; n.x+=n.vx; n.y+=n.vy;
+    });
+  } else if(gLayout==='radial'){
+    const sorted=[...gNodes].sort((a,b)=>b.r-a.r);
+    if(sorted[0]){sorted[0].vx+=(cx-sorted[0].x)*.1;sorted[0].vy+=(cy-sorted[0].y)*.1;sorted[0].vx*=.8;sorted[0].vy*=.8;sorted[0].x+=sorted[0].vx;sorted[0].y+=sorted[0].vy;}
+    sorted.slice(1).forEach((n,i)=>{
+      const angle=(2*Math.PI*i/Math.max(1,sorted.length-1))-Math.PI/2;
+      const tx=cx+Math.cos(angle)*155,ty=cy+Math.sin(angle)*155;
+      n.vx+=(tx-n.x)*.07; n.vy+=(ty-n.y)*.07; n.vx*=.8; n.vy*=.8; n.x+=n.vx; n.y+=n.vy;
+    });
+  }
+}
+function gDraw() {
+  gCtx.clearRect(0,0,GW,GH);
+  gCtx.save(); gCtx.translate(gPanX,gPanY); gCtx.scale(gZoom,gZoom);
+  gPhase+=.011;
+  const vis=gFilter2==='all'?gNodes:gNodes.filter(n=>n.cluster===gFilter2);
+  const visSet=new Set(vis.map(n=>n.id));
+  gEdges.forEach(e=>{
+    if(!e.src||!e.tgt) return;
+    const ok=visSet.has(e.src.id)&&visSet.has(e.tgt.id);
+    const hl=gHover&&(e.src.id===gHover.id||e.tgt.id===gHover.id);
+    const sl=gSelected&&(e.src.id===gSelected.id||e.tgt.id===gSelected.id);
+    gCtx.beginPath(); gCtx.moveTo(e.src.x,e.src.y); gCtx.lineTo(e.tgt.x,e.tgt.y);
+    gCtx.strokeStyle=!ok?'rgba(100,120,200,.03)':sl?e.src.color+'bb':hl?e.src.color+'88':'rgba(100,120,200,.1)';
+    gCtx.lineWidth=sl?1.8:hl?1.3:.7; gCtx.stroke();
+  });
+  gNodes.forEach(n=>{
+    const ok=visSet.has(n.id);
+    const wave=Math.sin(gPhase+gNodes.indexOf(n)*.8)*1.4;
+    const r=n.r+wave+(gHover?.id===n.id?4:0)+(gSelected?.id===n.id?2:0);
+    if(!ok){gCtx.beginPath();gCtx.arc(n.x,n.y,n.r*.5,0,Math.PI*2);gCtx.fillStyle='rgba(100,120,200,.04)';gCtx.fill();return;}
+    if(gHover?.id===n.id||gSelected?.id===n.id){gCtx.beginPath();gCtx.arc(n.x,n.y,r+9+Math.sin(gPhase*2)*2,0,Math.PI*2);gCtx.strokeStyle=n.color+'28';gCtx.lineWidth=1.5;gCtx.stroke();}
+    gCtx.beginPath();gCtx.arc(n.x,n.y,r+5,0,Math.PI*2);gCtx.strokeStyle=n.color+(gHover?.id===n.id?'30':'16');gCtx.lineWidth=1;gCtx.stroke();
+    gCtx.beginPath();gCtx.arc(n.x,n.y,r,0,Math.PI*2);gCtx.fillStyle=gHover?.id===n.id||gSelected?.id===n.id?n.color:n.color+'bb';gCtx.fill();
+    gCtx.beginPath();gCtx.arc(n.x-r*.22,n.y-r*.22,r*.32,0,Math.PI*2);gCtx.fillStyle='rgba(255,255,255,.1)';gCtx.fill();
+    const lo=gHover?.id===n.id||gSelected?.id===n.id?1:.7;
+    gCtx.fillStyle=`rgba(200,210,240,${lo})`;
+    gCtx.font=`${gHover?.id===n.id?500:400} ${gHover?.id===n.id?12:11}px Sora,sans-serif`;
+    gCtx.textAlign='center'; gCtx.textBaseline='top';
+    gCtx.fillText(n.title.length>16?n.title.substring(0,14)+'…':n.title,n.x,n.y+r+5);
+  });
+  gCtx.restore();
+  drawMM();
+}
+function drawMM() {
+  mmCtx2.clearRect(0,0,110,74);
+  mmCtx2.fillStyle='rgba(8,12,24,.7)';mmCtx2.fillRect(0,0,110,74);
+  const sx=110/GW,sy=74/GH;
+  gEdges.forEach(e=>{if(!e.src||!e.tgt)return;mmCtx2.beginPath();mmCtx2.moveTo(e.src.x*sx,e.src.y*sy);mmCtx2.lineTo(e.tgt.x*sx,e.tgt.y*sy);mmCtx2.strokeStyle='rgba(107,127,232,.25)';mmCtx2.lineWidth=.5;mmCtx2.stroke();});
+  gNodes.forEach(n=>{mmCtx2.beginPath();mmCtx2.arc(n.x*sx,n.y*sy,Math.max(2,n.r*sx*1.8),0,Math.PI*2);mmCtx2.fillStyle=n.color+'bb';mmCtx2.fill();});
+  mmCtx2.strokeStyle='rgba(107,127,232,.4)';mmCtx2.lineWidth=1;
+  mmCtx2.strokeRect((-gPanX/gZoom)*sx,(-gPanY/gZoom)*sy,(GW/gZoom)*sx,(GH/gZoom)*sy);
+}
+function gLoop(){ gSim(); gDraw(); gRAF=requestAnimationFrame(gLoop); }
+function bindGraphEvents(canvas){
+  canvas.addEventListener('mousemove',e=>{
+    const wx=(e.offsetX-gPanX)/gZoom,wy=(e.offsetY-gPanY)/gZoom;
+    if(gDrag){gDrag.x=wx;gDrag.y=wy;gDrag.vx=0;gDrag.vy=0;return;}
+    if(gPan){gPanX+=e.offsetX-gLMX;gPanY+=e.offsetY-gLMY;gLMX=e.offsetX;gLMY=e.offsetY;return;}
+    gHover=gNodes.find(n=>Math.hypot(wx-n.x,wy-n.y)<n.r+10)||null;
+    canvas.style.cursor=gHover?'pointer':'grab';
+    const tt=document.getElementById('graph-tooltip');
+    if(gHover){tt.innerHTML=`<strong>${gHover.title}</strong>${gHover.tags?.map(t=>`#${t}`).join(' ')||''}`;tt.style.opacity='1';tt.style.left=(e.offsetX+14)+'px';tt.style.top=(e.offsetY-10)+'px';}
+    else tt.style.opacity='0';
+    gLMX=e.offsetX;gLMY=e.offsetY;
+  });
+  canvas.addEventListener('mousedown',e=>{
+    const wx=(e.offsetX-gPanX)/gZoom,wy=(e.offsetY-gPanY)/gZoom;
+    const found=gNodes.find(n=>Math.hypot(wx-n.x,wy-n.y)<n.r+10);
+    if(found){gDrag=found;canvas.style.cursor='grabbing';}
+    else{gPan=true;canvas.style.cursor='grabbing';}
+    gLMX=e.offsetX;gLMY=e.offsetY;
+  });
+  canvas.addEventListener('mouseup',()=>{gDrag=null;gPan=false;});
+  canvas.addEventListener('click',e=>{
+    if(Math.abs(e.offsetX-gLMX)>5) return;
+    const wx=(e.offsetX-gPanX)/gZoom,wy=(e.offsetY-gPanY)/gZoom;
+    const found=gNodes.find(n=>Math.hypot(wx-n.x,wy-n.y)<n.r+10);
+    if(found){gSelected=gSelected?.id===found.id?null:found;showGPreview(found);}
+    else{gSelected=null;document.getElementById('graph-preview').classList.add('hidden');}
+  });
+  canvas.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const d=e.deltaY>0?.9:1.1;
+    gZoom=Math.max(.3,Math.min(3,gZoom*d));
+    gPanX=e.offsetX-(e.offsetX-gPanX)*d;
+    gPanY=e.offsetY-(e.offsetY-gPanY)*d;
+  },{passive:false});
+  canvas.addEventListener('mouseleave',()=>{gHover=null;document.getElementById('graph-tooltip').style.opacity='0';});
+}
+function showGPreview(node){
+  document.getElementById('graph-preview').classList.remove('hidden');
+  document.getElementById('gp-title').textContent=node.title;
+  document.getElementById('gp-tags').innerHTML=(node.tags||[]).map(t=>`<span style="padding:2px 7px;border-radius:10px;font-size:10px;background:${node.color}20;color:${node.color};border:1px solid ${node.color}30">#${t}</span>`).join(' ');
+  document.getElementById('gp-body').textContent=(node.content||'').replace(/\[\[|\]\]|##|###|\*\*/g,'').substring(0,200)+'…';
+  const conns=gEdges.filter(e=>e.src?.id===node.id||e.tgt?.id===node.id).length;
+  document.getElementById('gp-conns').textContent=conns+' conexões com outras notas';
+}
+function openFromGraph(){ if(gSelected) openNote(gSelected.id); }
+function gFilter(f,el){ gFilter2=f; document.querySelectorAll('.gc-row').forEach(r=>r.classList.remove('active')); el.classList.add('active'); }
+function setLayout(l,el){ gLayout=l; document.querySelectorAll('#gl-force,#gl-cluster,#gl-radial').forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
+
+// ══════════════════════════════════════════════════════════════════
+// CHAT
+// ══════════════════════════════════════════════════════════════════
+let chatApiKey='', chatConnected=false;
+
+function renderChatCtx(){
+  document.getElementById('chat-ctx-notes').innerHTML=APP.notes.map(n=>`
+    <div class="ctx-note-item ${APP.activeNotes.has(n.id)?'on':''}" onclick="toggleCtxNote('${n.id}')">
+      <div class="ctx-dot2" style="background:${CLUSTER_COLORS[n.cluster]||'#6b7fe8'}"></div>
+      <div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n.title}</div><div style="font-size:10px;color:var(--text3)">${n.tags?.[0]||n.cluster}</div></div>
+      <div class="ctx-check">${APP.activeNotes.has(n.id)?'✓':''}</div>
+    </div>`).join('');
+}
+function toggleCtxNote(id){ if(APP.activeNotes.has(id))APP.activeNotes.delete(id);else APP.activeNotes.add(id); renderChatCtx(); }
+function connectChatAPI(){
+  const k=document.getElementById('chat-api-key').value.trim();
+  if(!k||!k.startsWith('sk-ant')){document.getElementById('chat-api-key').style.borderColor='var(--coral)';setTimeout(()=>document.getElementById('chat-api-key').style.borderColor='',1200);return;}
+  chatApiKey=k; APP.apiKey=k; chatConnected=true; APP.apiConnected=true;
+  localStorage.setItem('mentai-api-key',k);
+  document.getElementById('chat-conn-btn').textContent='✓ Conectado';
+  document.getElementById('chat-conn-btn').style.color='#4cba8a';
+  updateAPIStatus(true);
+}
+function addChatWelcome(){
+  addMsg('ai',`Olá! Tenho **${APP.notes.length} notas** no contexto.\n\nPosso resumir projetos, preparar briefings, analisar decisões e encontrar conexões entre suas ideias.\n\nO que quer explorar?`,[]);
+}
+function addMsg(role,text,sources){
+  const area=document.getElementById('messages');
+  const typing=document.getElementById('typing');
+  const t=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const src=sources&&sources.length?`<div class="sources-row">${sources.map(s=>`<div class="src-chip"><div class="src-dot" style="background:${s.color||'#6b7fe8'}"></div>${s.title}</div>`).join('')}</div>`:'';
+  const div=document.createElement('div');
+  div.className=`msg ${role}`;
+  div.innerHTML=`<div class="avatar ${role}">${role==='ai'?'M':'V'}</div><div><div class="bubble ${role}">${fmtChat(text)}${src}</div><div class="msg-time">${t}</div></div>`;
+  area.insertBefore(div,typing);
+  area.scrollTop=99999;
+}
+function fmtChat(t){
+  return t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\[\[([^\]]+)\]\]/g,'<span class="wikilink">$1</span>').replace(/`(.+?)`/g,'<code>$1</code>').replace(/^- (.+)$/gm,'<div style="padding:2px 0 2px 10px;color:var(--text2)">· $1</div>').replace(/\n/g,'<br/>');
+}
+function buildSysPrompt(){
+  const notes=APP.notes.filter(n=>APP.activeNotes.has(n.id));
+  return `Você é o assistente pessoal MentAI — segundo cérebro digital do usuário.\nResponda em português brasileiro. Seja conciso e prático.\nUse **negrito** para pontos importantes. Use [[NomeDaNota]] ao referenciar notas.\n\nVAULT (${notes.length} notas):\n${notes.map(n=>`### ${n.title}\nTags: ${n.tags?.join(', ')||''}\n${n.content||''}`).join('\n---\n')}`;
+}
+async function sendChat(){
+  const input=document.getElementById('chat-input');
+  const text=input.value.trim(); if(!text) return;
+  input.value=''; input.style.height='auto';
+  addMsg('user',text,[]);
+  document.getElementById('chat-send').disabled=true;
+  document.getElementById('typing').style.display='flex';
+  document.getElementById('messages').scrollTop=99999;
+  APP.chatHistory.push({role:'user',content:text});
+  try{
+    let reply;
+    if(APP.apiConnected&&APP.apiKey){
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSysPrompt(),messages:APP.chatHistory.slice(-10)})});
+      if(!res.ok) throw new Error('API '+res.status);
+      const data=await res.json();
+      reply=data.content[0]?.text||'';
+      APP.chatHistory.push({role:'assistant',content:reply});
+    } else {
+      await new Promise(r=>setTimeout(r,1100+Math.random()*700));
+      reply=genDemoReply(text);
+    }
+    document.getElementById('typing').style.display='none';
+    const sources=APP.notes.filter(n=>reply.toLowerCase().includes(n.title.toLowerCase())).slice(0,4).map(n=>({title:n.title,color:CLUSTER_COLORS[n.cluster]}));
+    addMsg('ai',reply,sources);
+  }catch(e){
+    document.getElementById('typing').style.display='none';
+    addMsg('ai',`Erro: \`${e.message}\`. Verifique a chave de API nas configurações.`,[]);
+  }
+  document.getElementById('chat-send').disabled=false;
+}
+function qSend(t){ document.getElementById('chat-input').value=t; sendChat(); }
+function genDemoReply(m){
+  const l=m.toLowerCase();
+  if(l.includes('prioridade')||l.includes('hoje')) return `Com base nas suas notas, a **prioridade de hoje** é:\n\n- Conectar o Supabase para persistência real — próximo passo em [[MVP do Segundo Cérebro]]\n- Status registrado em [[Reunião 06 Mai]]: unificação do app está em andamento\n\nTodas as 4 entregas técnicas estão marcadas como concluídas. O próximo marco é o banco de dados real.`;
+  if(l.includes('projeto')||l.includes('resum')) return `**Projetos ativos:**\n\n**[[MVP do Segundo Cérebro]]** — em construção\nStatus: Editor ✓ · Graph ✓ · Chat ✓ · Voz ✓ · App unificado ✓\n\nDecisões tomadas: [[Decisão Supabase]] e D3.js para visualização.\nPróximo: conectar banco de dados real.`;
+  if(l.includes('decis')) return `**Decisões registradas:**\n\n1. **[[Decisão Supabase]]** — banco PostgreSQL, gratuito, integra com Vercel. Revisão em 3 meses.\n2. **D3.js** — biblioteca de visualização para o [[Graph View]], definida na [[Reunião 06 Mai]].`;
+  if(l.includes('briefing')||l.includes('semana')) return `**Briefing executivo**\n\n**Produto:** MVP com 4 módulos entregues e unificados\n**Decisões:** Supabase + D3.js confirmados\n**Reunião:** 06/Mai — ações definidas e em execução\n**Posicionamento:** gap de mercado validado\n\n**Próxima ação crítica:** conectar Supabase para sair do armazenamento local.`;
+  return `Com base nas suas **${APP.notes.filter(n=>APP.activeNotes.has(n.id)).length} notas**, posso ajudar com projetos, decisões, reuniões e briefings.\n\nConecte sua chave de API nas Configurações para respostas ainda mais precisas usando o Claude diretamente.`;
+}
+function onChatInput(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,110)+'px'; }
+function onChatKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();} }
+
+// ══════════════════════════════════════════════════════════════════
+// VOZ
+// ══════════════════════════════════════════════════════════════════
+let voiceRec=null,voiceListening=false,voiceProcessing=false,voiceVizBars=[],voiceVizPhase=0,voiceVizFrame=null,voiceTimer=null,voiceSecs=0,voiceApiKey='',voiceApiConn=false;
+
+function initVoiceViz(){
+  const viz=document.getElementById('voice-viz');
+  viz.innerHTML=''; voiceVizBars=[];
+  for(let i=0;i<26;i++){const b=document.createElement('div');b.className='v-bar';b.style.height='3px';viz.appendChild(b);voiceVizBars.push(b);}
+}
+function animVoiceViz(mode){
+  cancelAnimationFrame(voiceVizFrame);
+  if(!mode){voiceVizBars.forEach(b=>{b.style.height='3px';b.style.opacity='.4';});return;}
+  function f(){
+    voiceVizPhase+=.08;
+    voiceVizBars.forEach((b,i)=>{
+      const h=mode==='on'?3+Math.abs(Math.sin(voiceVizPhase+i*.35))*34+Math.random()*8:3+Math.abs(Math.sin(voiceVizPhase*.4+i*.4))*10;
+      b.style.height=h+'px'; b.style.opacity=mode==='on'?'.85':'.35';
+      b.style.background=mode==='on'?'var(--accent)':'var(--text3)';
+    });
+    voiceVizFrame=requestAnimationFrame(f);
+  }
+  f();
+}
+function toggleMic(){ if(voiceProcessing)return; if(voiceListening)stopVoice();else startVoice(); }
+function startVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){useDemoVoice();return;}
+  try{
+    voiceRec=new SR(); voiceRec.lang='pt-BR'; voiceRec.continuous=true; voiceRec.interimResults=true;
+    voiceRec.onresult=e=>{
+      let int=''; for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)APP.voiceTranscript+=t+' ';else int=t;}
+      updateTx(APP.voiceTranscript, int);
+    };
+    voiceRec.onerror=()=>stopVoice();
+    voiceRec.onend=()=>{if(voiceListening)voiceRec.start();};
+    voiceRec.start();
+    voiceListening=true; setMicUI('on'); animVoiceViz('on'); startVoiceTimer();
+  }catch(e){useDemoVoice();}
+}
+function stopVoice(){
+  voiceListening=false;
+  try{voiceRec?.stop();}catch(e){}
+  setMicUI('idle'); animVoiceViz(false); stopVoiceTimer();
+  if(APP.voiceTranscript.trim()){
+    setVLabel('Fala capturada! Clique em Processar com IA','done');
+    document.getElementById('va-proc').disabled=false;
+    document.getElementById('va-clear').disabled=false;
+    document.getElementById('va-raw').disabled=false;
+  } else { setVLabel('Pressione para falar',''); }
+}
+function useDemoVoice(){
+  voiceListening=true; setMicUI('on'); animVoiceViz('on'); startVoiceTimer();
+  setVLabel('Modo demo — simulando captura...','on');
+  APP.voiceTranscript='';
+  const demos=['Preciso documentar a decisão sobre arquitetura de dados. Estamos usando Supabase mas precisamos avaliar quando atingir dez mil notas conectadas no Graph View.','Ideia para o onboarding: quando o usuário cria a primeira nota, a IA já sugere três conexões com base em padrões de CTOs. Isso mostra o valor imediatamente.','Reunião com potencial investidor. Preciso de um deck mostrando o gap de mercado entre Obsidian, Notion AI e o que estamos construindo com o MentAI.'];
+  const demo=demos[Math.floor(Math.random()*demos.length)];
+  let idx=0;
+  const iv=setInterval(()=>{
+    if(!voiceListening){clearInterval(iv);return;}
+    idx+=Math.floor(Math.random()*4)+1;
+    APP.voiceTranscript=demo.substring(0,Math.min(idx,demo.length));
+    updateTx(APP.voiceTranscript,'');
+    if(idx>=demo.length){clearInterval(iv);stopVoice();}
+  },55);
+}
+function updateTx(final,interim){
+  const el=document.getElementById('tx-text');
+  el.innerHTML=final+(interim?`<span style="color:var(--text3);font-style:italic">${interim}</span>`:'')+(voiceListening?'<span class="cur"></span>':'');
+  document.getElementById('live-tx').classList.toggle('on',final.length>0);
+  const w=final.trim().split(/\s+/).filter(Boolean).length;
+  document.getElementById('sb-hint').textContent=w+' palavras capturadas';
+}
+async function processVoice(){
+  if(!APP.voiceTranscript.trim()) return;
+  voiceProcessing=true; setMicUI('proc'); setVLabel('Processando com IA...','proc'); animVoiceViz('proc');
+  document.getElementById('va-proc').disabled=true;
+  try{
+    let result;
+    if(APP.apiConnected&&APP.apiKey){ result=await processVoiceWithAPI(APP.voiceTranscript); }
+    else{ await new Promise(r=>setTimeout(r,1400+Math.random()*800)); result=genDemoVoiceNote(APP.voiceTranscript); }
+    renderVoiceResult(result);
+    setVLabel('Nota gerada! Revise e salve.','done');
+  }catch(e){ setVLabel('Erro: '+e.message,''); }
+  setMicUI('idle'); animVoiceViz(false); voiceProcessing=false;
+  document.getElementById('va-proc').disabled=false;
+}
+async function processVoiceWithAPI(text){
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:`Transcrição de voz: "${text}"\n\nNotas existentes: ${APP.notes.map(n=>n.title).join(', ')}\n\nResponda APENAS com JSON:\n{"title":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."],"content":"...markdown com [[wikilinks]]...","connections":["..."]}`}]})});
+  if(!res.ok) throw new Error('API '+res.status);
+  const d=await res.json();
+  return JSON.parse((d.content[0]?.text||'{}').replace(/```json|```/g,'').trim());
+}
+function genDemoVoiceNote(text){
+  const l=text.toLowerCase();
+  let cluster='inbox',title='Nova captura de voz',tags=['voz','captura'],connections=[];
+  if(l.includes('supabase')||l.includes('banco')||l.includes('arquitetura')){cluster='estrategia';title='Revisão da arquitetura de dados';tags=['decisão','tecnologia'];connections=['Decisão Supabase','MVP do Segundo Cérebro'];}
+  else if(l.includes('onboard')||l.includes('usuário')){cluster='produto';title='Ideia de onboarding';tags=['produto','ux'];connections=['MVP do Segundo Cérebro','Graph View'];}
+  else if(l.includes('invest')||l.includes('deck')){cluster='estrategia';title='Preparação para investidor';tags=['estratégia','pitch'];connections=['Posicionamento','MVP do Segundo Cérebro'];}
+  else{title=text.trim().split(/\s+/).slice(0,5).join(' ');}
+  let content=text;
+  APP.notes.forEach(n=>{const rx=new RegExp(n.title.split(' ')[0],'gi');content=content.replace(rx,`[[${n.title}]]`);});
+  return {title,cluster,tags,content:`## ${title}\n\n*Capturado por voz*\n\n${content}`,connections};
+}
+function renderVoiceResult(note){
+  const c=CLUSTER_COLORS[note.cluster]||'#6b7fe8';
+  const conns=(note.connections||[]).map(t=>{const f=APP.notes.find(n=>n.title.toLowerCase()===t.toLowerCase());return {title:t,color:f?.color||c};});
+  const body=(note.content||'').replace(/\[\[([^\]]+)\]\]/g,'<span class="wikilink">$1</span>').replace(/^## (.+)$/gm,'<strong style="font-size:14px;color:var(--text);display:block;margin:6px 0 2px">$1</strong>').replace(/^\*(.+)\*$/gm,'<em style="color:var(--text3);font-size:11px">$1</em>').replace(/\n/g,'<br/>');
+  const r=document.getElementById('voice-result');
+  r.style.display='block';
+  r.innerHTML=`<div class="vr-card"><div class="vr-head"><div class="vr-title">${note.title}</div><div class="vr-cluster" style="background:${c}20;color:${c};border:1px solid ${c}30">${note.cluster}</div></div><div class="vr-body">${(note.tags||[]).map(t=>`<span style="padding:1px 7px;border-radius:10px;font-size:10px;font-weight:500;background:rgba(107,127,232,.1);color:var(--accent2);border:1px solid var(--border);margin:0 2px">#${t}</span>`).join('')}<br/><br/>${body}</div>${conns.length?`<div class="vr-conns"><span style="font-size:10px;color:var(--text3);margin-right:4px">Conexões:</span>${conns.map(c=>`<div class="conn-chip"><div class="conn-dot" style="background:${c.color}"></div>${c.title}</div>`).join('')}</div>`:''}</div><div class="vr-actions"><button class="va-btn primary" onclick="saveVoiceNote(${JSON.stringify(note).replace(/"/g,'&quot;')})">✓ Salvar no vault</button><button class="va-btn" onclick="document.getElementById('voice-result').style.display='none'">✕ Descartar</button></div>`;
+}
+function saveVoiceNote(note){
+  const id='voice-'+Date.now();
+  const n={id,title:note.title,folder:note.cluster==='equipe'?'reunioes':note.cluster==='estrategia'?'decisoes':'inbox',cluster:note.cluster,tags:note.tags||['voz'],date:'agora',content:note.content||''};
+  APP.notes.unshift(n); APP.activeNotes.add(id);
+  saveNotes(); refreshUI();
+  APP.voiceCaptures.unshift({id,title:note.title,cluster:note.cluster,color:CLUSTER_COLORS[note.cluster]||'#6b7fe8',time:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
+  renderVoiceHistory(); clearVoice();
+  setVLabel('Nota salva no vault!','done');
+}
+function clearVoice(){
+  APP.voiceTranscript='';
+  document.getElementById('tx-text').innerHTML='<span style="color:var(--text3)">Sua fala aparecerá aqui...</span>';
+  document.getElementById('live-tx').classList.remove('on');
+  document.getElementById('voice-result').style.display='none';
+  document.getElementById('va-proc').disabled=true;
+  document.getElementById('va-clear').disabled=true;
+  document.getElementById('va-raw').disabled=true;
+  setVLabel('Pressione para falar',''); resetVoiceTimer();
+}
+function saveRaw(){
+  if(!APP.voiceTranscript.trim()) return;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([APP.voiceTranscript],{type:'text/plain'}));
+  a.download='captura-'+Date.now()+'.txt'; a.click();
+}
+function connectVoiceAPI(){
+  const k=document.getElementById('voice-api-key').value.trim();
+  if(!k||!k.startsWith('sk-ant')){document.getElementById('voice-api-key').style.borderColor='var(--coral)';setTimeout(()=>document.getElementById('voice-api-key').style.borderColor='',1200);return;}
+  APP.apiKey=k; APP.apiConnected=true; voiceApiConn=true;
+  localStorage.setItem('mentai-api-key',k);
+  document.getElementById('voice-conn-btn').textContent='✓ Conectado';
+  document.getElementById('voice-conn-btn').style.color='#4cba8a';
+  updateAPIStatus(true);
+}
+function renderVoiceHistory(){
+  const list=document.getElementById('vh-list');
+  if(!APP.voiceCaptures.length){list.innerHTML='<div style="padding:12px;font-size:11px;color:var(--text3)">Nenhuma captura ainda.</div>';return;}
+  list.innerHTML=APP.voiceCaptures.map(c=>`<div class="vh-item"><div class="vh-title">${c.title}</div><div class="vh-meta"><span style="padding:1px 6px;border-radius:10px;font-size:9px;font-weight:500;background:${c.color}20;color:${c.color}">${c.cluster}</span><span>${c.time}</span></div></div>`).join('');
+}
+function setMicUI(state){
+  const btn=document.getElementById('mic-btn');
+  const rings=document.querySelectorAll('.m-ring');
+  btn.className='';rings.forEach(r=>r.classList.remove('on'));
+  if(state==='on'){btn.textContent='⏹';btn.classList.add('on');rings.forEach(r=>r.classList.add('on'));}
+  else if(state==='proc'){btn.textContent='⟳';btn.classList.add('proc');}
+  else btn.textContent='🎙';
+}
+function setVLabel(msg,type){ const el=document.getElementById('mic-label'); el.textContent=msg; el.className=type||''; }
+function startVoiceTimer(){ voiceSecs=0;updateVTimer();voiceTimer=setInterval(()=>{voiceSecs++;updateVTimer();},1000); }
+function stopVoiceTimer(){ clearInterval(voiceTimer); }
+function resetVoiceTimer(){ stopVoiceTimer();voiceSecs=0;document.getElementById('sb-hint').textContent='Chrome/Edge para reconhecimento de voz real'; }
+function updateVTimer(){ const m=String(Math.floor(voiceSecs/60)).padStart(2,'0'),s=String(voiceSecs%60).padStart(2,'0'); document.getElementById('sb-hint').textContent='Gravando: '+m+':'+s; }
+
+// ══════════════════════════════════════════════════════════════════
+// SETTINGS & SUPABASE
+// ══════════════════════════════════════════════════════════════════
+function connectSupabase(){
+  const url=document.getElementById('sb-url').value.trim();
+  const key=document.getElementById('sb-key').value.trim();
+  if(!url||!key){showSBStatus('Preencha URL e chave','err');return;}
+  APP.supabaseUrl=url; APP.supabaseKey=key;
+  localStorage.setItem('mentai-sb-url',url);
+  localStorage.setItem('mentai-sb-key',key);
+  APP.supabaseConnected=true;
+  document.getElementById('db-dot').classList.add('on');
+  document.getElementById('db-label').textContent='Supabase conectado';
+  showSBStatus('Conectando e carregando notas...','ok');
+  updateSystemStatus();
+  loadFromSupabase();
+}
+async function testSupabase(){
+  if(!APP.supabaseConnected){showSBStatus('Configure primeiro','err');return;}
+  showSBStatus('Testando...','ok');
+  try{
+    const res=await fetch(sbUrl('notes?limit=1'),{headers:sbHeaders()});
+    if(res.ok) showSBStatus('Conexão OK ✓','ok');
+    else showSBStatus('Erro HTTP '+res.status,'err');
+  }catch(e){showSBStatus('Erro: '+e.message,'err');}
+}
+function showSBStatus(msg,type){ const el=document.getElementById('sb-status'); el.style.display='block'; el.textContent=msg; el.className='ss-status '+type; }
+function connectAPI(){
+  const k=document.getElementById('api-key-global').value.trim();
+  if(!k||!k.startsWith('sk-ant')){document.getElementById('api-key-global').style.borderColor='var(--coral)';setTimeout(()=>document.getElementById('api-key-global').style.borderColor='',1200);return;}
+  APP.apiKey=k; APP.apiConnected=true;
+  localStorage.setItem('mentai-api-key',k);
+  const el=document.getElementById('api-status-badge');
+  el.style.display='block'; el.textContent='IA conectada ✓'; el.className='ss-status ok';
+  updateAPIStatus(true);
+}
+// ── SUPABASE API HELPERS ──────────────────────────────────────────
+function sbHeaders(){
+  return {
+    'Content-Type':'application/json',
+    'apikey': APP.supabaseKey,
+    'Authorization': 'Bearer ' + APP.supabaseKey,
+    'Prefer': 'resolution=merge-duplicates',
+  };
+}
+function sbUrl(path){ return APP.supabaseUrl.replace(/\/$/,'') + '/rest/v1/' + path; }
+
+async function syncSupabase(){
+  if(!APP.supabaseConnected) return;
+  const note = APP.notes.find(n=>n.id===APP.currentNoteId);
+  if(!note) return;
+  try{
+    await fetch(sbUrl('notes'), {
+      method:'POST',
+      headers:sbHeaders(),
+      body: JSON.stringify({
+        id: note.id,
+        title: note.title,
+        content: note.content||'',
+        folder: note.folder||'inbox',
+        cluster: note.cluster||'produto',
+        tags: note.tags||[],
+        date: note.date||'agora',
+        updated_at: new Date().toISOString(),
+      }),
+    });
+    document.getElementById('save-indicator').textContent='✓ salvo no Supabase';
+    document.getElementById('save-indicator').style.color='var(--green)';
+  }catch(e){
+    console.warn('Supabase sync error:',e);
+  }
+}
+
+async function loadFromSupabase(){
+  if(!APP.supabaseConnected) return;
+  try{
+    document.getElementById('save-indicator').textContent='◌ carregando do Supabase...';
+    const res = await fetch(sbUrl('notes?order=updated_at.desc'), { headers:sbHeaders() });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const rows = await res.json();
+    if(rows && rows.length > 0){
+      APP.notes = rows.map(r=>({
+        id: r.id,
+        title: r.title,
+        content: r.content||'',
+        folder: r.folder||'inbox',
+        cluster: r.cluster||'produto',
+        tags: r.tags||[],
+        date: r.date||'salvo',
+      }));
+      APP.activeNotes = new Set(APP.notes.map(n=>n.id));
+      localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
+      renderSidebar();
+      renderChatCtx();
+      buildGraphData();
+      updateStatusBar();
+      updateSystemStatus();
+      if(APP.notes.length>0) openNote(APP.notes[0].id);
+      document.getElementById('save-indicator').textContent='✓ notas carregadas';
+      document.getElementById('save-indicator').style.color='var(--green)';
+      showSBStatus(rows.length+' nota(s) carregada(s) ✓','ok');
+    } else {
+      // banco vazio — sobe as notas locais
+      await pushAllToSupabase();
+    }
+  }catch(e){
+    document.getElementById('save-indicator').textContent='✓ salvo localmente';
+    console.warn('Supabase load error:',e);
+  }
+}
+
+async function pushAllToSupabase(){
+  if(!APP.supabaseConnected) return;
+  let ok=0;
+  for(const note of APP.notes){
+    try{
+      await fetch(sbUrl('notes'), {
+        method:'POST',
+        headers:sbHeaders(),
+        body: JSON.stringify({
+          id: note.id,
+          title: note.title,
+          content: note.content||'',
+          folder: note.folder||'inbox',
+          cluster: note.cluster||'produto',
+          tags: note.tags||[],
+          date: note.date||'agora',
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      ok++;
+    }catch(e){ console.warn('push error',note.id,e); }
+  }
+  showSBStatus(ok+' notas enviadas ao Supabase ✓','ok');
+  document.getElementById('save-indicator').textContent='✓ salvo no Supabase';
+  document.getElementById('save-indicator').style.color='var(--green)';
+}
+
+async function deleteFromSupabase(id){
+  if(!APP.supabaseConnected) return;
+  try{
+    await fetch(sbUrl('notes?id=eq.'+encodeURIComponent(id)), {
+      method:'DELETE', headers:sbHeaders(),
+    });
+  }catch(e){ console.warn('delete error',e); }
+}
+function updateAPIStatus(on){
+  document.getElementById('api-dot').classList.toggle('on',on);
+  document.getElementById('db-label').textContent=on?'IA + '+( APP.supabaseConnected?'Supabase':'local'):'Banco local';
+}
+function updateSystemStatus(){
+  document.getElementById('system-status').innerHTML=`
+    <div>🤖 API Anthropic: <strong style="color:${APP.apiConnected?'var(--green)':'var(--coral)'}">${APP.apiConnected?'Conectada':'Não configurada'}</strong></div>
+    <div>🗄 Supabase: <strong style="color:${APP.supabaseConnected?'var(--green)':'var(--coral)'}">${APP.supabaseConnected?'Conectado':'Não configurado — dados em localStorage'}</strong></div>
+    <div>📝 Notas: <strong style="color:var(--accent2)">${APP.notes.length} notas · ${APP.notes.reduce((a,n)=>a+(n.content||'').match(/\[\[/g||[]).length,0)} conexões</strong></div>
+    <div>🧠 Modelo: <strong style="color:var(--accent2)">claude-sonnet-4-20250514</strong></div>
+  `;
+}
+function updateStatusBar(){
+  document.getElementById('sb-note-count').textContent=APP.notes.length+' notas';
+  const conns=APP.notes.reduce((a,n)=>a+(n.content||'').match(/\[\[/g||[]).length,0);
+  document.getElementById('sb-conn-count').textContent=conns+' conexões';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// EVENTOS GLOBAIS
+// ══════════════════════════════════════════════════════════════════
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#autocomplete')&&!e.target.closest('#editor-content')) hideAC();
+});
+window.addEventListener('resize',()=>{ if(APP.currentView==='graph') resizeGraph(); });
+
+// INIT
+initApp();
+</script>
+</body>
+</html>
