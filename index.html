@@ -1570,13 +1570,13 @@ function updateSystemStatus(){
   document.getElementById('system-status').innerHTML=`
     <div>🤖 API Anthropic: <strong style="color:${APP.apiConnected?'var(--green)':'var(--coral)'}">${APP.apiConnected?'Conectada':'Não configurada'}</strong></div>
     <div>🗄 Supabase: <strong style="color:${APP.supabaseConnected?'var(--green)':'var(--coral)'}">${APP.supabaseConnected?'Conectado':'Não configurado — dados em localStorage'}</strong></div>
-    <div>📝 Notas: <strong style="color:var(--accent2)">${APP.notes.length} notas · ${APP.notes.reduce((a,n)=>a+(n.content||'').match(/\[\[/g||[]).length,0)} conexões</strong></div>
+    <div>📝 Notas: <strong style="color:var(--accent2)">${APP.notes.length} notas · ${APP.notes.reduce((a,n)=>a+((n.content||'').match(/\[\[/g)||[]).length,0)} conexões</strong></div>
     <div>🧠 Modelo: <strong style="color:var(--accent2)">claude-sonnet-4-20250514</strong></div>
   `;
 }
 function updateStatusBar(){
   document.getElementById('sb-note-count').textContent=APP.notes.length+' notas';
-  const conns=APP.notes.reduce((a,n)=>a+(n.content||'').match(/\[\[/g||[]).length,0);
+  const conns=APP.notes.reduce((a,n)=>a+((n.content||'').match(/\[\[/g)||[]).length,0);
   document.getElementById('sb-conn-count').textContent=conns+' conexões';
 }
 
