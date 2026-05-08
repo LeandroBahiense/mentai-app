@@ -1,6 +1,4 @@
-```javascript
 import { createClient } from '@supabase/supabase-js';
-import ws from 'ws';
 
 function twimlResponse(message) {
   return '<?xml version="1.0" encoding="UTF-8"?><Response><Message>' + message + '</Message></Response>';
@@ -56,8 +54,10 @@ export default async function handler(req, res) {
       process.env.SUPABASE_URL,
       process.env.SUPABASE_ANON_KEY,
       {
-        realtime: {
-          transport: ws
+        auth: { persistSession: false },
+        realtime: { enabled: false },
+        global: {
+          headers: { 'x-my-custom-header': 'mentai-whatsapp' }
         }
       }
     );
@@ -94,4 +94,3 @@ export default async function handler(req, res) {
     return res.send(twimlResponse('Erro interno: ' + error.message));
   }
 }
-```
