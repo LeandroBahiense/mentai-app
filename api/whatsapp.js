@@ -162,9 +162,11 @@ ${vaultText}`;
 
     // 5. Chama Claude
     const rawReply = await callClaude(systemPrompt, messages);
+    console.log('RAW REPLY:', rawReply);
 
     // 6. Verifica se Claude quer salvar uma nota
     let reply = rawReply;
+    console.log('FINAL REPLY:', reply);
     if (rawReply.includes('[SALVAR_NOTA]')) {
       const parts = rawReply.split('[SALVAR_NOTA]');
       reply = parts[0].trim();
