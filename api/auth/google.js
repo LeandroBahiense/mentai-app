@@ -1,4 +1,4 @@
-module.exports = function handler(req, res) {
+export default function handler(req, res) {
   const phone = req.query.phone || '';
 
   if (!phone) {
@@ -21,4 +21,4 @@ module.exports = function handler(req, res) {
 
   const url = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
   return res.redirect(302, url);
-};
+}
