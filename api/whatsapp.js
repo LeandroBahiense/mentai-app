@@ -1,3 +1,4 @@
+```javascript
 import { createClient } from '@supabase/supabase-js';
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
@@ -87,6 +88,13 @@ async function callClaude(systemPrompt, messages) {
 // ── MAIN HANDLER ───────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'text/xml');
+
+  // Parse form-encoded body from Twilio
+  if (typeof req.body === 'string') {
+    const params = new URLSearchParams(req.body);
+    req.body = Object.fromEntries(params.entries());
+  }
+  console.log('BODY RECEIVED:', JSON.stringify(req.body));
 
   if (req.method !== 'POST') {
     return res.status(405).send(twimlResponse('Método não permitido.'));
