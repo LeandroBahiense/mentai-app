@@ -188,7 +188,7 @@ ${vaultText}`;
     return res.send(twimlResponse(reply));
 
   } catch (error) {
-    console.error('Webhook error:', error);
-    return res.send(twimlResponse('Algo deu errado. Tente novamente em instantes.'));
+    console.error('Webhook error:', error.message, error.stack);
+    return res.send(twimlResponse('Erro: ' + error.message));
   }
 }
