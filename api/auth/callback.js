@@ -26,7 +26,7 @@ async function saveTokens(phone, tokens) {
   });
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   const { code, state: phone, error } = req.query;
 
   if (error) {
@@ -68,4 +68,4 @@ module.exports = async function handler(req, res) {
     console.error('CALLBACK ERR:', err.message);
     return res.status(500).send('Erro interno: ' + err.message);
   }
-};
+}
