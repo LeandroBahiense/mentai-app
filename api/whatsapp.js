@@ -1,4 +1,3 @@
-```javascript
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -7,7 +6,6 @@ const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 
-// Headers para tabelas normais (anon key)
 function sbHeaders() {
   return {
     'Content-Type': 'application/json',
@@ -16,7 +14,6 @@ function sbHeaders() {
   };
 }
 
-// Headers para google_tokens (service role — RLS ativo)
 function googleSbHeaders() {
   return {
     'Content-Type': 'application/json',
@@ -28,8 +25,6 @@ function googleSbHeaders() {
 function twiml(msg) {
   return '<?xml version="1.0" encoding="UTF-8"?><Response><Message>' + msg + '</Message></Response>';
 }
-
-// ─── Supabase ────────────────────────────────────────────────────────────────
 
 async function getNotes() {
   const res = await fetch(SUPABASE_URL + '/rest/v1/notes?select=title,content,cluster&order=updated_at.desc&limit=15', {
@@ -53,8 +48,6 @@ async function getHistory(phone) {
   const data = await res.json();
   return Array.isArray(data) ? data.reverse() : [];
 }
-
-// ─── Google Tokens ───────────────────────────────────────────────────────────
 
 async function getGoogleTokens(phone) {
   const res = await fetch(
@@ -93,8 +86,6 @@ async function refreshGoogleToken(phone, refreshToken) {
   console.log('GOOGLE TOKEN REFRESHED:', phone);
   return tokens.access_token;
 }
-
-// ─── Google Calendar ─────────────────────────────────────────────────────────
 
 async function getCalendarEvents(accessToken, date) {
   const start = new Date(date);
@@ -146,8 +137,6 @@ async function createCalendarEvent(accessToken, title, datetime, description) {
   return data;
 }
 
-// ─── Gmail ───────────────────────────────────────────────────────────────────
-
 async function getGmailMessages(accessToken) {
   const listRes = await fetch(
     'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5&q=is:unread',
@@ -181,8 +170,6 @@ async function getGmailMessages(accessToken) {
   return messages;
 }
 
-// ─── Formatadores ────────────────────────────────────────────────────────────
-
 function formatCalendarEvents(events) {
   if (!events || events.length === 0) return 'Nenhum evento hoje.';
   return events.map(function(e) {
@@ -199,8 +186,6 @@ function formatGmailMessages(messages) {
     return (i + 1) + '. De: ' + m.from + '\n   Assunto: ' + m.subject + '\n   ' + m.snippet;
   }).join('\n\n');
 }
-
-// ─── Whisper ─────────────────────────────────────────────────────────────────
 
 async function transcribeAudio(mediaUrl, contentType) {
   const auth = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');
@@ -236,8 +221,6 @@ async function transcribeAudio(mediaUrl, contentType) {
   return whisperData.text || null;
 }
 
-// ─── Claude ──────────────────────────────────────────────────────────────────
-
 async function askClaude(system, messages) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -263,8 +246,6 @@ async function askClaude(system, messages) {
   return null;
 }
 
-// ─── Handler Principal ───────────────────────────────────────────────────────
-
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'text/xml');
   if (req.method !== 'POST') return res.status(405).send(twiml('Método não permitido.'));
@@ -279,7 +260,6 @@ export default async function handler(req, res) {
 
   console.log('FROM:', phone, 'MSG:', userMessage, 'AUDIO:', hasAudio ? mediaType : 'none');
 
-  // Transcrição de áudio
   if (hasAudio) {
     try {
       const transcription = await transcribeAudio(mediaUrl, mediaType);
@@ -297,7 +277,6 @@ export default async function handler(req, res) {
 
   if (!userMessage) return res.send(twiml('Envie uma mensagem de texto ou áudio.'));
 
-  // Detecta necessidade de Google
   const needsCalendar = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
   const needsGmail    = /email|gmail|caixa|inbox|mensagem.*mail/i.test(userMessage);
   const needsGoogle   = needsCalendar || needsGmail;
@@ -317,9 +296,7 @@ export default async function handler(req, res) {
         accessToken = googleTokens.access_token;
       }
       googleConnected = true;
-
       calendarEvents = await getCalendarEvents(accessToken, new Date());
-
       if (needsGmail) {
         gmailMessages = await getGmailMessages(accessToken);
       }
@@ -389,4 +366,3 @@ export default async function handler(req, res) {
     return res.send(twiml('Erro: ' + err.message));
   }
 }
-```
