@@ -1,4 +1,6 @@
+```javascript
 import { createClient } from '@supabase/supabase-js';
+import ws from 'ws';
 
 function twimlResponse(message) {
   return '<?xml version="1.0" encoding="UTF-8"?><Response><Message>' + message + '</Message></Response>';
@@ -52,7 +54,12 @@ export default async function handler(req, res) {
   try {
     const supabase = createClient(
       process.env.SUPABASE_URL,
-      process.env.SUPABASE_ANON_KEY
+      process.env.SUPABASE_ANON_KEY,
+      {
+        realtime: {
+          transport: ws
+        }
+      }
     );
 
     const { data: notes } = await supabase
@@ -87,3 +94,4 @@ export default async function handler(req, res) {
     return res.send(twimlResponse('Erro interno: ' + error.message));
   }
 }
+```
