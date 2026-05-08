@@ -1,4 +1,3 @@
-```javascript
 import { createClient } from '@supabase/supabase-js';
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
@@ -82,7 +81,7 @@ async function callClaude(systemPrompt, messages) {
     }),
   });
   const data = await response.json();
-  return data.content?.[0]?.text || 'Não entendi. Pode repetir?';
+  return (data.content && data.content[0] && data.content[0].text) ? data.content[0].text : 'Não entendi. Pode repetir?';
 }
 
 // ── MAIN HANDLER ───────────────────────────────────────────────────────────
