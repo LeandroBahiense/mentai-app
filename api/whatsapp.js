@@ -1,6 +1,9 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 
 function sbHeaders() {
   return {
@@ -37,6 +40,43 @@ async function getHistory(phone) {
   return Array.isArray(data) ? data.reverse() : [];
 }
 
+async function transcribeAudio(mediaUrl, contentType) {
+  const auth = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');
+  const audioRes = await fetch(mediaUrl, {
+    headers: { 'Authorization': 'Basic ' + auth }
+  });
+
+  if (!audioRes.ok) {
+    throw new Error('Erro ao baixar áudio do Twilio: ' + audioRes.status);
+  }
+
+  const audioBuffer = await audioRes.arrayBuffer();
+
+  const ext = contentType.includes('ogg') ? 'ogg'
+    : contentType.includes('mp4') ? 'mp4'
+    : contentType.includes('mpeg') ? 'mp3'
+    : 'ogg';
+
+  console.log('WHISPER: enviando áudio', ext, audioBuffer.byteLength, 'bytes');
+
+  const form = new FormData();
+  form.append('file', new Blob([audioBuffer], { type: contentType }), 'audio.' + ext);
+  form.append('model', 'whisper-1');
+  form.append('language', 'pt');
+
+  const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + OPENAI_KEY },
+    body: form
+  });
+
+  console.log('WHISPER STATUS:', whisperRes.status);
+  const whisperData = await whisperRes.json();
+  console.log('WHISPER RESPONSE:', JSON.stringify(whisperData));
+
+  return whisperData.text || null;
+}
+
 async function askClaude(system, messages) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -69,12 +109,31 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send(twiml('Método não permitido.'));
 
   const body = req.body || {};
-  const userMessage = (body.Body || '').trim();
   const phone = (body.From || '').replace('whatsapp:', '');
+  const mediaUrl = body.MediaUrl0 || '';
+  const mediaType = (body.MediaContentType0 || '').toLowerCase();
+  const hasAudio = mediaType.startsWith('audio/') && mediaUrl;
 
-  console.log('FROM:', phone, 'MSG:', userMessage);
+  let userMessage = (body.Body || '').trim();
 
-  if (!userMessage) return res.send(twiml('Envie uma mensagem de texto.'));
+  console.log('FROM:', phone, 'MSG:', userMessage, 'AUDIO:', hasAudio ? mediaType : 'none');
+
+  if (hasAudio) {
+    try {
+      const transcription = await transcribeAudio(mediaUrl, mediaType);
+      if (transcription) {
+        userMessage = transcription;
+        console.log('TRANSCRIPTION:', userMessage);
+      } else {
+        return res.send(twiml('Não consegui transcrever o áudio. Tente enviar uma mensagem de texto.'));
+      }
+    } catch (err) {
+      console.error('TRANSCRIBE ERR:', err.message);
+      return res.send(twiml('Erro ao processar áudio: ' + err.message));
+    }
+  }
+
+  if (!userMessage) return res.send(twiml('Envie uma mensagem de texto ou áudio.'));
 
   try {
     const [notes, history] = await Promise.all([getNotes(), getHistory(phone)]);
