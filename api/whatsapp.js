@@ -1,4 +1,3 @@
-```javascript
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
@@ -65,7 +64,7 @@ async function askClaude(system, messages) {
   return null;
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader('Content-Type', 'text/xml');
   if (req.method !== 'POST') return res.status(405).send(twiml('Método não permitido.'));
 
@@ -106,4 +105,3 @@ module.exports = async function handler(req, res) {
     return res.send(twiml('Erro: ' + err.message));
   }
 }
-```
