@@ -161,6 +161,10 @@ ${vaultText}`;
     ];
 
     // 5. Chama Claude
+    console.log('VAULT SIZE:', vaultNotes.length);
+    console.log('HISTORY SIZE:', history.length);
+    console.log('USER MESSAGE:', userMessage);
+    console.log('SYSTEM PROMPT LENGTH:', systemPrompt.length);
     const rawReply = await callClaude(systemPrompt, messages);
     console.log('RAW REPLY:', rawReply);
 
