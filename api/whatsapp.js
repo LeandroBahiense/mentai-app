@@ -80,7 +80,6 @@ async function refreshGoogleToken(phone, refreshToken) {
   const tokens = await res.json();
   if (tokens.error) throw new Error('Refresh falhou: ' + tokens.error);
 
-  // Salva apenas o novo access_token (refresh_token não muda no refresh)
   await fetch(SUPABASE_URL + '/rest/v1/google_tokens?phone=eq.' + encodeURIComponent(phone), {
     method: 'PATCH',
     headers: googleSbHeaders(),
@@ -126,7 +125,7 @@ async function getCalendarEvents(accessToken, date) {
 
 async function createCalendarEvent(accessToken, title, datetime, description) {
   const start = new Date(datetime);
-  const end = new Date(start.getTime() + 60 * 60 * 1000); // 1h de duração padrão
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
 
   const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
     method: 'POST',
@@ -266,7 +265,7 @@ async function askClaude(system, messages) {
 
 // ─── Handler Principal ───────────────────────────────────────────────────────
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader('Content-Type', 'text/xml');
   if (req.method !== 'POST') return res.status(405).send(twiml('Método não permitido.'));
 
@@ -312,7 +311,6 @@ module.exports = async function handler(req, res) {
     const googleTokens = await getGoogleTokens(phone);
 
     if (googleTokens) {
-      // Renova se expirado (com 1 min de buffer)
       if (Date.now() >= googleTokens.expiry_date - 60000) {
         accessToken = await refreshGoogleToken(phone, googleTokens.refresh_token);
       } else {
@@ -320,10 +318,8 @@ module.exports = async function handler(req, res) {
       }
       googleConnected = true;
 
-      // Eventos do dia sempre (contexto útil para o Claude)
       calendarEvents = await getCalendarEvents(accessToken, new Date());
 
-      // Gmail apenas se solicitado
       if (needsGmail) {
         gmailMessages = await getGmailMessages(accessToken);
       }
@@ -333,7 +329,6 @@ module.exports = async function handler(req, res) {
     }
   } catch (err) {
     console.error('GOOGLE ERR:', err.message);
-    // Continua sem contexto Google
   }
 
   try {
@@ -370,7 +365,6 @@ module.exports = async function handler(req, res) {
 
     if (!reply) return res.send(twiml('Não consegui processar. Tente novamente.'));
 
-    // Executa criação de evento se Claude incluiu a tag
     let finalReply = reply;
     const actionMatch = reply.match(/\[CRIAR_EVENTO:([\s\S]*?)\]/);
 
