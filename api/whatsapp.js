@@ -1,11 +1,10 @@
-```javascript
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
 function twimlResponse(message) {
   return '<?xml version="1.0" encoding="UTF-8"?><Response><Message>' + message + '</Message></Response>';
 }
 
-async function callClaude(apiKey, systemPrompt, messages) {
+async function callClaude(apiKey, systemPrompt, userMessage) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -17,7 +16,7 @@ async function callClaude(apiKey, systemPrompt, messages) {
       model: 'claude-sonnet-4-20250514',
       max_tokens: 800,
       system: systemPrompt,
-      messages: messages,
+      messages: [{ role: 'user', content: userMessage }],
     }),
   });
   const data = await response.json();
@@ -27,7 +26,7 @@ async function callClaude(apiKey, systemPrompt, messages) {
   return null;
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader('Content-Type', 'text/xml');
 
   if (req.method !== 'POST') {
@@ -45,6 +44,11 @@ module.exports = async function handler(req, res) {
     return res.send(twimlResponse('Envie uma mensagem de texto.'));
   }
 
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.send(twimlResponse('API key não configurada.'));
+  }
+
   try {
     const supabase = createClient(
       process.env.SUPABASE_URL,
@@ -57,19 +61,15 @@ module.exports = async function handler(req, res) {
       .order('updated_at', { ascending: false })
       .limit(15);
 
-    const vault = (notes || []).map(function(n) {
-      return '### ' + n.title + '\n' + (n.content || '').substring(0, 200);
-    }).join('\n---\n');
+    const vault = (notes || []).map(n =>
+      '### ' + n.title + '\n' + (n.content || '').substring(0, 200)
+    ).join('\n---\n');
 
     console.log('NOTES COUNT:', (notes || []).length);
 
     const systemPrompt = 'Você é o Jarvis, assistente pessoal do usuário via WhatsApp. Responda em português, de forma curta e direta (máximo 2 parágrafos). Use as notas abaixo como contexto.\n\nNOTAS DO USUÁRIO:\n' + vault;
 
-    const reply = await callClaude(
-      process.env.ANTHROPIC_API_KEY,
-      systemPrompt,
-      [{ role: 'user', content: userMessage }]
-    );
+    const reply = await callClaude(apiKey, systemPrompt, userMessage);
 
     console.log('REPLY:', reply);
 
@@ -77,17 +77,8 @@ module.exports = async function handler(req, res) {
       return res.send(twimlResponse('Não consegui processar sua mensagem. Tente novamente.'));
     }
 
-    await supabase.from('whatsapp_messages').insert({
-      phone: from,
-      role: 'user',
-      content: userMessage,
-    });
-
-    await supabase.from('whatsapp_messages').insert({
-      phone: from,
-      role: 'assistant',
-      content: reply,
-    });
+    await supabase.from('whatsapp_messages').insert({ phone: from, role: 'user', content: userMessage });
+    await supabase.from('whatsapp_messages').insert({ phone: from, role: 'assistant', content: reply });
 
     return res.send(twimlResponse(reply));
 
@@ -95,5 +86,4 @@ module.exports = async function handler(req, res) {
     console.error('ERROR:', error.message);
     return res.send(twimlResponse('Erro interno: ' + error.message));
   }
-};
-```
+}
