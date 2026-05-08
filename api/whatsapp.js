@@ -1,3 +1,24 @@
+O `package.json` já está sem `"type": "module"` — não precisa mudar. Faço só a alteração no `whatsapp.js`:
+
+**`package.json`** (sem alteração, já estava correto):
+
+```json
+{
+  "name": "mentai-app",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "ws": "^8.0.0"
+  }
+}
+```
+
+**`api/whatsapp.js`**:
+
 ```javascript
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
@@ -64,7 +85,7 @@ async function askClaude(system, messages) {
   return null;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'text/xml');
   if (req.method !== 'POST') return res.status(405).send(twiml('Método não permitido.'));
 
