@@ -1,3 +1,4 @@
+```javascript
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
@@ -53,7 +54,14 @@ async function askClaude(system, messages) {
     })
   });
   const data = await res.json();
-  return data.content && data.content[0] ? data.content[0].text : null;
+  console.log('CLAUDE RESPONSE:', JSON.stringify(data));
+  if (data.content && data.content[0] && data.content[0].text) {
+    return data.content[0].text;
+  }
+  if (data.error) {
+    console.error('CLAUDE ERROR:', data.error);
+  }
+  return null;
 }
 
 export default async function handler(req, res) {
@@ -97,3 +105,4 @@ export default async function handler(req, res) {
     return res.send(twiml('Erro: ' + err.message));
   }
 }
+```
