@@ -1,3 +1,4 @@
+```javascript
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -278,7 +279,7 @@ export default async function handler(req, res) {
   if (!userMessage) return res.send(twiml('Envie uma mensagem de texto ou áudio.'));
 
   const needsCalendar = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
-  const needsGmail    = /email|gmail|caixa|inbox|mensagem.*mail/i.test(userMessage);
+  const needsGmail    = /e-?mails?|gmail|caixa|inbox|correio|mensagens?\s*(de\s*e-?mail)?/i.test(userMessage);
   const needsGoogle   = needsCalendar || needsGmail;
 
   let accessToken    = null;
@@ -366,3 +367,4 @@ export default async function handler(req, res) {
     return res.send(twiml('Erro: ' + err.message));
   }
 }
+```
