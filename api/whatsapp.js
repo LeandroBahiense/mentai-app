@@ -45,6 +45,29 @@ async function saveMessage(phone, role, content) {
   });
 }
 
+async function updateNoteInVault(title, newContent) {
+  // Busca nota pelo título
+  const res = await fetch(SUPABASE_URL + '/rest/v1/notes?title=eq.' + encodeURIComponent(title) + '&limit=1&select=id,title', {
+    headers: sbHeaders()
+  });
+  const notes = await res.json();
+  console.log('UPDATE NOTE SEARCH:', JSON.stringify(notes));
+  if (!Array.isArray(notes) || notes.length === 0) {
+    console.log('NOTA NAO ENCONTRADA PARA UPDATE:', title);
+    return false;
+  }
+  const patchRes = await fetch(SUPABASE_URL + '/rest/v1/notes?id=eq.' + encodeURIComponent(notes[0].id), {
+    method: 'PATCH',
+    headers: { ...sbHeaders(), 'Prefer': 'return=minimal' },
+    body: JSON.stringify({
+      content:    newContent,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+  console.log('NOTA ATUALIZADA STATUS:', patchRes.status, '| TITLE:', title);
+  return patchRes.status >= 200 && patchRes.status < 300;
+}
+
 async function saveNoteToVault(note) {
   const id = 'wa-' + Date.now();
   const sbRes = await fetch(SUPABASE_URL + '/rest/v1/notes', {
@@ -323,12 +346,13 @@ export default async function handler(req, res) {
 
   if (!userMessage) return res.send(twiml('Envie uma mensagem de texto ou áudio.'));
 
-  // Detecta necessidade de Google
-  const needsCalendar  = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
-  const needsGmail     = /e-?mails?|gmail|caixa|inbox|correio|mensagens?\s*(de\s*e-?mail)?/i.test(userMessage);
-  const needsGoogle    = needsCalendar || needsGmail;
-  const needsNoteSave  = /\b(anota|salva|lembra|registra|cri[ae]?|adiciona|guarda|armazena)\b.*\b(nota|anotação|lembrete|decisão|ideia|roadmap|reunião)\b|\b(anota|salva|lembra|registra)\b/i.test(userMessage);
-  console.log('NEEDS_NOTE_SAVE:', needsNoteSave, '| MSG:', userMessage.substring(0, 50));
+  // Detecta intenções
+  const needsCalendar   = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
+  const needsGmail      = /e-?mails?|gmail|caixa|inbox|correio|mensagens?\s*(de\s*e-?mail)?/i.test(userMessage);
+  const needsGoogle     = needsCalendar || needsGmail;
+  const needsNoteSave   = /\b(anota|salva|lembra|registra|cri[ae]?|adiciona|guarda|armazena)\b.*\b(nota|anotação|lembrete|decisão|ideia|roadmap|reunião)\b|\b(anota|salva|lembra|registra)\b/i.test(userMessage);
+  const needsNoteUpdate = /\b(inclua|adicione|atualize|acrescente|coloque|insira|edite|modifique|atualiza|muda|mude|complemente|complementa)\b/i.test(userMessage) && /\b(nota|roadmap|anotação|lembrete)\b/i.test(userMessage);
+  console.log('NEEDS_NOTE_SAVE:', needsNoteSave, '| NEEDS_NOTE_UPDATE:', needsNoteUpdate, '| MSG:', userMessage.substring(0, 50));
 
   let accessToken    = null;
   let calendarEvents = [];
@@ -378,7 +402,10 @@ export default async function handler(req, res) {
     system += 'NOTAS:\n' + vault + '\n\n';
 
     if (needsNoteSave) {
-      system += 'O usuário quer salvar uma nota. Confirme de forma curta que anotou.\n\n';
+      system += 'O usuário quer criar uma nota. Você TEM essa capacidade — confirme de forma curta que a nota foi criada.\n\n';
+    }
+    if (needsNoteUpdate) {
+      system += 'O usuário quer atualizar uma nota existente. Você TEM essa capacidade — confirme de forma curta que a nota foi atualizada com os novos itens.\n\n';
     }
 
     if (googleConnected) {
@@ -401,7 +428,7 @@ export default async function handler(req, res) {
     if (!reply) return res.send(twiml('Não consegui processar. Tente novamente.'));
 
     // Remove tags de nota do reply antes de enviar ao usuário e salvar no histórico
-    let finalReply = reply.replace(/\n?\[(?:CRIAR_NOTA|SALVAR_NOTA):[\s\S]*?\]/, '').trim();
+    let finalReply = reply.replace(/\n?\[(?:CRIAR_NOTA|SALVAR_NOTA|ATUALIZAR_NOTA):[\s\S]*?\]/, '').trim();
     const actionMatch = reply.match(/\[CRIAR_EVENTO:([\s\S]*?)\]/);
 
     if (actionMatch && accessToken) {
@@ -413,6 +440,30 @@ export default async function handler(req, res) {
       } catch (err) {
         console.error('CALENDAR CREATE ERR:', err.message);
         finalReply = finalReply.replace(/\n?\[CRIAR_EVENTO:[\s\S]*?\]/, '').trim();
+      }
+    }
+
+    if (needsNoteUpdate) {
+      try {
+        const updateJson = await askClaude(
+          'Você extrai informações de pedidos de atualização de notas. Responda APENAS com JSON puro, sem explicações, sem markdown, sem código.',
+          [{
+            role: 'user',
+            content: 'Extraia o título exato da nota a ser atualizada e o novo conteúdo completo a ser inserido. Responda SOMENTE o JSON, nada mais:\n{"title":"...","content":"..."}\n\nMensagem: ' + userMessage
+          }]
+        );
+        if (updateJson) {
+          let jsonStr = updateJson.trim();
+          jsonStr = jsonStr.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+          const tagMatch = jsonStr.match(/\[(?:ATUALIZAR_NOTA|CRIAR_NOTA|SALVAR_NOTA):([\s\S]*?)\]\s*$/);
+          if (tagMatch) jsonStr = tagMatch[1].trim();
+          console.log('UPDATE JSON PARSED:', jsonStr.substring(0, 100));
+          const updateData = JSON.parse(jsonStr);
+          const ok = await updateNoteInVault(updateData.title, updateData.content);
+          console.log('NOTE UPDATE RESULT:', ok, updateData.title);
+        }
+      } catch (err) {
+        console.error('UPDATE NOTE ERR:', err.message);
       }
     }
 
