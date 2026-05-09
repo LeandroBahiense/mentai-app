@@ -43,7 +43,7 @@ async function saveMessage(phone, role, content) {
 
 async function saveNoteToVault(note) {
   const id = 'wa-' + Date.now();
-  await fetch(SUPABASE_URL + '/rest/v1/notes', {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/notes', {
     method: 'POST',
     headers: {
       ...sbHeaders(),
@@ -60,6 +60,9 @@ async function saveNoteToVault(note) {
       updated_at: new Date().toISOString(),
     }),
   });
+  console.log('NOTA SUPABASE STATUS:', res.status);
+  const result = await res.json();
+  console.log('NOTA SUPABASE RESULT:', JSON.stringify(result));
   console.log('NOTA SALVA NO VAULT:', id, note.title);
   return id;
 }
@@ -396,6 +399,7 @@ export default async function handler(req, res) {
     if (noteMatch) {
       try {
         const noteData = JSON.parse(noteMatch[1]);
+        console.log('SALVANDO NOTA:', JSON.stringify(noteData));
         await saveNoteToVault(noteData);
         finalReply = finalReply.replace(/\n?\[SALVAR_NOTA:[\s\S]*?\]/, '').trim();
       } catch (err) {
