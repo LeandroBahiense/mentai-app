@@ -400,18 +400,19 @@ export default async function handler(req, res) {
 
     if (!reply) return res.send(twiml('Não consegui processar. Tente novamente.'));
 
-    let finalReply = reply;
+    // Remove tags de nota do reply antes de enviar ao usuário e salvar no histórico
+    let finalReply = reply.replace(/\n?\[(?:CRIAR_NOTA|SALVAR_NOTA):[\s\S]*?\]/, '').trim();
     const actionMatch = reply.match(/\[CRIAR_EVENTO:([\s\S]*?)\]/);
 
     if (actionMatch && accessToken) {
       try {
         const action = JSON.parse(actionMatch[1]);
         await createCalendarEvent(accessToken, action.title, action.datetime, action.description || '');
-        finalReply = reply.replace(/\n?\[CRIAR_EVENTO:[\s\S]*?\]/, '').trim();
+        finalReply = finalReply.replace(/\n?\[CRIAR_EVENTO:[\s\S]*?\]/, '').trim();
         console.log('EVENTO CRIADO:', action.title, action.datetime);
       } catch (err) {
         console.error('CALENDAR CREATE ERR:', err.message);
-        finalReply = reply.replace(/\n?\[CRIAR_EVENTO:[\s\S]*?\]/, '').trim();
+        finalReply = finalReply.replace(/\n?\[CRIAR_EVENTO:[\s\S]*?\]/, '').trim();
       }
     }
 
@@ -426,9 +427,12 @@ export default async function handler(req, res) {
         );
         if (noteJson) {
           let jsonStr = noteJson.trim();
-          // Claude às vezes retorna [CRIAR_NOTA:{...}] ou [SALVAR_NOTA:{...}] — extrai só o JSON
-          const tagMatch = jsonStr.match(/\[(?:CRIAR_NOTA|SALVAR_NOTA):([\s\S]*?)\]/);
+          // Remove markdown code fences (```json ... ```)
+          jsonStr = jsonStr.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+          // Remove tag wrapper se Claude retornou [CRIAR_NOTA:{...}] ou [SALVAR_NOTA:{...}]
+          const tagMatch = jsonStr.match(/\[(?:CRIAR_NOTA|SALVAR_NOTA):([\s\S]*?)\]\s*$/);
           if (tagMatch) jsonStr = tagMatch[1].trim();
+          console.log('NOTE JSON PARSED:', jsonStr.substring(0, 100));
           const noteData = JSON.parse(jsonStr);
           console.log('NOTA EXTRAIDA (2a chamada):', JSON.stringify(noteData));
           await saveNoteToVault(noteData);
