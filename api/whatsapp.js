@@ -6,6 +6,7 @@ const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 
+// Headers para tabelas normais (anon key)
 function sbHeaders() {
   return {
     'Content-Type': 'application/json',
@@ -14,6 +15,7 @@ function sbHeaders() {
   };
 }
 
+// Headers para google_tokens (service role — RLS ativo)
 function googleSbHeaders() {
   return {
     'Content-Type': 'application/json',
@@ -25,6 +27,8 @@ function googleSbHeaders() {
 function twiml(msg) {
   return '<?xml version="1.0" encoding="UTF-8"?><Response><Message>' + msg + '</Message></Response>';
 }
+
+// ─── Supabase ────────────────────────────────────────────────────────────────
 
 async function getNotes() {
   const res = await fetch(SUPABASE_URL + '/rest/v1/notes?select=title,content,cluster&order=updated_at.desc&limit=15', {
@@ -43,7 +47,7 @@ async function saveMessage(phone, role, content) {
 
 async function saveNoteToVault(note) {
   const id = 'wa-' + Date.now();
-  const res = await fetch(SUPABASE_URL + '/rest/v1/notes', {
+  const sbRes = await fetch(SUPABASE_URL + '/rest/v1/notes', {
     method: 'POST',
     headers: {
       ...sbHeaders(),
@@ -60,8 +64,8 @@ async function saveNoteToVault(note) {
       updated_at: new Date().toISOString(),
     }),
   });
-  console.log('NOTA SUPABASE STATUS:', res.status);
-  const result = await res.json();
+  console.log('NOTA SUPABASE STATUS:', sbRes.status);
+  const result = await sbRes.json();
   console.log('NOTA SUPABASE RESULT:', JSON.stringify(result));
   console.log('NOTA SALVA NO VAULT:', id, note.title);
   return id;
@@ -72,8 +76,11 @@ async function getHistory(phone) {
     headers: sbHeaders()
   });
   const data = await res.json();
+  console.log('HISTORY STATUS:', res.status, '| COUNT:', Array.isArray(data) ? data.length : 0, '| DATA:', JSON.stringify(data).substring(0, 200));
   return Array.isArray(data) ? data.reverse() : [];
 }
+
+// ─── Google Tokens ───────────────────────────────────────────────────────────
 
 async function getGoogleTokens(phone) {
   const res = await fetch(
@@ -99,6 +106,7 @@ async function refreshGoogleToken(phone, refreshToken) {
   const tokens = await res.json();
   if (tokens.error) throw new Error('Refresh falhou: ' + tokens.error);
 
+  // Salva apenas o novo access_token (refresh_token não muda no refresh)
   await fetch(SUPABASE_URL + '/rest/v1/google_tokens?phone=eq.' + encodeURIComponent(phone), {
     method: 'PATCH',
     headers: googleSbHeaders(),
@@ -112,6 +120,8 @@ async function refreshGoogleToken(phone, refreshToken) {
   console.log('GOOGLE TOKEN REFRESHED:', phone);
   return tokens.access_token;
 }
+
+// ─── Google Calendar ─────────────────────────────────────────────────────────
 
 async function getCalendarEvents(accessToken, date) {
   const start = new Date(date);
@@ -142,7 +152,7 @@ async function getCalendarEvents(accessToken, date) {
 
 async function createCalendarEvent(accessToken, title, datetime, description) {
   const start = new Date(datetime);
-  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const end = new Date(start.getTime() + 60 * 60 * 1000); // 1h de duração padrão
 
   const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
     method: 'POST',
@@ -162,6 +172,8 @@ async function createCalendarEvent(accessToken, title, datetime, description) {
   console.log('CALENDAR CREATE:', JSON.stringify(data));
   return data;
 }
+
+// ─── Gmail ───────────────────────────────────────────────────────────────────
 
 async function getGmailMessages(accessToken) {
   const listRes = await fetch(
@@ -196,6 +208,8 @@ async function getGmailMessages(accessToken) {
   return messages;
 }
 
+// ─── Formatadores ────────────────────────────────────────────────────────────
+
 function formatCalendarEvents(events) {
   if (!events || events.length === 0) return 'Nenhum evento hoje.';
   return events.map(function(e) {
@@ -212,6 +226,8 @@ function formatGmailMessages(messages) {
     return (i + 1) + '. De: ' + m.from + '\n   Assunto: ' + m.subject + '\n   ' + m.snippet;
   }).join('\n\n');
 }
+
+// ─── Whisper ─────────────────────────────────────────────────────────────────
 
 async function transcribeAudio(mediaUrl, contentType) {
   const auth = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');
@@ -247,6 +263,8 @@ async function transcribeAudio(mediaUrl, contentType) {
   return whisperData.text || null;
 }
 
+// ─── Claude ──────────────────────────────────────────────────────────────────
+
 async function askClaude(system, messages) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -257,7 +275,7 @@ async function askClaude(system, messages) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 800,
+      max_tokens: 1200,
       system: system,
       messages: messages,
     })
@@ -272,21 +290,23 @@ async function askClaude(system, messages) {
   return null;
 }
 
+// ─── Handler Principal ───────────────────────────────────────────────────────
+
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'text/xml');
   if (req.method !== 'POST') return res.status(405).send(twiml('Método não permitido.'));
 
   const body = req.body || {};
   const phone = (body.From || '').replace('whatsapp:', '');
-  const googlePhone = phone.replace(/^\+/, '');
   const mediaUrl = body.MediaUrl0 || '';
   const mediaType = (body.MediaContentType0 || '').toLowerCase();
   const hasAudio = mediaType.startsWith('audio/') && mediaUrl;
 
   let userMessage = (body.Body || '').trim();
 
-  console.log('FROM:', phone, 'GOOGLE_PHONE:', googlePhone, 'MSG:', userMessage, 'AUDIO:', hasAudio ? mediaType : 'none');
+  console.log('FROM:', phone, 'MSG:', userMessage, 'AUDIO:', hasAudio ? mediaType : 'none');
 
+  // Transcrição de áudio
   if (hasAudio) {
     try {
       const transcription = await transcribeAudio(mediaUrl, mediaType);
@@ -304,10 +324,11 @@ export default async function handler(req, res) {
 
   if (!userMessage) return res.send(twiml('Envie uma mensagem de texto ou áudio.'));
 
+  // Detecta necessidade de Google
   const needsCalendar  = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
   const needsGmail     = /e-?mails?|gmail|caixa|inbox|correio|mensagens?\s*(de\s*e-?mail)?/i.test(userMessage);
   const needsGoogle    = needsCalendar || needsGmail;
-  const needsNoteSave  = /^(anota|salva|lembra|registra)\b/i.test(userMessage);
+  const needsNoteSave  = /\b(anota|salva|lembra|registra)\b/i.test(userMessage);
 
   let accessToken    = null;
   let calendarEvents = [];
@@ -315,24 +336,26 @@ export default async function handler(req, res) {
   let googleConnected = false;
 
   try {
-    const googleTokens = await getGoogleTokens(googlePhone);
+    const googleTokens = await getGoogleTokens(phone);
 
-    console.log('GOOGLE TOKENS FOUND:', !!googleTokens, '| NEEDS_GMAIL:', needsGmail, '| NEEDS_CALENDAR:', needsCalendar);
+    console.log('GOOGLE TOKENS FOUND:', !!googleTokens, '| NEEDS_GMAIL:', needsGmail, '| NEEDS_CALENDAR:', needsCalendar, '| PHONE:', phone);
 
     if (googleTokens) {
       if (Date.now() >= googleTokens.expiry_date - 60000) {
-        accessToken = await refreshGoogleToken(googlePhone, googleTokens.refresh_token);
+        accessToken = await refreshGoogleToken(phone, googleTokens.refresh_token);
       } else {
         accessToken = googleTokens.access_token;
       }
       googleConnected = true;
+
       calendarEvents = await getCalendarEvents(accessToken, new Date());
+
       if (needsGmail) {
         gmailMessages = await getGmailMessages(accessToken);
         console.log('GMAIL MESSAGES:', gmailMessages.length);
       }
     } else if (needsGoogle) {
-      const authLink = 'https://mentai-app.vercel.app/api/auth/google?phone=' + encodeURIComponent(googlePhone);
+      const authLink = 'https://mentai-app.vercel.app/api/auth/google?phone=' + encodeURIComponent(phone);
       return res.send(twiml('Para acessar sua agenda e emails, conecte o Google primeiro: ' + authLink));
     }
   } catch (err) {
@@ -380,7 +403,10 @@ export default async function handler(req, res) {
 
     if (!reply) return res.send(twiml('Não consegui processar. Tente novamente.'));
 
+    // Executa criação de evento se Claude incluiu a tag
     let finalReply = reply;
+    console.log('CHECKING FOR NOTA TAG:', reply.includes('[SALVAR_NOTA'));
+    console.log('REPLY PREVIEW:', reply.substring(0, 200));
     const actionMatch = reply.match(/\[CRIAR_EVENTO:([\s\S]*?)\]/);
 
     if (actionMatch && accessToken) {
