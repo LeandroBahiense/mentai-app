@@ -1,4 +1,3 @@
-```javascript
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -253,13 +252,16 @@ export default async function handler(req, res) {
 
   const body = req.body || {};
   const phone = (body.From || '').replace('whatsapp:', '');
+  // Normaliza phone para lookup Google (sem +, consistente com o que foi salvo no auth)
+  const googlePhone = phone.replace(/^\+/, '');
+
   const mediaUrl = body.MediaUrl0 || '';
   const mediaType = (body.MediaContentType0 || '').toLowerCase();
   const hasAudio = mediaType.startsWith('audio/') && mediaUrl;
 
   let userMessage = (body.Body || '').trim();
 
-  console.log('FROM:', phone, 'MSG:', userMessage, 'AUDIO:', hasAudio ? mediaType : 'none');
+  console.log('FROM:', phone, 'GOOGLE_PHONE:', googlePhone, 'MSG:', userMessage, 'AUDIO:', hasAudio ? mediaType : 'none');
 
   if (hasAudio) {
     try {
@@ -288,11 +290,13 @@ export default async function handler(req, res) {
   let googleConnected = false;
 
   try {
-    const googleTokens = await getGoogleTokens(phone);
+    const googleTokens = await getGoogleTokens(googlePhone);
+
+    console.log('GOOGLE TOKENS FOUND:', !!googleTokens, '| NEEDS_GMAIL:', needsGmail, '| NEEDS_CALENDAR:', needsCalendar);
 
     if (googleTokens) {
       if (Date.now() >= googleTokens.expiry_date - 60000) {
-        accessToken = await refreshGoogleToken(phone, googleTokens.refresh_token);
+        accessToken = await refreshGoogleToken(googlePhone, googleTokens.refresh_token);
       } else {
         accessToken = googleTokens.access_token;
       }
@@ -300,9 +304,10 @@ export default async function handler(req, res) {
       calendarEvents = await getCalendarEvents(accessToken, new Date());
       if (needsGmail) {
         gmailMessages = await getGmailMessages(accessToken);
+        console.log('GMAIL MESSAGES:', gmailMessages.length);
       }
     } else if (needsGoogle) {
-      const authLink = 'https://mentai-app.vercel.app/api/auth/google?phone=' + encodeURIComponent(phone);
+      const authLink = 'https://mentai-app.vercel.app/api/auth/google?phone=' + encodeURIComponent(googlePhone);
       return res.send(twiml('Para acessar sua agenda e emails, conecte o Google primeiro: ' + authLink));
     }
   } catch (err) {
@@ -367,4 +372,3 @@ export default async function handler(req, res) {
     return res.send(twiml('Erro: ' + err.message));
   }
 }
-```
