@@ -106,7 +106,6 @@ async function refreshGoogleToken(phone, refreshToken) {
   const tokens = await res.json();
   if (tokens.error) throw new Error('Refresh falhou: ' + tokens.error);
 
-  // Salva apenas o novo access_token (refresh_token não muda no refresh)
   await fetch(SUPABASE_URL + '/rest/v1/google_tokens?phone=eq.' + encodeURIComponent(phone), {
     method: 'PATCH',
     headers: googleSbHeaders(),
@@ -152,7 +151,7 @@ async function getCalendarEvents(accessToken, date) {
 
 async function createCalendarEvent(accessToken, title, datetime, description) {
   const start = new Date(datetime);
-  const end = new Date(start.getTime() + 60 * 60 * 1000); // 1h de duração padrão
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
 
   const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
     method: 'POST',
@@ -328,7 +327,7 @@ export default async function handler(req, res) {
   const needsCalendar  = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
   const needsGmail     = /e-?mails?|gmail|caixa|inbox|correio|mensagens?\s*(de\s*e-?mail)?/i.test(userMessage);
   const needsGoogle    = needsCalendar || needsGmail;
-  const needsNoteSave  = /\b(anota|salva|lembra|registra|cria?|adiciona|guarda|armazena)\b.*\b(nota|anotação|lembrete|decisão|ideia|roadmap|reunião)\b|\b(anota|salva|lembra|registra)\b/i.test(userMessage);
+  const needsNoteSave  = /\b(anota|salva|lembra|registra|cri[ae]?|adiciona|guarda|armazena)\b.*\b(nota|anotação|lembrete|decisão|ideia|roadmap|reunião)\b|\b(anota|salva|lembra|registra)\b/i.test(userMessage);
   console.log('NEEDS_NOTE_SAVE:', needsNoteSave, '| MSG:', userMessage.substring(0, 50));
 
   let accessToken    = null;
@@ -426,7 +425,11 @@ export default async function handler(req, res) {
           }]
         );
         if (noteJson) {
-          const noteData = JSON.parse(noteJson.trim());
+          let jsonStr = noteJson.trim();
+          // Claude às vezes retorna [CRIAR_NOTA:{...}] ou [SALVAR_NOTA:{...}] — extrai só o JSON
+          const tagMatch = jsonStr.match(/\[(?:CRIAR_NOTA|SALVAR_NOTA):([\s\S]*?)\]/);
+          if (tagMatch) jsonStr = tagMatch[1].trim();
+          const noteData = JSON.parse(jsonStr);
           console.log('NOTA EXTRAIDA (2a chamada):', JSON.stringify(noteData));
           await saveNoteToVault(noteData);
         }
