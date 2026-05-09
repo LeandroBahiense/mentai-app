@@ -378,10 +378,7 @@ export default async function handler(req, res) {
     system += 'NOTAS:\n' + vault + '\n\n';
 
     if (needsNoteSave) {
-      system += 'INSTRUÇÃO ESPECIAL DE NOTA:\n';
-      system += '- O usuário quer salvar uma nota. Extraia título, conteúdo resumido, cluster (produto/estrategia/equipe/pessoal/inbox) e tags relevantes.\n';
-      system += '- Inclua ao final da resposta, em linha separada: [SALVAR_NOTA:{"title":"...","content":"...","cluster":"...","tags":["..."]}]\n';
-      system += '- Confirme ao usuário de forma curta que a nota foi salva.\n\n';
+      system += 'O usuário quer salvar uma nota. Confirme de forma curta que anotou.\n\n';
     }
 
     if (googleConnected) {
@@ -403,10 +400,7 @@ export default async function handler(req, res) {
 
     if (!reply) return res.send(twiml('Não consegui processar. Tente novamente.'));
 
-    // Executa criação de evento se Claude incluiu a tag
     let finalReply = reply;
-    console.log('CHECKING FOR NOTA TAG:', reply.includes('[SALVAR_NOTA'));
-    console.log('REPLY PREVIEW:', reply.substring(0, 200));
     const actionMatch = reply.match(/\[CRIAR_EVENTO:([\s\S]*?)\]/);
 
     if (actionMatch && accessToken) {
@@ -421,16 +415,22 @@ export default async function handler(req, res) {
       }
     }
 
-    const noteMatch = finalReply.match(/\[SALVAR_NOTA:([\s\S]*?)\]/);
-    if (noteMatch) {
+    if (needsNoteSave) {
       try {
-        const noteData = JSON.parse(noteMatch[1]);
-        console.log('SALVANDO NOTA:', JSON.stringify(noteData));
-        await saveNoteToVault(noteData);
-        finalReply = finalReply.replace(/\n?\[SALVAR_NOTA:[\s\S]*?\]/, '').trim();
+        const noteJson = await askClaude(
+          'Você extrai informações estruturadas de mensagens. Responda APENAS com JSON puro, sem explicações, sem markdown, sem código.',
+          [{
+            role: 'user',
+            content: 'Extraia desta mensagem uma nota estruturada. Responda SOMENTE o JSON, nada mais:\n{"title":"...","content":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."]}\n\nMensagem: ' + userMessage
+          }]
+        );
+        if (noteJson) {
+          const noteData = JSON.parse(noteJson.trim());
+          console.log('NOTA EXTRAIDA (2a chamada):', JSON.stringify(noteData));
+          await saveNoteToVault(noteData);
+        }
       } catch (err) {
         console.error('SAVE NOTE ERR:', err.message);
-        finalReply = finalReply.replace(/\n?\[SALVAR_NOTA:[\s\S]*?\]/, '').trim();
       }
     }
 
