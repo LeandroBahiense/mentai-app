@@ -328,7 +328,8 @@ export default async function handler(req, res) {
   const needsCalendar  = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
   const needsGmail     = /e-?mails?|gmail|caixa|inbox|correio|mensagens?\s*(de\s*e-?mail)?/i.test(userMessage);
   const needsGoogle    = needsCalendar || needsGmail;
-  const needsNoteSave  = /\b(anota|salva|lembra|registra|cria?\s*(uma?\s*)?(nota|anotação)|adiciona|guarda|armazena)\b/i.test(userMessage);
+  const needsNoteSave  = /\b(anota|salva|lembra|registra|cria?|adiciona|guarda|armazena)\b.*\b(nota|anotação|lembrete|decisão|ideia|roadmap|reunião)\b|\b(anota|salva|lembra|registra)\b/i.test(userMessage);
+  console.log('NEEDS_NOTE_SAVE:', needsNoteSave, '| MSG:', userMessage.substring(0, 50));
 
   let accessToken    = null;
   let calendarEvents = [];
