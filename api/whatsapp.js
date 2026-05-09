@@ -1,3 +1,6 @@
+Pronto. Aqui está o arquivo completo para copiar:
+
+```javascript
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -39,6 +42,29 @@ async function saveMessage(phone, role, content) {
     headers: sbHeaders(),
     body: JSON.stringify({ phone, role, content })
   });
+}
+
+async function saveNoteToVault(note) {
+  const id = 'wa-' + Date.now();
+  await fetch(SUPABASE_URL + '/rest/v1/notes', {
+    method: 'POST',
+    headers: {
+      ...sbHeaders(),
+      'Prefer': 'resolution=merge-duplicates',
+    },
+    body: JSON.stringify({
+      id,
+      title:      note.title || 'Nota sem título',
+      content:    note.content || '',
+      folder:     note.folder || 'inbox',
+      cluster:    note.cluster || 'inbox',
+      tags:       note.tags || [],
+      date:       new Date().toISOString().split('T')[0],
+      updated_at: new Date().toISOString(),
+    }),
+  });
+  console.log('NOTA SALVA NO VAULT:', id, note.title);
+  return id;
 }
 
 async function getHistory(phone) {
@@ -252,9 +278,7 @@ export default async function handler(req, res) {
 
   const body = req.body || {};
   const phone = (body.From || '').replace('whatsapp:', '');
-  // Normaliza phone para lookup Google (sem +, consistente com o que foi salvo no auth)
   const googlePhone = phone.replace(/^\+/, '');
-
   const mediaUrl = body.MediaUrl0 || '';
   const mediaType = (body.MediaContentType0 || '').toLowerCase();
   const hasAudio = mediaType.startsWith('audio/') && mediaUrl;
@@ -280,9 +304,10 @@ export default async function handler(req, res) {
 
   if (!userMessage) return res.send(twiml('Envie uma mensagem de texto ou áudio.'));
 
-  const needsCalendar = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
-  const needsGmail    = /e-?mails?|gmail|caixa|inbox|correio|mensagens?\s*(de\s*e-?mail)?/i.test(userMessage);
-  const needsGoogle   = needsCalendar || needsGmail;
+  const needsCalendar  = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
+  const needsGmail     = /e-?mails?|gmail|caixa|inbox|correio|mensagens?\s*(de\s*e-?mail)?/i.test(userMessage);
+  const needsGoogle    = needsCalendar || needsGmail;
+  const needsNoteSave  = /^(anota|salva|lembra|registra)\b/i.test(userMessage);
 
   let accessToken    = null;
   let calendarEvents = [];
@@ -329,6 +354,13 @@ export default async function handler(req, res) {
     system += 'Data/hora atual: ' + now + '\n\n';
     system += 'NOTAS:\n' + vault + '\n\n';
 
+    if (needsNoteSave) {
+      system += 'INSTRUÇÃO ESPECIAL DE NOTA:\n';
+      system += '- O usuário quer salvar uma nota. Extraia título, conteúdo resumido, cluster (produto/estrategia/equipe/pessoal/inbox) e tags relevantes.\n';
+      system += '- Inclua ao final da resposta, em linha separada: [SALVAR_NOTA:{"title":"...","content":"...","cluster":"...","tags":["..."]}]\n';
+      system += '- Confirme ao usuário de forma curta que a nota foi salva.\n\n';
+    }
+
     if (googleConnected) {
       system += 'AGENDA DE HOJE:\n' + formatCalendarEvents(calendarEvents) + '\n\n';
       if (gmailMessages.length > 0) {
@@ -363,6 +395,18 @@ export default async function handler(req, res) {
       }
     }
 
+    const noteMatch = finalReply.match(/\[SALVAR_NOTA:([\s\S]*?)\]/);
+    if (noteMatch) {
+      try {
+        const noteData = JSON.parse(noteMatch[1]);
+        await saveNoteToVault(noteData);
+        finalReply = finalReply.replace(/\n?\[SALVAR_NOTA:[\s\S]*?\]/, '').trim();
+      } catch (err) {
+        console.error('SAVE NOTE ERR:', err.message);
+        finalReply = finalReply.replace(/\n?\[SALVAR_NOTA:[\s\S]*?\]/, '').trim();
+      }
+    }
+
     await saveMessage(phone, 'user', userMessage);
     await saveMessage(phone, 'assistant', finalReply);
 
@@ -372,3 +416,4 @@ export default async function handler(req, res) {
     return res.send(twiml('Erro: ' + err.message));
   }
 }
+```
