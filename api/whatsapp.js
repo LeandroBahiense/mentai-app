@@ -1,10 +1,10 @@
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const SUPABASE_URL      = process.env.SUPABASE_URL;
+const SUPABASE_KEY      = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_SVC_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ANTHROPIC_KEY     = process.env.ANTHROPIC_API_KEY;
+const TWILIO_SID        = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_TOKEN      = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_FROM       = process.env.TWILIO_WHATSAPP_FROM; // ex: whatsapp:+14155238886
 
 function sbHeaders() {
   return {
@@ -17,132 +17,25 @@ function sbHeaders() {
 function googleSbHeaders() {
   return {
     'Content-Type': 'application/json',
-    'apikey': SUPABASE_SERVICE_KEY,
-    'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
+    'apikey': SUPABASE_SVC_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_SVC_KEY,
   };
 }
 
-function twiml(msg) {
-  return '<?xml version="1.0" encoding="UTF-8"?><Response><Message>' + msg + '</Message></Response>';
-}
-
-// Extrai JSON de uma tag no reply do Claude
-function parseTagJson(reply, tagName) {
-  const regex = new RegExp('\\[' + tagName + ':([\\s\\S]*?)\\]');
-  const match = reply.match(regex);
-  if (!match) return null;
-  try {
-    let s = match[1].trim();
-    s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-    return JSON.parse(s);
-  } catch (e) {
-    console.error('PARSE TAG ERR (' + tagName + '):', e.message, '| RAW:', match[1].substring(0, 100));
-    return null;
-  }
-}
-
-// Remove todas as tags de ação do reply antes de enviar ao usuário
-function stripActionTags(text) {
-  return text
-    .replace(/\n?\[CRIAR_NOTA:[\s\S]*?\]/g, '')
-    .replace(/\n?\[ATUALIZAR_NOTA:[\s\S]*?\]/g, '')
-    .replace(/\n?\[APAGAR_NOTA:[\s\S]*?\]/g, '')
-    .replace(/\n?\[CRIAR_EVENTO:[\s\S]*?\]/g, '')
-    .replace(/\n?\[ATUALIZAR_EVENTO:[\s\S]*?\]/g, '')
-    .replace(/\n?\[APAGAR_EVENTO:[\s\S]*?\]/g, '')
-    .trim();
-}
-
-// ─── Supabase: Mensagens ──────────────────────────────────────────────────────
-
-async function saveMessage(phone, role, content) {
-  await fetch(SUPABASE_URL + '/rest/v1/whatsapp_messages', {
-    method: 'POST',
-    headers: sbHeaders(),
-    body: JSON.stringify({ phone, role, content }),
+async function getDistinctPhones() {
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/whatsapp_messages?select=phone&order=phone',
+    { headers: sbHeaders() }
+  );
+  const rows = await res.json();
+  if (!Array.isArray(rows)) return [];
+  const seen = new Set();
+  return rows.map(function(r) { return r.phone; }).filter(function(p) {
+    if (!p || seen.has(p)) return false;
+    seen.add(p);
+    return true;
   });
 }
-
-async function getHistory(phone) {
-  const res = await fetch(
-    SUPABASE_URL + '/rest/v1/whatsapp_messages?phone=eq.' + encodeURIComponent(phone) +
-    '&order=created_at.desc&limit=10&select=role,content',
-    { headers: sbHeaders() }
-  );
-  const data = await res.json();
-  console.log('HISTORY STATUS:', res.status, '| COUNT:', Array.isArray(data) ? data.length : 0);
-  return Array.isArray(data) ? data.reverse() : [];
-}
-
-// ─── Supabase: Notas (CRUD) ───────────────────────────────────────────────────
-
-async function getNotes() {
-  const res = await fetch(
-    SUPABASE_URL + '/rest/v1/notes?select=title,content,cluster&order=updated_at.desc&limit=15',
-    { headers: sbHeaders() }
-  );
-  return await res.json();
-}
-
-async function createNote(note) {
-  const id = 'wa-' + Date.now();
-  const res = await fetch(SUPABASE_URL + '/rest/v1/notes', {
-    method: 'POST',
-    headers: { ...sbHeaders(), 'Prefer': 'resolution=merge-duplicates' },
-    body: JSON.stringify({
-      id,
-      title:      note.title      || 'Nota sem título',
-      content:    note.content    || '',
-      folder:     note.folder     || 'inbox',
-      cluster:    note.cluster    || 'inbox',
-      tags:       note.tags       || [],
-      date:       new Date().toISOString().split('T')[0],
-      updated_at: new Date().toISOString(),
-    }),
-  });
-  console.log('NOTE CREATE STATUS:', res.status, '|', note.title);
-  return id;
-}
-
-async function updateNote(title, newContent) {
-  const res = await fetch(
-    SUPABASE_URL + '/rest/v1/notes?title=ilike.' + encodeURIComponent(title) + '&limit=1&select=id,title',
-    { headers: sbHeaders() }
-  );
-  const notes = await res.json();
-  console.log('NOTE UPDATE SEARCH:', JSON.stringify(notes));
-  if (!Array.isArray(notes) || notes.length === 0) return false;
-
-  const patch = await fetch(
-    SUPABASE_URL + '/rest/v1/notes?id=eq.' + encodeURIComponent(notes[0].id),
-    {
-      method: 'PATCH',
-      headers: { ...sbHeaders(), 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ content: newContent, updated_at: new Date().toISOString() }),
-    }
-  );
-  console.log('NOTE UPDATE STATUS:', patch.status, '|', title);
-  return patch.status >= 200 && patch.status < 300;
-}
-
-async function deleteNote(title) {
-  const res = await fetch(
-    SUPABASE_URL + '/rest/v1/notes?title=ilike.' + encodeURIComponent(title) + '&limit=1&select=id,title',
-    { headers: sbHeaders() }
-  );
-  const notes = await res.json();
-  console.log('NOTE DELETE SEARCH:', JSON.stringify(notes));
-  if (!Array.isArray(notes) || notes.length === 0) return false;
-
-  const del = await fetch(
-    SUPABASE_URL + '/rest/v1/notes?id=eq.' + encodeURIComponent(notes[0].id),
-    { method: 'DELETE', headers: sbHeaders() }
-  );
-  console.log('NOTE DELETE STATUS:', del.status, '|', title);
-  return del.status >= 200 && del.status < 300;
-}
-
-// ─── Google Tokens ───────────────────────────────────────────────────────────
 
 async function getGoogleTokens(phone) {
   const res = await fetch(
@@ -179,15 +72,12 @@ async function refreshGoogleToken(phone, refreshToken) {
       }),
     }
   );
-  console.log('GOOGLE TOKEN REFRESHED:', phone);
   return tokens.access_token;
 }
 
-// ─── Google Calendar (CRUD) ───────────────────────────────────────────────────
-
-async function getCalendarEvents(accessToken, date) {
-  const start = new Date(date); start.setHours(0, 0, 0, 0);
-  const end   = new Date(date); end.setHours(23, 59, 59, 999);
+async function getCalendarEventsToday(accessToken) {
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const end   = new Date(); end.setHours(23, 59, 59, 999);
   const params = new URLSearchParams({
     timeMin: start.toISOString(), timeMax: end.toISOString(),
     singleEvents: 'true', orderBy: 'startTime', maxResults: '10',
@@ -197,335 +87,148 @@ async function getCalendarEvents(accessToken, date) {
     { headers: { 'Authorization': 'Bearer ' + accessToken } }
   );
   const data = await res.json();
-  if (data.error) { console.error('CALENDAR READ ERR:', JSON.stringify(data.error)); return []; }
+  if (data.error) { console.error('CALENDAR ERR:', JSON.stringify(data.error)); return []; }
   return data.items || [];
 }
 
-async function createCalendarEvent(accessToken, title, datetime, description) {
-  const start = new Date(datetime);
-  const end   = new Date(start.getTime() + 60 * 60 * 1000);
-  const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      summary:     title,
-      description: description || '',
-      start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
-      end:   { dateTime: end.toISOString(),   timeZone: 'America/Sao_Paulo' },
-    }),
-  });
-  const data = await res.json();
-  console.log('CALENDAR CREATE:', res.status, '|', title);
-  return data;
-}
-
-async function findCalendarEvent(accessToken, title) {
-  const now    = new Date();
-  const past   = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const future = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
-  const params = new URLSearchParams({
-    q: title, timeMin: past.toISOString(), timeMax: future.toISOString(),
-    singleEvents: 'true', maxResults: '5',
-  });
+async function getRecentNotes() {
   const res = await fetch(
-    'https://www.googleapis.com/calendar/v3/calendars/primary/events?' + params,
-    { headers: { 'Authorization': 'Bearer ' + accessToken } }
+    SUPABASE_URL + '/rest/v1/notes?select=title,content,cluster&order=updated_at.desc&limit=5',
+    { headers: sbHeaders() }
   );
   const data = await res.json();
-  console.log('CALENDAR FIND:', (data.items || []).map(function(e) { return e.summary; }));
-  return data.items && data.items.length > 0 ? data.items[0] : null;
+  return Array.isArray(data) ? data : [];
 }
 
-async function updateCalendarEvent(accessToken, title, newDatetime) {
-  const event = await findCalendarEvent(accessToken, title);
-  if (!event) { console.log('EVENT NOT FOUND FOR UPDATE:', title); return false; }
-  const start = new Date(newDatetime);
-  const end   = new Date(start.getTime() + 60 * 60 * 1000);
-  const res = await fetch(
-    'https://www.googleapis.com/calendar/v3/calendars/primary/events/' + event.id,
-    {
-      method: 'PATCH',
-      headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
-        end:   { dateTime: end.toISOString(),   timeZone: 'America/Sao_Paulo' },
-      }),
-    }
-  );
-  console.log('CALENDAR UPDATE STATUS:', res.status, '|', event.summary);
-  return res.status >= 200 && res.status < 300;
-}
-
-async function deleteCalendarEvent(accessToken, title) {
-  const event = await findCalendarEvent(accessToken, title);
-  if (!event) { console.log('EVENT NOT FOUND FOR DELETE:', title); return false; }
-  const res = await fetch(
-    'https://www.googleapis.com/calendar/v3/calendars/primary/events/' + event.id,
-    { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + accessToken } }
-  );
-  console.log('CALENDAR DELETE STATUS:', res.status, '|', event.summary);
-  return res.status === 204;
-}
-
-// ─── Gmail ───────────────────────────────────────────────────────────────────
-
-async function getGmailMessages(accessToken) {
-  const listRes = await fetch(
-    'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5&q=is:unread',
-    { headers: { 'Authorization': 'Bearer ' + accessToken } }
-  );
-  const listData = await listRes.json();
-  if (listData.error || !listData.messages) return [];
-
-  return await Promise.all(listData.messages.map(async function(m) {
-    const msgRes = await fetch(
-      'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + m.id +
-      '?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date',
-      { headers: { 'Authorization': 'Bearer ' + accessToken } }
-    );
-    const msgData = await msgRes.json();
-    const headers = (msgData.payload && msgData.payload.headers) || [];
-    const get = function(name) {
-      const h = headers.find(function(h) { return h.name === name; });
-      return h ? h.value : '';
-    };
-    return { from: get('From'), subject: get('Subject'), snippet: (msgData.snippet || '').substring(0, 150) };
-  }));
-}
-
-// ─── Formatadores ────────────────────────────────────────────────────────────
-
-function formatCalendarEvents(events) {
-  if (!events || events.length === 0) return 'Nenhum evento hoje.';
+function formatEvents(events) {
+  if (!events || events.length === 0) return 'Nenhum evento agendado para hoje.';
   return events.map(function(e) {
-    const time = e.start.dateTime
-      ? new Date(e.start.dateTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+    const time = e.start && e.start.dateTime
+      ? new Date(e.start.dateTime).toLocaleTimeString('pt-BR', {
+          hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'
+        })
       : 'dia todo';
-    return '- ' + time + ': ' + (e.summary || 'Sem título');
+    return '• ' + time + ' — ' + (e.summary || 'Sem título');
   }).join('\n');
 }
 
-function formatGmailMessages(messages) {
-  if (!messages || messages.length === 0) return 'Nenhum email não lido.';
-  return messages.map(function(m, i) {
-    return (i + 1) + '. De: ' + m.from + '\n   Assunto: ' + m.subject + '\n   ' + m.snippet;
-  }).join('\n\n');
+function formatNotes(notes) {
+  if (!notes || notes.length === 0) return 'Nenhuma nota recente.';
+  return notes.map(function(n) {
+    return '• ' + n.title + (n.content ? ': ' + n.content.substring(0, 80) + '...' : '');
+  }).join('\n');
 }
 
-// ─── Whisper ─────────────────────────────────────────────────────────────────
-
-async function transcribeAudio(mediaUrl, contentType) {
-  const auth = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');
-  const audioRes = await fetch(mediaUrl, { headers: { 'Authorization': 'Basic ' + auth } });
-  if (!audioRes.ok) throw new Error('Erro ao baixar áudio: ' + audioRes.status);
-
-  const audioBuffer = await audioRes.arrayBuffer();
-  const ext = contentType.includes('ogg') ? 'ogg'
-    : contentType.includes('mp4') ? 'mp4'
-    : contentType.includes('mpeg') ? 'mp3' : 'ogg';
-
-  console.log('WHISPER: enviando áudio', ext, audioBuffer.byteLength, 'bytes');
-
-  const form = new FormData();
-  form.append('file', new Blob([audioBuffer], { type: contentType }), 'audio.' + ext);
-  form.append('model', 'whisper-1');
-  form.append('language', 'pt');
-
-  const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + OPENAI_KEY },
-    body: form,
+async function generateBriefing(eventsText, notesText) {
+  const date = new Date().toLocaleDateString('pt-BR', {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo'
   });
-  const whisperData = await whisperRes.json();
-  console.log('WHISPER STATUS:', whisperRes.status, '| TEXT:', (whisperData.text || '').substring(0, 80));
-  return whisperData.text || null;
-}
 
-// ─── Claude ──────────────────────────────────────────────────────────────────
+  const system = 'Você é o Jarvis, assistente pessoal. Gere um briefing matinal em português, curto e motivador (máximo 200 palavras). Seja direto e prático.';
 
-async function askClaude(system, messages) {
+  const prompt =
+    'Hoje é ' + date + '.\n\n' +
+    'AGENDA DE HOJE:\n' + eventsText + '\n\n' +
+    'NOTAS RECENTES DO VAULT:\n' + notesText + '\n\n' +
+    'Gere um briefing matinal personalizado: cumprimente, resuma o dia, destaque algo relevante das notas e finalize com energia positiva.';
+
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_KEY,
+      'Content-Type':      'application/json',
+      'x-api-key':         ANTHROPIC_KEY,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model:      'claude-sonnet-4-6',
-      max_tokens: 1500,
+      model:      'claude-haiku-4-5',
+      max_tokens: 400,
       system:     system,
-      messages:   messages,
+      messages:   [{ role: 'user', content: prompt }],
     }),
   });
-  console.log('CLAUDE STATUS:', res.status);
   const data = await res.json();
-  if (data.content && data.content[0] && data.content[0].text) return data.content[0].text;
-  if (data.error) console.error('CLAUDE ERROR:', JSON.stringify(data.error));
+  if (data.content && data.content[0]) return data.content[0].text;
+  console.error('CLAUDE BRIEFING ERR:', JSON.stringify(data));
   return null;
 }
 
-// ─── Handler Principal ───────────────────────────────────────────────────────
+async function sendWhatsApp(to, body) {
+  const toFormatted = to.startsWith('whatsapp:') ? to : 'whatsapp:' + to;
+  const auth = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');
+  const res = await fetch(
+    'https://api.twilio.com/2010-04-01/Accounts/' + TWILIO_SID + '/Messages.json',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + auth,
+        'Content-Type':  'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ From: TWILIO_FROM, To: toFormatted, Body: body }),
+    }
+  );
+  const data = await res.json();
+  console.log('TWILIO SEND:', res.status, '| TO:', toFormatted, '| SID:', data.sid || data.code);
+  return res.status === 201;
+}
 
 export default async function handler(req, res) {
-  res.setHeader('Content-Type', 'text/xml');
-  if (req.method !== 'POST') return res.status(405).send(twiml('Método não permitido.'));
+  const secret = process.env.CRON_SECRET;
+  if (secret && req.headers.authorization !== 'Bearer ' + secret) {
+    console.warn('BRIEFING: unauthorized request');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
-  const body      = req.body || {};
-  const phone     = (body.From || '').replace('whatsapp:', '');
-  const mediaUrl  = body.MediaUrl0 || '';
-  const mediaType = (body.MediaContentType0 || '').toLowerCase();
-  const hasAudio  = mediaType.startsWith('audio/') && mediaUrl;
+  console.log('BRIEFING CRON: iniciando', new Date().toISOString());
 
-  let userMessage = (body.Body || '').trim();
-  console.log('FROM:', phone, '| MSG:', userMessage.substring(0, 80), '| AUDIO:', hasAudio ? mediaType : 'none');
+  const phones = await getDistinctPhones();
+  console.log('BRIEFING: phones encontrados:', phones.length, phones);
 
-  // ── Transcrição de áudio ──────────────────────────────────────────────────
-  if (hasAudio) {
+  if (phones.length === 0) {
+    return res.json({ ok: true, sent: 0, message: 'Nenhum usuário cadastrado.' });
+  }
+
+  const results = [];
+
+  for (const phone of phones) {
     try {
-      const transcription = await transcribeAudio(mediaUrl, mediaType);
-      if (transcription) {
-        userMessage = transcription;
-        console.log('TRANSCRIPTION:', userMessage);
-      } else {
-        return res.send(twiml('Não consegui transcrever o áudio. Tente enviar uma mensagem de texto.'));
+      console.log('BRIEFING: processando', phone);
+
+      let accessToken    = null;
+      let calendarEvents = [];
+
+      const tokenRow = await getGoogleTokens(phone);
+      if (tokenRow) {
+        try {
+          accessToken = Date.now() >= tokenRow.expiry_date - 60000
+            ? await refreshGoogleToken(phone, tokenRow.refresh_token)
+            : tokenRow.access_token;
+          calendarEvents = await getCalendarEventsToday(accessToken);
+          console.log('BRIEFING: eventos', phone, calendarEvents.length);
+        } catch (err) {
+          console.error('BRIEFING GOOGLE ERR:', phone, err.message);
+        }
       }
+
+      const notes      = await getRecentNotes();
+      const eventsText = formatEvents(calendarEvents);
+      const notesText  = formatNotes(notes);
+      const briefing   = await generateBriefing(eventsText, notesText);
+
+      if (!briefing) {
+        results.push({ phone, ok: false, reason: 'claude_null' });
+        continue;
+      }
+
+      const sent = await sendWhatsApp(phone, briefing);
+      results.push({ phone, ok: sent });
+
     } catch (err) {
-      console.error('TRANSCRIBE ERR:', err.message);
-      return res.send(twiml('Erro ao processar áudio: ' + err.message));
+      console.error('BRIEFING ERR:', phone, err.message);
+      results.push({ phone, ok: false, reason: err.message });
     }
   }
 
-  if (!userMessage) return res.send(twiml('Envie uma mensagem de texto ou áudio.'));
-
-  // ── Detecta intenções ─────────────────────────────────────────────────────
-  const needsCalendar = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
-  const needsGmail    = /e-?mails?|gmail|caixa|inbox|correio/i.test(userMessage);
-  const needsGoogle   = needsCalendar || needsGmail;
-
-  // ── Google: tokens + dados ────────────────────────────────────────────────
-  let accessToken    = null;
-  let calendarEvents = [];
-  let gmailMessages  = [];
-  let googleConnected = false;
-
-  try {
-    const googleTokens = await getGoogleTokens(phone);
-    console.log('GOOGLE TOKENS FOUND:', !!googleTokens, '| PHONE:', phone);
-
-    if (googleTokens) {
-      accessToken = Date.now() >= googleTokens.expiry_date - 60000
-        ? await refreshGoogleToken(phone, googleTokens.refresh_token)
-        : googleTokens.access_token;
-      googleConnected = true;
-      calendarEvents  = await getCalendarEvents(accessToken, new Date());
-      if (needsGmail) {
-        gmailMessages = await getGmailMessages(accessToken);
-        console.log('GMAIL MESSAGES:', gmailMessages.length);
-      }
-    } else if (needsGoogle) {
-      const authLink = 'https://mentai-app.vercel.app/api/auth/google?phone=' + encodeURIComponent(phone);
-      return res.send(twiml('Para acessar sua agenda e emails, conecte o Google primeiro: ' + authLink));
-    }
-  } catch (err) {
-    console.error('GOOGLE ERR:', err.message);
-  }
-
-  // ── Histórico + Notas ─────────────────────────────────────────────────────
-  try {
-    const [notes, history] = await Promise.all([getNotes(), getHistory(phone)]);
-    console.log('NOTES:', Array.isArray(notes) ? notes.length : 0);
-
-    const vault = Array.isArray(notes)
-      ? notes.map(function(n) { return '### ' + n.title + '\n' + (n.content || '').substring(0, 300); }).join('\n---\n')
-      : '';
-
-    const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-
-    // ── System Prompt ─────────────────────────────────────────────────────
-    let system = 'Você é o Jarvis, assistente pessoal via WhatsApp. Responda em português, de forma curta e direta.\n\n';
-    system += 'Data/hora atual: ' + now + '\n\n';
-
-    system += 'NOTAS DO VAULT:\n' + (vault || '(nenhuma nota ainda)') + '\n\n';
-
-    if (googleConnected) {
-      system += 'AGENDA DE HOJE:\n' + formatCalendarEvents(calendarEvents) + '\n\n';
-      if (gmailMessages.length > 0) {
-        system += 'EMAILS NÃO LIDOS:\n' + formatGmailMessages(gmailMessages) + '\n\n';
-      }
-    }
-
-    system += 'SUAS CAPACIDADES — quando o usuário pedir, execute E inclua a tag em linha separada ao final:\n';
-    system += '• Criar nota:       [CRIAR_NOTA:{"title":"...","content":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."]}]\n';
-    system += '• Atualizar nota:   [ATUALIZAR_NOTA:{"title":"...","content":"..."}]\n';
-    system += '• Apagar nota:      [APAGAR_NOTA:{"title":"..."}]\n';
-    if (googleConnected) {
-      system += '• Criar evento:     [CRIAR_EVENTO:{"title":"...","datetime":"YYYY-MM-DDTHH:mm:ss-03:00"}]\n';
-      system += '• Atualizar evento: [ATUALIZAR_EVENTO:{"title":"...","newDatetime":"YYYY-MM-DDTHH:mm:ss-03:00"}]\n';
-      system += '• Apagar evento:    [APAGAR_EVENTO:{"title":"..."}]\n';
-    }
-    system += 'Confirme cada ação ao usuário de forma curta. NUNCA diga que não consegue fazer essas ações.\n';
-
-    // ── Chamada ao Claude ─────────────────────────────────────────────────
-    const msgs = history
-      .map(function(m) { return { role: m.role, content: m.content }; })
-      .concat([{ role: 'user', content: userMessage }]);
-
-    const reply = await askClaude(system, msgs);
-    console.log('REPLY:', (reply || '').substring(0, 200));
-
-    if (!reply) return res.send(twiml('Não consegui processar. Tente novamente.'));
-
-    // ── Executa ações a partir das tags ──────────────────────────────────
-
-    // Notas
-    const criarNota = parseTagJson(reply, 'CRIAR_NOTA');
-    if (criarNota) {
-      try { await createNote(criarNota); console.log('NOTE CREATED:', criarNota.title); }
-      catch (e) { console.error('CREATE NOTE ERR:', e.message); }
-    }
-
-    const atualizarNota = parseTagJson(reply, 'ATUALIZAR_NOTA');
-    if (atualizarNota) {
-      try { await updateNote(atualizarNota.title, atualizarNota.content); }
-      catch (e) { console.error('UPDATE NOTE ERR:', e.message); }
-    }
-
-    const apagarNota = parseTagJson(reply, 'APAGAR_NOTA');
-    if (apagarNota) {
-      try { await deleteNote(apagarNota.title); }
-      catch (e) { console.error('DELETE NOTE ERR:', e.message); }
-    }
-
-    // Eventos
-    const criarEvento = parseTagJson(reply, 'CRIAR_EVENTO');
-    if (criarEvento && accessToken) {
-      try { await createCalendarEvent(accessToken, criarEvento.title, criarEvento.datetime, criarEvento.description || ''); }
-      catch (e) { console.error('CREATE EVENT ERR:', e.message); }
-    }
-
-    const atualizarEvento = parseTagJson(reply, 'ATUALIZAR_EVENTO');
-    if (atualizarEvento && accessToken) {
-      try { await updateCalendarEvent(accessToken, atualizarEvento.title, atualizarEvento.newDatetime); }
-      catch (e) { console.error('UPDATE EVENT ERR:', e.message); }
-    }
-
-    const apagarEvento = parseTagJson(reply, 'APAGAR_EVENTO');
-    if (apagarEvento && accessToken) {
-      try { await deleteCalendarEvent(accessToken, apagarEvento.title); }
-      catch (e) { console.error('DELETE EVENT ERR:', e.message); }
-    }
-
-    // ── Limpa tags do reply e salva histórico ─────────────────────────────
-    const finalReply = stripActionTags(reply);
-
-    await saveMessage(phone, 'user', userMessage);
-    await saveMessage(phone, 'assistant', finalReply);
-
-    return res.send(twiml(finalReply));
-
-  } catch (err) {
-    console.error('ERR:', err.message);
-    return res.send(twiml('Erro: ' + err.message));
-  }
+  const sent = results.filter(function(r) { return r.ok; }).length;
+  console.log('BRIEFING CRON: finalizado. Enviados:', sent, '/', phones.length);
+  return res.json({ ok: true, sent, total: phones.length, results });
 }
