@@ -479,11 +479,22 @@ export default async function handler(req, res) {
 
     // ── Executa ações a partir das tags ──────────────────────────────────
 
-    // Notas
-    const criarNota = parseTagJson(reply, 'CRIAR_NOTA');
-    if (criarNota) {
-      try { await createNote(criarNota); console.log('NOTE CREATED:', criarNota.title); }
-      catch (e) { console.error('CREATE NOTE ERR:', e.message); }
+    // Criar nota — segunda chamada extrai só título/cluster/tags; content = mensagem original
+    const criarNotaTag = reply.includes('[CRIAR_NOTA:');
+    if (criarNotaTag) {
+      try {
+        const noteJson = await askClaude(
+          'Extraia informações estruturadas. Responda SOMENTE com JSON puro, sem markdown, sem explicações: {"title":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."]}',
+          [{ role: 'user', content: 'Mensagem: ' + userMessage }]
+        );
+        const cleaned = noteJson.replace(/```json\n?|\n?```/g, '').trim();
+        const noteData = JSON.parse(cleaned);
+        noteData.content = userMessage;
+        await createNote(noteData);
+        console.log('NOTE CREATED:', noteData.title);
+      } catch (e) {
+        console.error('CREATE NOTE ERR:', e.message);
+      }
     }
 
     const atualizarNota = parseTagJson(reply, 'ATUALIZAR_NOTA');
