@@ -1,10 +1,10 @@
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_URL      = process.env.SUPABASE_URL;
+const SUPABASE_KEY      = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const ANTHROPIC_KEY     = process.env.ANTHROPIC_API_KEY;
+const OPENAI_KEY        = process.env.OPENAI_API_KEY;
+const TWILIO_SID        = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_TOKEN      = process.env.TWILIO_AUTH_TOKEN;
 
 function sbHeaders() {
   return {
@@ -32,11 +32,13 @@ function parseTagJson(reply, tagName) {
   const match = reply.match(regex);
   if (!match) return null;
   try {
-    let s = match[1].trim();
-    s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-    return JSON.parse(s);
+    const cleaned = match[1]
+      .replace(/```json\n?|\n?```/g, '')
+      .replace(/[\x00-\x1F\x7F]/g, ' ')
+      .trim();
+    return JSON.parse(cleaned);
   } catch (e) {
-    console.error('PARSE TAG ERR (' + tagName + '):', e.message, '| RAW:', match[1].substring(0, 100));
+    console.error('PARSE TAG ERR (' + tagName + '):', e.message, 'RAW:', match[1] ? match[1].substring(0, 200) : 'null');
     return null;
   }
 }
@@ -347,8 +349,8 @@ async function askClaude(system, messages) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_KEY,
+      'Content-Type':      'application/json',
+      'x-api-key':         ANTHROPIC_KEY,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
@@ -404,9 +406,9 @@ export default async function handler(req, res) {
   const needsGoogle   = needsCalendar || needsGmail;
 
   // ── Google: tokens + dados ────────────────────────────────────────────────
-  let accessToken    = null;
-  let calendarEvents = [];
-  let gmailMessages  = [];
+  let accessToken     = null;
+  let calendarEvents  = [];
+  let gmailMessages   = [];
   let googleConnected = false;
 
   try {
@@ -445,7 +447,6 @@ export default async function handler(req, res) {
     // ── System Prompt ─────────────────────────────────────────────────────
     let system = 'Você é o Jarvis, assistente pessoal via WhatsApp. Responda em português, de forma curta e direta.\n\n';
     system += 'Data/hora atual: ' + now + '\n\n';
-
     system += 'NOTAS DO VAULT:\n' + (vault || '(nenhuma nota ainda)') + '\n\n';
 
     if (googleConnected) {
