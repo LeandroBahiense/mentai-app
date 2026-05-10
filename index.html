@@ -1684,9 +1684,7 @@ let currentUser = null;
 let authTab = 'login';
 
 function initSupabaseAuth() {
-  const key = localStorage.getItem('mentai-sb-key') || '';
-  if (!key) { showAuthScreen(); return; }
-  _supabase = supabase.createClient(SUPABASE_URL_AUTH, key);
+ const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtc3V5a2ZxdGlxYWF1aW5laGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDYyMDMsImV4cCI6MjA5MzY4MjIwM30.fTiJ4pmmYMaDRWooDqClGWPpQM5-pta4zSd0Z5gQ6lM';  _supabase = supabase.createClient(SUPABASE_URL_AUTH, key);
   _supabase.auth.onAuthStateChange(async function(event, session) {
     if (session && session.user) {
       currentUser = session.user;
