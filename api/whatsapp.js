@@ -1,10 +1,10 @@
-const SUPABASE_URL      = process.env.SUPABASE_URL;
-const SUPABASE_KEY      = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ANTHROPIC_KEY     = process.env.ANTHROPIC_API_KEY;
-const OPENAI_KEY        = process.env.OPENAI_API_KEY;
-const TWILIO_SID        = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_TOKEN      = process.env.TWILIO_AUTH_TOKEN;
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 
 function sbHeaders() {
   return {
@@ -145,7 +145,7 @@ async function deleteNote(title) {
   return del.status >= 200 && del.status < 300;
 }
 
-// ─── Google / Auth ────────────────────────────────────────────────────────────
+// ─── Google Tokens ───────────────────────────────────────────────────────────
 
 async function getUserIdByPhone(phone) {
   const res = await fetch(
@@ -359,8 +359,8 @@ async function askClaude(system, messages) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'Content-Type':      'application/json',
-      'x-api-key':         ANTHROPIC_KEY,
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_KEY,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
@@ -415,7 +415,7 @@ export default async function handler(req, res) {
   const needsGmail    = /e-?mails?|gmail|caixa|inbox|correio/i.test(userMessage);
   const needsGoogle   = needsCalendar || needsGmail;
 
-  // ── Google: tokens + user_id ──────────────────────────────────────────────
+  // ── Google: tokens + dados ────────────────────────────────────────────────
   let accessToken     = null;
   let calendarEvents  = [];
   let gmailMessages   = [];
@@ -427,8 +427,8 @@ export default async function handler(req, res) {
       getGoogleTokens(phone),
       getUserIdByPhone(phone),
     ]);
-    console.log('GOOGLE TOKENS FOUND:', !!googleTokens, '| PHONE:', phone);
     userId = resolvedUserId;
+    console.log('GOOGLE TOKENS FOUND:', !!googleTokens, '| PHONE:', phone);
     console.log('USER ID:', userId);
 
     if (googleTokens) {
@@ -463,6 +463,7 @@ export default async function handler(req, res) {
     // ── System Prompt ─────────────────────────────────────────────────────
     let system = 'Você é o Jarvis, assistente pessoal via WhatsApp. Responda em português, de forma curta e direta.\n\n';
     system += 'Data/hora atual: ' + now + '\n\n';
+
     system += 'NOTAS DO VAULT:\n' + (vault || '(nenhuma nota ainda)') + '\n\n';
 
     if (googleConnected) {
@@ -495,7 +496,7 @@ export default async function handler(req, res) {
 
     // ── Executa ações a partir das tags ──────────────────────────────────
 
-    // Criar nota — segunda chamada extrai só título/cluster/tags; content = mensagem original
+    // Notas
     const criarNotaTag = reply.includes('[CRIAR_NOTA:');
     if (criarNotaTag) {
       try {
