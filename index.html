@@ -269,100 +269,42 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 #save-indicator{color:var(--green);}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .fade-in{animation:fadeIn .2s ease;}
-/* ─── AUTH SCREEN ────────────────────────────────────────────────────────── */
-#auth-screen {
-  position: fixed;
-  inset: 0;
-  background: #0f0f0f;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-.auth-card {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  border-radius: 16px;
-  padding: 40px 36px;
-  width: 100%;
-  max-width: 400px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.auth-logo { font-size: 28px; font-weight: 700; color: #fff; text-align: center; }
-.auth-subtitle { color: #888; font-size: 14px; text-align: center; margin: -8px 0 4px; }
-.auth-tabs { display: flex; background: #111; border-radius: 8px; padding: 4px; }
-.auth-tab { flex: 1; padding: 8px; border: none; background: transparent; color: #888; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all .2s; }
-.auth-tab.active { background: #2a2a2a; color: #fff; }
-.auth-card input[type="email"], .auth-card input[type="password"] { width: 100%; padding: 12px 14px; background: #111; border: 1px solid #2a2a2a; border-radius: 8px; color: #fff; font-size: 14px; outline: none; box-sizing: border-box; }
-.btn-primary { width: 100%; padding: 12px; background: #6366f1; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
-.btn-primary:hover { background: #5254cc; }
-.btn-primary:disabled { background: #3a3a3a; cursor: default; }
-.btn-secondary { padding: 10px 20px; background: #2a2a2a; color: #ccc; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
-.auth-divider { display: flex; align-items: center; gap: 12px; color: #444; font-size: 13px; }
-.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: #2a2a2a; }
-.btn-google { width: 100%; padding: 12px; background: #fff; color: #333; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
-.auth-error { background: #3b1a1a; color: #f87171; border: 1px solid #7f1d1d; border-radius: 8px; padding: 10px 14px; font-size: 13px; }
-.auth-success { background: #1a3b2a; color: #6ee7b7; border: 1px solid #065f46; border-radius: 8px; padding: 10px 14px; font-size: 13px; }
-/* ─── PHONE MODAL ────────────────────────────────────────────────────────── */
-#phone-modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 9998; }
-.modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.7); }
-.modal-card { position: relative; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 16px; padding: 32px; width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 14px; z-index: 1; }
-.modal-card h3 { color: #fff; margin: 0; }
-.modal-card p { color: #888; font-size: 14px; margin: 0; }
-.modal-card input[type="tel"] { width: 100%; padding: 12px 14px; background: #111; border: 1px solid #2a2a2a; border-radius: 8px; color: #fff; font-size: 14px; box-sizing: border-box; }
-.modal-buttons { display: flex; gap: 10px; justify-content: flex-end; }
-#btn-logout, #btn-link-phone { padding: 6px 14px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; }
-#btn-logout { background: #2a2a2a; color: #ccc; }
-#btn-link-phone { background: #25D366; color: #fff; font-weight: 600; }
+
+/* ── AUTH SCREEN ── */
+#auth-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;}
+#auth-screen.hidden{display:none;}
+.auth-box{width:100%;max-width:380px;background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:40px 36px;display:flex;flex-direction:column;gap:18px;}
+.auth-logo{font-family:'DM Serif Display',serif;font-size:28px;color:var(--accent2);text-align:center;margin-bottom:4px;}
+.auth-logo em{color:var(--accent);font-style:normal;}
+.auth-sub{font-size:12px;color:var(--text3);text-align:center;margin-bottom:8px;}
+.auth-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;font-family:'Sora',sans-serif;color:var(--text);outline:none;transition:border-color .15s;}
+.auth-input:focus{border-color:var(--accent);}
+.auth-input::placeholder{color:var(--text3);}
+.auth-btn{width:100%;padding:11px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-family:'Sora',sans-serif;font-weight:600;cursor:pointer;transition:opacity .15s;}
+.auth-btn:hover{opacity:.85;}
+.auth-err{font-size:11px;color:var(--coral);text-align:center;min-height:16px;}
+.auth-toggle{font-size:11px;color:var(--text3);text-align:center;cursor:pointer;}
+.auth-toggle span{color:var(--accent2);cursor:pointer;}
+.auth-toggle span:hover{text-decoration:underline;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<!-- ─── AUTH SCREEN ─────────────────────────────────────────────────────── -->
+
+<!-- AUTH SCREEN -->
 <div id="auth-screen">
-  <div class="auth-card">
-    <div class="auth-logo">🧠 MentAI</div>
-    <p class="auth-subtitle">Seu segundo cérebro pessoal</p>
-
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Entrar</button>
-      <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')">Criar conta</button>
-    </div>
-
-    <div id="auth-error" class="auth-error" style="display:none"></div>
-    <div id="auth-success" class="auth-success" style="display:none"></div>
-
-    <form id="auth-form" onsubmit="handleAuthForm(event)">
-      <input type="email" id="auth-email" placeholder="seu@email.com" required />
-      <input type="password" id="auth-password" placeholder="Senha" required />
-      <button type="submit" id="auth-submit" class="btn-primary">Entrar</button>
-    </form>
-
-    <div class="auth-divider"><span>ou</span></div>
-
-    <button class="btn-google" onclick="loginWithGoogle()">
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" />
-      Continuar com Google
-    </button>
-  </div>
-</div>
-
-<!-- ─── PHONE LINK MODAL ──────────────────────────────────────────────────── -->
-<div id="phone-modal" style="display:none">
-  <div class="modal-overlay" onclick="closePhoneModal()"></div>
-  <div class="modal-card">
-    <h3>📱 Vincular WhatsApp</h3>
-    <p>Vincule seu número para usar o Jarvis pelo WhatsApp.</p>
-    <input type="tel" id="phone-input" placeholder="+5511999999999" />
-    <div id="phone-error" class="auth-error" style="display:none"></div>
-    <div class="modal-buttons">
-      <button class="btn-secondary" onclick="closePhoneModal()">Cancelar</button>
-      <button class="btn-primary" onclick="savePhoneLink()">Vincular</button>
+  <div class="auth-box">
+    <div class="auth-logo">Ment<em>AI</em></div>
+    <div class="auth-sub">Seu segundo cérebro pessoal</div>
+    <input class="auth-input" id="auth-email"    type="email"    placeholder="seu@email.com" autocomplete="email"/>
+    <input class="auth-input" id="auth-password" type="password" placeholder="Senha" autocomplete="current-password"/>
+    <div class="auth-err" id="auth-err"></div>
+    <button class="auth-btn" id="auth-action-btn" onclick="authAction()">Entrar</button>
+    <div class="auth-toggle" id="auth-toggle-text">
+      Não tem conta? <span onclick="toggleAuthMode()">Criar conta</span>
     </div>
   </div>
 </div>
+
 <!-- TOPBAR -->
 <div id="topbar">
   <div id="logo" onclick="navigate('editor')">Ment<em>AI</em></div>
@@ -604,10 +546,15 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 <!-- AUTOCOMPLETE -->
 <div id="autocomplete"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════
 // ESTADO GLOBAL
 // ══════════════════════════════════════════════════════════════════
+let currentUser = null;
+let _supabase   = null;
+let _authMode   = 'login'; // 'login' | 'signup'
+
 const APP = {
   notes: [],
   currentNoteId: null,
@@ -1164,6 +1111,9 @@ function gApplyLayout() {
 }
 function gDraw() {
   gCtx.clearRect(0,0,GW,GH);
+  const bgGrad=gCtx.createRadialGradient(GW/2,GH/2,0,GW/2,GH/2,Math.max(GW,GH)/1.4);
+  bgGrad.addColorStop(0,'#0d1428'); bgGrad.addColorStop(1,'#080c18');
+  gCtx.fillStyle=bgGrad; gCtx.fillRect(0,0,GW,GH);
   gCtx.save(); gCtx.translate(gPanX,gPanY); gCtx.scale(gZoom,gZoom);
   gPhase+=.011;
   const vis=gFilter2==='all'?gNodes:gNodes.filter(n=>n.cluster===gFilter2);
@@ -1174,8 +1124,23 @@ function gDraw() {
     const hl=gHover&&(e.src.id===gHover.id||e.tgt.id===gHover.id);
     const sl=gSelected&&(e.src.id===gSelected.id||e.tgt.id===gSelected.id);
     gCtx.beginPath(); gCtx.moveTo(e.src.x,e.src.y); gCtx.lineTo(e.tgt.x,e.tgt.y);
-    gCtx.strokeStyle=!ok?'rgba(100,120,200,.03)':sl?e.src.color+'bb':hl?e.src.color+'88':'rgba(100,120,200,.1)';
-    gCtx.lineWidth=sl?1.8:hl?1.3:.7; gCtx.stroke();
+    if(!ok){
+      gCtx.strokeStyle='rgba(100,120,200,.06)'; gCtx.lineWidth=.7;
+    } else {
+      const grad=gCtx.createLinearGradient(e.src.x,e.src.y,e.tgt.x,e.tgt.y);
+      if(sl){
+        grad.addColorStop(0,e.src.color+'ff'); grad.addColorStop(1,e.tgt.color+'ff');
+        gCtx.lineWidth=2.5;
+      } else if(hl){
+        grad.addColorStop(0,e.src.color+'cc'); grad.addColorStop(1,e.tgt.color+'cc');
+        gCtx.lineWidth=2;
+      } else {
+        grad.addColorStop(0,e.src.color+'59'); grad.addColorStop(1,e.tgt.color+'59');
+        gCtx.lineWidth=1.2;
+      }
+      gCtx.strokeStyle=grad;
+    }
+    gCtx.stroke();
   });
   gNodes.forEach(n=>{
     const ok=visSet.has(n.id);
@@ -1186,9 +1151,9 @@ function gDraw() {
     gCtx.beginPath();gCtx.arc(n.x,n.y,r+5,0,Math.PI*2);gCtx.strokeStyle=n.color+(gHover?.id===n.id?'30':'16');gCtx.lineWidth=1;gCtx.stroke();
     gCtx.beginPath();gCtx.arc(n.x,n.y,r,0,Math.PI*2);gCtx.fillStyle=gHover?.id===n.id||gSelected?.id===n.id?n.color:n.color+'bb';gCtx.fill();
     gCtx.beginPath();gCtx.arc(n.x-r*.22,n.y-r*.22,r*.32,0,Math.PI*2);gCtx.fillStyle='rgba(255,255,255,.1)';gCtx.fill();
-    const lo=gHover?.id===n.id||gSelected?.id===n.id?1:.7;
-    gCtx.fillStyle=`rgba(200,210,240,${lo})`;
-    gCtx.font=`${gHover?.id===n.id?500:400} ${gHover?.id===n.id?12:11}px Sora,sans-serif`;
+    const lo=gHover?.id===n.id||gSelected?.id===n.id?1:.75;
+    gCtx.fillStyle=`rgba(220,228,255,${lo})`;
+    gCtx.font=`${gHover?.id===n.id?500:400} 12px Sora,sans-serif`;
     gCtx.textAlign='center'; gCtx.textBaseline='top';
     gCtx.fillText(n.title.length>16?n.title.substring(0,14)+'…':n.title,n.x,n.y+r+5);
   });
@@ -1673,157 +1638,100 @@ document.addEventListener('click',e=>{
 });
 window.addEventListener('resize',()=>{ if(APP.currentView==='graph') resizeGraph(); });
 
-// INIT
-initApp();
-// ─── SUPABASE AUTH ────────────────────────────────────────────────────────────
-const SUPABASE_URL_AUTH = 'https://qmsuykfqtiqaauinehfu.supabase.co';
-const SUPABASE_ANON_KEY_AUTH = APP.supabaseKey || localStorage.getItem('mentai-sb-key') || '';
-
-let _supabase = null;
-let currentUser = null;
-let authTab = 'login';
-
+// ══════════════════════════════════════════════════════════════════
+// AUTH — Supabase Auth
+// ══════════════════════════════════════════════════════════════════
+function hideAuthScreen() {
+  document.getElementById('auth-screen').classList.add('hidden');
+}
+function showAuthScreen() {
+  document.getElementById('auth-screen').classList.remove('hidden');
+}
+function injectTopbarButtons() {
+  const avatar = document.getElementById('user-avatar');
+  if (!avatar || !currentUser) return;
+  const initial = (currentUser.email || 'U')[0].toUpperCase();
+  avatar.textContent = initial;
+  avatar.title = currentUser.email;
+  avatar.onclick = function() {
+    if (confirm('Sair da conta ' + currentUser.email + '?')) {
+      _supabase.auth.signOut();
+    }
+  };
+}
+function toggleAuthMode() {
+  _authMode = _authMode === 'login' ? 'signup' : 'login';
+  const btn  = document.getElementById('auth-action-btn');
+  const tog  = document.getElementById('auth-toggle-text');
+  if (_authMode === 'signup') {
+    btn.textContent  = 'Criar conta';
+    tog.innerHTML    = 'Já tem conta? <span onclick="toggleAuthMode()">Entrar</span>';
+  } else {
+    btn.textContent  = 'Entrar';
+    tog.innerHTML    = 'Não tem conta? <span onclick="toggleAuthMode()">Criar conta</span>';
+  }
+  document.getElementById('auth-err').textContent = '';
+}
+async function authAction() {
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl    = document.getElementById('auth-err');
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Preencha email e senha.'; return; }
+  const btn = document.getElementById('auth-action-btn');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    let result;
+    if (_authMode === 'signup') {
+      result = await _supabase.auth.signUp({ email, password });
+      if (result.error) throw result.error;
+      errEl.style.color = 'var(--green)';
+      errEl.textContent = 'Conta criada! Verifique seu e-mail para confirmar.';
+    } else {
+      result = await _supabase.auth.signInWithPassword({ email, password });
+      if (result.error) throw result.error;
+    }
+  } catch (e) {
+    errEl.style.color = 'var(--coral)';
+    errEl.textContent = e.message || 'Erro ao autenticar.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = _authMode === 'signup' ? 'Criar conta' : 'Entrar';
+  }
+}
 function initSupabaseAuth() {
- const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtc3V5a2ZxdGlxYWF1aW5laGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDYyMDMsImV4cCI6MjA5MzY4MjIwM30.fTiJ4pmmYMaDRWooDqClGWPpQM5-pta4zSd0Z5gQ6lM';  _supabase = supabase.createClient(SUPABASE_URL_AUTH, key);
+  const SUPABASE_URL = 'https://qmsuykfqtiqaauinehfu.supabase.co';
+  const ANON_KEY     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtc3V5a2ZxdGlxYWF1aW5laGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDYyMDMsImV4cCI6MjA5MzY4MjIwM30.fTiJ4pmmYMaDRWooDqClGWPpQM5-pta4zSd0Z5gQ6lM';
+  _supabase = supabase.createClient(SUPABASE_URL, ANON_KEY);
+
   _supabase.auth.onAuthStateChange(async function(event, session) {
     if (session && session.user) {
       currentUser = session.user;
       hideAuthScreen();
       injectTopbarButtons();
+
+      // Auto-conecta o Supabase se não estiver conectado
+      if (!APP.supabaseConnected) {
+        const anonKey = ANON_KEY;
+        APP.supabaseUrl = SUPABASE_URL;
+        APP.supabaseKey = anonKey;
+        localStorage.setItem('mentai-sb-url', APP.supabaseUrl);
+        localStorage.setItem('mentai-sb-key', anonKey);
+        APP.supabaseConnected = true;
+        document.getElementById('db-dot').classList.add('on');
+        document.getElementById('db-label').textContent = 'IA + Supabase';
+        loadFromSupabase();
+      }
     } else {
       currentUser = null;
       showAuthScreen();
     }
   });
-  _supabase.auth.getSession().then(function(result) {
-    if (!result.data.session) showAuthScreen();
-  });
 }
 
-function showAuthScreen() {
-  const el = document.getElementById('auth-screen');
-  if (el) el.style.display = 'flex';
-}
-
-function hideAuthScreen() {
-  const el = document.getElementById('auth-screen');
-  if (el) el.style.display = 'none';
-}
-
-function switchTab(tab) {
-  authTab = tab;
-  document.getElementById('auth-error').style.display = 'none';
-  document.getElementById('auth-success').style.display = 'none';
-  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
-  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
-  document.getElementById('auth-submit').textContent = tab === 'login' ? 'Entrar' : 'Criar conta';
-}
-
-async function handleAuthForm(e) {
-  e.preventDefault();
-  if (!_supabase) { alert('Configure o Supabase primeiro nas Configurações.'); return; }
-  const email = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value;
-  const btn = document.getElementById('auth-submit');
-  btn.disabled = true;
-  btn.textContent = authTab === 'login' ? 'Entrando...' : 'Criando conta...';
-  document.getElementById('auth-error').style.display = 'none';
-  try {
-    if (authTab === 'login') {
-      const { error } = await _supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-    } else {
-      const { error } = await _supabase.auth.signUp({ email, password });
-      if (error) throw error;
-      const el = document.getElementById('auth-success');
-      el.textContent = 'Conta criada! Verifique seu email para confirmar.';
-      el.style.display = 'block';
-    }
-  } catch (err) {
-    const el = document.getElementById('auth-error');
-    el.textContent = err.message || 'Erro ao autenticar.';
-    el.style.display = 'block';
-  }
-  btn.disabled = false;
-  btn.textContent = authTab === 'login' ? 'Entrar' : 'Criar conta';
-}
-
-async function loginWithGoogle() {
-  if (!_supabase) { alert('Configure o Supabase primeiro nas Configurações.'); return; }
-  const { error } = await _supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.origin }
-  });
-  if (error) {
-    const el = document.getElementById('auth-error');
-    el.textContent = error.message;
-    el.style.display = 'block';
-  }
-}
-
-async function logout() {
-  if (_supabase) await _supabase.auth.signOut();
-  currentUser = null;
-  ['btn-logout', 'btn-link-phone'].forEach(function(id) {
-    const el = document.getElementById(id);
-    if (el) el.remove();
-  });
-}
-
-function injectTopbarButtons() {
-  if (document.getElementById('btn-logout')) return;
-  const topbarRight = document.getElementById('topbar-right');
-  if (!topbarRight) return;
-  const btnPhone = document.createElement('button');
-  btnPhone.id = 'btn-link-phone';
-  btnPhone.textContent = '📱 WhatsApp';
-  btnPhone.onclick = openPhoneModal;
-  const btnLogout = document.createElement('button');
-  btnLogout.id = 'btn-logout';
-  btnLogout.textContent = 'Sair';
-  btnLogout.onclick = logout;
-  topbarRight.prepend(btnLogout);
-  topbarRight.prepend(btnPhone);
-}
-
-async function openPhoneModal() {
-  document.getElementById('phone-error').style.display = 'none';
-  if (currentUser && _supabase) {
-    const { data } = await _supabase.from('phone_users').select('phone').eq('user_id', currentUser.id).limit(1).single();
-    if (data) document.getElementById('phone-input').value = data.phone;
-  }
-  document.getElementById('phone-modal').style.display = 'flex';
-}
-
-function closePhoneModal() {
-  document.getElementById('phone-modal').style.display = 'none';
-}
-
-async function savePhoneLink() {
-  const phone = document.getElementById('phone-input').value.trim();
-  const errEl = document.getElementById('phone-error');
-  errEl.style.display = 'none';
-  if (!phone.match(/^\+\d{10,15}$/)) {
-    errEl.textContent = 'Formato inválido. Use +5547974443333';
-    errEl.style.display = 'block';
-    return;
-  }
-  if (!currentUser || !_supabase) return;
-  const { error } = await _supabase.from('phone_users').upsert(
-    { phone, user_id: currentUser.id },
-    { onConflict: 'phone' }
-  );
-  if (error) {
-    errEl.textContent = 'Erro: ' + error.message;
-    errEl.style.display = 'block';
-    return;
-  }
-  closePhoneModal();
-  alert('✅ WhatsApp vinculado! O Jarvis já reconhece seu número.');
-}
-
-// Inicia auth após carregar
+// INIT
 initSupabaseAuth();
+initApp();
 </script>
 </body>
 </html>
