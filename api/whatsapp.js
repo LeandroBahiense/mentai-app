@@ -98,6 +98,7 @@ async function createNote(note) {
       folder:     note.folder     || 'inbox',
       cluster:    note.cluster    || 'inbox',
       tags:       note.tags       || [],
+      user_id:    note.user_id    || null,
       date:       new Date().toISOString().split('T')[0],
       updated_at: new Date().toISOString(),
     }),
@@ -144,7 +145,16 @@ async function deleteNote(title) {
   return del.status >= 200 && del.status < 300;
 }
 
-// ─── Google Tokens ───────────────────────────────────────────────────────────
+// ─── Google / Auth ────────────────────────────────────────────────────────────
+
+async function getUserIdByPhone(phone) {
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/phone_users?phone=eq.' + encodeURIComponent(phone) + '&limit=1&select=user_id',
+    { headers: googleSbHeaders() }
+  );
+  const data = await res.json();
+  return Array.isArray(data) && data.length > 0 ? data[0].user_id : null;
+}
 
 async function getGoogleTokens(phone) {
   const res = await fetch(
@@ -405,15 +415,21 @@ export default async function handler(req, res) {
   const needsGmail    = /e-?mails?|gmail|caixa|inbox|correio/i.test(userMessage);
   const needsGoogle   = needsCalendar || needsGmail;
 
-  // ── Google: tokens + dados ────────────────────────────────────────────────
+  // ── Google: tokens + user_id ──────────────────────────────────────────────
   let accessToken     = null;
   let calendarEvents  = [];
   let gmailMessages   = [];
   let googleConnected = false;
+  let userId          = null;
 
   try {
-    const googleTokens = await getGoogleTokens(phone);
+    const [googleTokens, resolvedUserId] = await Promise.all([
+      getGoogleTokens(phone),
+      getUserIdByPhone(phone),
+    ]);
     console.log('GOOGLE TOKENS FOUND:', !!googleTokens, '| PHONE:', phone);
+    userId = resolvedUserId;
+    console.log('USER ID:', userId);
 
     if (googleTokens) {
       accessToken = Date.now() >= googleTokens.expiry_date - 60000
@@ -490,6 +506,7 @@ export default async function handler(req, res) {
         const cleaned = noteJson.replace(/```json\n?|\n?```/g, '').trim();
         const noteData = JSON.parse(cleaned);
         noteData.content = userMessage;
+        noteData.user_id = userId;
         await createNote(noteData);
         console.log('NOTE CREATED:', noteData.title);
       } catch (e) {
