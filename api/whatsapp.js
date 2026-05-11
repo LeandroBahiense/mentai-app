@@ -197,34 +197,21 @@ async function createNote(note) {
   return id;
 }
 
-async function updateNote(title, newContent, userId) {
-  // Busca a nota pelo título filtrando pelo usuário — usa service role para bypassar RLS
-  const filter = userId
-    ? 'title=ilike.' + encodeURIComponent(title) + '&user_id=eq.' + encodeURIComponent(userId)
-    : 'title=ilike.' + encodeURIComponent(title);
-
+async function updateNote(title, newContent) {
   const res = await fetch(
-    SUPABASE_URL + '/rest/v1/notes?' + filter + '&limit=1&select=id,title,content',
-    { headers: googleSbHeaders() }
+    SUPABASE_URL + '/rest/v1/notes?title=ilike.' + encodeURIComponent(title) + '&limit=1&select=id,title',
+    { headers: sbHeaders() }
   );
   const notes = await res.json();
   console.log('NOTE UPDATE SEARCH:', JSON.stringify(notes));
   if (!Array.isArray(notes) || notes.length === 0) return false;
 
-  // Se newContent parece um lembrete/adição, ACRESCENTA ao conteúdo existente
-  // Se parece uma reescrita completa, SUBSTITUI
-  const existingContent = notes[0].content || '';
-  const isAddition = newContent.length < 300;
-  const finalContent = isAddition
-    ? existingContent + '\n\n- ' + newContent.trim()
-    : newContent;
-
   const patch = await fetch(
     SUPABASE_URL + '/rest/v1/notes?id=eq.' + encodeURIComponent(notes[0].id),
     {
       method: 'PATCH',
-      headers: { ...googleSbHeaders(), 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ content: finalContent, updated_at: new Date().toISOString() }),
+      headers: { ...sbHeaders(), 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ content: newContent, updated_at: new Date().toISOString() }),
     }
   );
   console.log('NOTE UPDATE STATUS:', patch.status, '|', title);
@@ -795,6 +782,14 @@ export default async function handler(req, res) {
           .trim();
         return JSON.parse(cleaned);
       } catch (e) {
+        // Fallback: extrai só o título via regex e usa a mensagem original como conteúdo
+        try {
+          const titleMatch = m[1].match(/"title"\s*:\s*"([^"]+)"/);
+          if (titleMatch) {
+            console.log('PARSE TAG FALLBACK (' + tag + '): usando só o título');
+            return { title: titleMatch[1], content: null };
+          }
+        } catch (e2) {}
         console.error('PARSE TAG ERR (' + tag + '):', e.message, 'RAW:', m[1].substring(0, 100));
         return null;
       }
@@ -821,7 +816,7 @@ export default async function handler(req, res) {
     // ── ATUALIZAR_NOTA ────────────────────────────────────────────────────
     const atualizarNota = parseRobust('ATUALIZAR_NOTA', reply);
     if (atualizarNota) {
-      try { await updateNote(atualizarNota.title, atualizarNota.content, userId); }
+      try { await updateNote(atualizarNota.title, atualizarNota.content || userMessage, userId); }
       catch (e) { console.error('UPDATE NOTE ERR:', e.message); }
     }
 
