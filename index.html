@@ -263,6 +263,20 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 .ss-status.ok{background:rgba(29,158,117,.1);color:#4cba8a;border:1px solid rgba(29,158,117,.2);}
 .ss-status.err{background:rgba(216,90,48,.1);color:var(--coral);border:1px solid rgba(216,90,48,.2);}
 
+/* ── ATTACHMENTS ── */
+#attachments-area{padding:8px 32px;border-top:1px solid var(--border);background:var(--bg2);flex-shrink:0;display:none;}
+#attachments-area.has-files{display:block;}
+.att-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+.att-list{display:flex;flex-wrap:wrap;gap:6px;}
+.att-chip{display:flex;align-items:center;gap:7px;padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;max-width:260px;}
+.att-chip:hover{border-color:var(--border2);color:var(--text);}
+.att-icon{font-size:14px;flex-shrink:0;}
+.att-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.att-size{color:var(--text3);font-size:10px;flex-shrink:0;}
+.att-uploading{opacity:.5;cursor:default;}
+.att-uploading .att-icon{animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
 /* STATUS BAR */
 #statusbar{height:26px;background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:14px;font-size:10px;color:var(--text3);flex-shrink:0;letter-spacing:.4px;}
 #statusbar span{display:flex;align-items:center;gap:4px;}
@@ -365,12 +379,20 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
           <button class="tool" onclick="ins('\n---\n')" title="Separador">—</button>
           <div style="flex:1"></div>
           <span style="font-size:10px;color:var(--text3)" id="wc">0 palavras</span>
-          <button class="tool" onclick="deleteCurrentNote()" title="Apagar nota" style="color:var(--coral);margin-left:4px">🗑</button>
+          <button class="tool" onclick="triggerFileUpload()" title="Anexar arquivo" style="color:var(--accent2);margin-left:4px">📎</button>
+          <button class="tool" onclick="deleteCurrentNote()" title="Apagar nota" style="color:var(--coral);margin-left:2px">🗑</button>
+          <input type="file" id="file-upload-input" style="display:none"
+            accept=".pdf,.jpg,.jpeg,.png,.mp3,.ogg,.docx,image/*,audio/*"
+            onchange="handleFileUpload(event)"/>
         </div>
         <div id="wiki-tip">💡 Digite <code>[[</code> para conectar a outra nota. A IA cria conexões automaticamente.</div>
         <div id="editor-scroll">
           <div id="editor-content" contenteditable="true" spellcheck="false"
                onkeyup="onEKey(event)" onkeydown="onEKeyDown(event)" oninput="onEInput()"></div>
+        </div>
+        <div id="attachments-area">
+          <div class="att-label">Anexos</div>
+          <div class="att-list" id="att-list"></div>
         </div>
       </div>
       <div id="backlinks-pane">
@@ -753,6 +775,7 @@ function openNote(id) {
   renderOutlinks();
   updateWordCount();
   renderSidebar();
+  loadNoteAttachments(id);
 }
 
 function renderNoteMeta(note) {
@@ -1637,6 +1660,159 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('#autocomplete')&&!e.target.closest('#editor-content')) hideAC();
 });
 window.addEventListener('resize',()=>{ if(APP.currentView==='graph') resizeGraph(); });
+
+// ══════════════════════════════════════════════════════════════════
+// UPLOAD DE ARQUIVOS
+// ══════════════════════════════════════════════════════════════════
+
+function triggerFileUpload() {
+  if (!APP.currentNoteId) {
+    alert('Abra ou crie uma nota antes de anexar um arquivo.');
+    return;
+  }
+  if (!APP.supabaseConnected) {
+    alert('Conecte o Supabase antes de fazer upload.');
+    return;
+  }
+  document.getElementById('file-upload-input').value = '';
+  document.getElementById('file-upload-input').click();
+}
+
+function fileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  if (['jpg','jpeg','png','gif','webp'].includes(ext)) return '🖼';
+  if (['mp3','ogg','wav','m4a'].includes(ext))         return '🎵';
+  if (ext === 'pdf')                                    return '📄';
+  if (['doc','docx'].includes(ext))                     return '📝';
+  return '📎';
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024)        return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+async function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const noteId   = APP.currentNoteId;
+  const userId   = (currentUser && currentUser.id) ? currentUser.id : 'anon';
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path     = userId + '/' + noteId + '/' + safeName;
+  const storageUrl = APP.supabaseUrl.replace(/\/$/, '') +
+                     '/storage/v1/object/mentai-files/' + path;
+
+  // Mostra chip temporário de "enviando..."
+  const tempId = 'att-tmp-' + Date.now();
+  renderAttachmentChip({ id: tempId, name: file.name, size: file.size, uploading: true });
+
+  try {
+    // 1. Upload para o Supabase Storage
+    const upRes = await fetch(storageUrl, {
+      method: 'POST',
+      headers: {
+        'apikey':        APP.supabaseKey,
+        'Authorization': 'Bearer ' + APP.supabaseKey,
+        'Content-Type':  file.type || 'application/octet-stream',
+        'x-upsert':      'true',
+      },
+      body: file,
+    });
+
+    if (!upRes.ok) {
+      const err = await upRes.json().catch(() => ({}));
+      throw new Error(err.message || 'Erro no upload: HTTP ' + upRes.status);
+    }
+
+    // 2. Salva metadados na tabela files
+    const publicUrl = APP.supabaseUrl.replace(/\/$/, '') +
+                      '/storage/v1/object/public/mentai-files/' + path;
+
+    const metaRes = await fetch(APP.supabaseUrl.replace(/\/$/, '') + '/rest/v1/files', {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'apikey':        APP.supabaseKey,
+        'Authorization': 'Bearer ' + APP.supabaseKey,
+        'Prefer':        'resolution=merge-duplicates',
+      },
+      body: JSON.stringify({
+        note_id:    noteId,
+        user_id:    userId,
+        name:       file.name,
+        size:       file.size,
+        mime_type:  file.type,
+        path:       path,
+        url:        publicUrl,
+        created_at: new Date().toISOString(),
+      }),
+    });
+
+    console.log('FILE META STATUS:', metaRes.status, '|', file.name);
+
+    // 3. Substitui chip temporário pelo definitivo
+    const tmpEl = document.getElementById(tempId);
+    if (tmpEl) tmpEl.remove();
+    renderAttachmentChip({ id: 'att-' + Date.now(), name: file.name, size: file.size, url: publicUrl });
+
+  } catch (err) {
+    console.error('UPLOAD ERR:', err.message);
+    const tmpEl = document.getElementById(tempId);
+    if (tmpEl) { tmpEl.style.borderColor = 'var(--coral)'; tmpEl.querySelector('.att-icon').textContent = '✕'; }
+    alert('Erro no upload: ' + err.message);
+  }
+}
+
+function renderAttachmentChip(file) {
+  const area = document.getElementById('attachments-area');
+  const list = document.getElementById('att-list');
+  area.classList.add('has-files');
+
+  const chip = document.createElement('div');
+  chip.className = 'att-chip' + (file.uploading ? ' att-uploading' : '');
+  chip.id = file.id;
+  chip.title = file.uploading ? 'Enviando...' : file.name;
+  if (file.url && !file.uploading) {
+    chip.onclick = () => window.open(file.url, '_blank');
+  }
+  chip.innerHTML =
+    '<span class="att-icon">' + (file.uploading ? '⏳' : fileIcon(file.name)) + '</span>' +
+    '<span class="att-name">' + file.name + '</span>' +
+    '<span class="att-size">' + formatFileSize(file.size) + '</span>';
+
+  list.appendChild(chip);
+}
+
+async function loadNoteAttachments(noteId) {
+  const area = document.getElementById('attachments-area');
+  const list = document.getElementById('att-list');
+  list.innerHTML = '';
+  area.classList.remove('has-files');
+
+  if (!APP.supabaseConnected || !noteId) return;
+
+  try {
+    const res = await fetch(
+      APP.supabaseUrl.replace(/\/$/, '') +
+      '/rest/v1/files?note_id=eq.' + encodeURIComponent(noteId) +
+      '&order=created_at.asc',
+      {
+        headers: {
+          'apikey':        APP.supabaseKey,
+          'Authorization': 'Bearer ' + APP.supabaseKey,
+        },
+      }
+    );
+    const files = await res.json();
+    if (Array.isArray(files) && files.length > 0) {
+      files.forEach(f => renderAttachmentChip({ id: 'att-' + f.id, name: f.name, size: f.size, url: f.url }));
+    }
+  } catch (err) {
+    console.error('LOAD ATTACHMENTS ERR:', err.message);
+  }
+}
 
 // ══════════════════════════════════════════════════════════════════
 // AUTH — Supabase Auth
