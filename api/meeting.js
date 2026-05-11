@@ -1,5 +1,3 @@
-import fetch from 'node-fetch';
-
 const SUPABASE_URL         = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ANTHROPIC_KEY        = process.env.ANTHROPIC_API_KEY;
