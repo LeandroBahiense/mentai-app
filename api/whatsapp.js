@@ -120,11 +120,10 @@ function extractKeywords(text) {
 // ─── Transcrição de Reunião ───────────────────────────────────────────────────
 
 function detectMeetingTranscript(text) {
-  if (text.length < 500) return false;
-  // Palavras-chave explícitas de reunião
+  // Palavras-chave explícitas de reunião — sem limite mínimo de caracteres
   const hasTriggerWords = /transcri[çc][aã]o|reuni[aã]o|meeting|ata\b|call\b/i.test(text);
-  // Padrão de transcrição: pelo menos 2 linhas com "Nome:" ou "NOME:"
-  const speakerLines = (text.match(/^[A-ZÀ-Úa-záéíóúâêôãõü][^\n:]{1,40}:/gm) || []).length;
+  // Padrão de transcrição: pelo menos 2 ocorrências de "Nome:"
+  const speakerLines = (text.match(/[A-ZÀ-Úa-záéíóúâêôãõü][^\n:]{1,40}:/g) || []).length;
   const hasTranscriptPattern = speakerLines >= 2;
   return hasTriggerWords || hasTranscriptPattern;
 }
