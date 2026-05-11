@@ -276,6 +276,8 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 .att-uploading{opacity:.5;cursor:default;}
 .att-uploading .att-icon{animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
+.att-del{display:none;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(216,90,48,.15);color:var(--coral);font-size:9px;flex-shrink:0;cursor:pointer;margin-left:2px;border:1px solid rgba(216,90,48,.25);line-height:1;}
+.att-chip:hover .att-del{display:flex;}
 
 /* STATUS BAR */
 #statusbar{height:26px;background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:14px;font-size:10px;color:var(--text3);flex-shrink:0;letter-spacing:.4px;}
@@ -1772,7 +1774,7 @@ async function handleFileUpload(event) {
     // 4. Substitui chip temporário pelo definitivo com URL assinada
     const tmpEl = document.getElementById(tempId);
     if (tmpEl) tmpEl.remove();
-    renderAttachmentChip({ id: 'att-' + Date.now(), name: file.name, size: file.size, url: signedUrl });
+    renderAttachmentChip({ id: 'att-' + Date.now(), name: file.name, size: file.size, url: signedUrl, fileId: null, filePath: path });
 
   } catch (err) {
     console.error('UPLOAD ERR:', err.message);
@@ -1791,15 +1793,72 @@ function renderAttachmentChip(file) {
   chip.className = 'att-chip' + (file.uploading ? ' att-uploading' : '');
   chip.id = file.id;
   chip.title = file.uploading ? 'Enviando...' : file.name;
-  if (file.url && !file.uploading) {
-    chip.onclick = () => window.open(file.url, '_blank');
-  }
+
   chip.innerHTML =
     '<span class="att-icon">' + (file.uploading ? '⏳' : fileIcon(file.name)) + '</span>' +
     '<span class="att-name">' + file.name + '</span>' +
-    '<span class="att-size">' + formatFileSize(file.size) + '</span>';
+    '<span class="att-size">' + formatFileSize(file.size) + '</span>' +
+    (!file.uploading ? '<span class="att-del" title="Apagar arquivo">✕</span>' : '');
+
+  // Clique no chip abre o arquivo; clique no ✕ deleta
+  if (file.url && !file.uploading) {
+    chip.onclick = (e) => {
+      if (e.target.classList.contains('att-del')) return; // não abre se clicou no ✕
+      window.open(file.url, '_blank');
+    };
+  }
+  if (!file.uploading) {
+    const delBtn = chip.querySelector('.att-del');
+    if (delBtn) {
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        deleteAttachment(file.fileId, file.filePath, chip);
+      };
+    }
+  }
 
   list.appendChild(chip);
+}
+
+async function deleteAttachment(fileId, filePath, chipEl) {
+  if (!confirm('Apagar este arquivo?')) return;
+  try {
+    const session = await _supabase.auth.getSession();
+    const token = session.data.session?.access_token || APP.supabaseKey;
+
+    // 1. Deleta do Storage
+    await fetch(
+      APP.supabaseUrl.replace(/\/$/, '') + '/storage/v1/object/mentai-files/' + filePath,
+      {
+        method: 'DELETE',
+        headers: {
+          'apikey':        APP.supabaseKey,
+          'Authorization': 'Bearer ' + token,
+        },
+      }
+    );
+
+    // 2. Deleta da tabela files
+    await fetch(
+      APP.supabaseUrl.replace(/\/$/, '') + '/rest/v1/files?id=eq.' + fileId,
+      {
+        method: 'DELETE',
+        headers: {
+          'apikey':        APP.supabaseKey,
+          'Authorization': 'Bearer ' + token,
+        },
+      }
+    );
+
+    // 3. Remove o chip e esconde a área se vazia
+    chipEl.remove();
+    const list = document.getElementById('att-list');
+    if (!list.children.length) {
+      document.getElementById('attachments-area').classList.remove('has-files');
+    }
+  } catch (err) {
+    alert('Erro ao apagar: ' + err.message);
+  }
 }
 
 async function loadNoteAttachments(noteId) {
@@ -1847,11 +1906,11 @@ async function loadNoteAttachments(noteId) {
         );
         const signedData = await signedRes.json();
         const signedUrl = APP.supabaseUrl.replace(/\/$/, '') + '/storage/v1' + signedData.signedURL;
-        renderAttachmentChip({ id: 'att-' + f.id, name: f.name, size: f.size, url: signedUrl });
+        renderAttachmentChip({ id: 'att-' + f.id, name: f.name, size: f.size, url: signedUrl, fileId: f.id, filePath: f.path });
       } catch (e) {
         // Se falhar a URL assinada, renderiza sem link
         console.error('SIGN URL ERR:', f.name, e.message);
-        renderAttachmentChip({ id: 'att-' + f.id, name: f.name, size: f.size, url: null });
+        renderAttachmentChip({ id: 'att-' + f.id, name: f.name, size: f.size, url: null, fileId: f.id, filePath: f.path });
       }
     }));
 
