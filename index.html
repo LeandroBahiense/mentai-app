@@ -1730,10 +1730,23 @@ async function handleFileUpload(event) {
       throw new Error(err.message || 'Erro no upload: HTTP ' + upRes.status);
     }
 
-    // 2. Salva metadados na tabela files
-    const publicUrl = APP.supabaseUrl.replace(/\/$/, '') +
-                      '/storage/v1/object/public/mentai-files/' + path;
+    // 2. Gera URL assinada (válida por 1 hora)
+    const signedRes = await fetch(
+      APP.supabaseUrl.replace(/\/$/, '') + '/storage/v1/object/sign/mentai-files/' + path,
+      {
+        method: 'POST',
+        headers: {
+          'apikey':        APP.supabaseKey,
+          'Authorization': 'Bearer ' + token,
+          'Content-Type':  'application/json',
+        },
+        body: JSON.stringify({ expiresIn: 3600 }),
+      }
+    );
+    const signedData = await signedRes.json();
+    const signedUrl = APP.supabaseUrl.replace(/\/$/, '') + '/storage/v1' + signedData.signedURL;
 
+    // 3. Salva metadados na tabela files (salva o path, não a URL assinada)
     const metaRes = await fetch(APP.supabaseUrl.replace(/\/$/, '') + '/rest/v1/files', {
       method: 'POST',
       headers: {
@@ -1749,17 +1762,17 @@ async function handleFileUpload(event) {
         size:       file.size,
         mime_type:  file.type,
         path:       path,
-        url:        publicUrl,
+        url:        path,  // salva o path — URL assinada é gerada no load
         created_at: new Date().toISOString(),
       }),
     });
 
     console.log('FILE META STATUS:', metaRes.status, '|', file.name);
 
-    // 3. Substitui chip temporário pelo definitivo
+    // 4. Substitui chip temporário pelo definitivo com URL assinada
     const tmpEl = document.getElementById(tempId);
     if (tmpEl) tmpEl.remove();
-    renderAttachmentChip({ id: 'att-' + Date.now(), name: file.name, size: file.size, url: publicUrl });
+    renderAttachmentChip({ id: 'att-' + Date.now(), name: file.name, size: file.size, url: signedUrl });
 
   } catch (err) {
     console.error('UPLOAD ERR:', err.message);
@@ -1798,6 +1811,11 @@ async function loadNoteAttachments(noteId) {
   if (!APP.supabaseConnected || !noteId) return;
 
   try {
+    // Obtém token de sessão para gerar URLs assinadas
+    const session = await _supabase.auth.getSession();
+    const token = session.data.session?.access_token || APP.supabaseKey;
+
+    // Busca metadados dos arquivos
     const res = await fetch(
       APP.supabaseUrl.replace(/\/$/, '') +
       '/rest/v1/files?note_id=eq.' + encodeURIComponent(noteId) +
@@ -1805,14 +1823,38 @@ async function loadNoteAttachments(noteId) {
       {
         headers: {
           'apikey':        APP.supabaseKey,
-          'Authorization': 'Bearer ' + APP.supabaseKey,
+          'Authorization': 'Bearer ' + token,
         },
       }
     );
     const files = await res.json();
-    if (Array.isArray(files) && files.length > 0) {
-      files.forEach(f => renderAttachmentChip({ id: 'att-' + f.id, name: f.name, size: f.size, url: f.url }));
-    }
+    if (!Array.isArray(files) || files.length === 0) return;
+
+    // Gera URL assinada para cada arquivo (path salvo na tabela)
+    await Promise.all(files.map(async function(f) {
+      try {
+        const signedRes = await fetch(
+          APP.supabaseUrl.replace(/\/$/, '') + '/storage/v1/object/sign/mentai-files/' + f.path,
+          {
+            method: 'POST',
+            headers: {
+              'apikey':        APP.supabaseKey,
+              'Authorization': 'Bearer ' + token,
+              'Content-Type':  'application/json',
+            },
+            body: JSON.stringify({ expiresIn: 3600 }),
+          }
+        );
+        const signedData = await signedRes.json();
+        const signedUrl = APP.supabaseUrl.replace(/\/$/, '') + '/storage/v1' + signedData.signedURL;
+        renderAttachmentChip({ id: 'att-' + f.id, name: f.name, size: f.size, url: signedUrl });
+      } catch (e) {
+        // Se falhar a URL assinada, renderiza sem link
+        console.error('SIGN URL ERR:', f.name, e.message);
+        renderAttachmentChip({ id: 'att-' + f.id, name: f.name, size: f.size, url: null });
+      }
+    }));
+
   } catch (err) {
     console.error('LOAD ATTACHMENTS ERR:', err.message);
   }
