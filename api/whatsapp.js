@@ -162,7 +162,8 @@ async function processMeetingTranscript(transcriptText, userId) {
     '## Resumo\n' +
     (data.summary || '');
 
-  const title = data.title || ('Reunião ' + new Date().toLocaleDateString('pt-BR'));
+  const rawTitle = data.title || new Date().toLocaleDateString('pt-BR');
+  const title = rawTitle.toLowerCase().startsWith('reuni') ? rawTitle : 'Reunião: ' + rawTitle;
   await createNote({
     title:   title,
     content: noteContent,
