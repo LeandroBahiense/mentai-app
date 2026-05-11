@@ -384,6 +384,97 @@ async function transcribeAudio(mediaUrl, contentType) {
   return whisperData.text || null;
 }
 
+// ─── Upload de mídia (imagens / documentos) ──────────────────────────────────
+
+function mimeToExt(mime) {
+  const map = {
+    'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+    'image/gif': 'gif', 'image/webp': 'webp', 'image/heic': 'heic',
+    'application/pdf': 'pdf',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/vnd.ms-excel': 'xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'text/plain': 'txt',
+    'video/mp4': 'mp4', 'video/3gpp': '3gp',
+  };
+  return map[mime] || mime.split('/')[1] || 'bin';
+}
+
+async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
+  // 1. Baixa o arquivo do Twilio com autenticação Basic
+  const auth = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');
+  const fileRes = await fetch(mediaUrl, { headers: { 'Authorization': 'Basic ' + auth } });
+  if (!fileRes.ok) throw new Error('Erro ao baixar mídia do Twilio: ' + fileRes.status);
+  const fileBuffer = await fileRes.arrayBuffer();
+
+  const ext       = mimeToExt(mediaType);
+  const timestamp = Date.now();
+  const folder    = userId || ('phone-' + phone.replace(/\D/g, ''));
+  const path      = folder + '/whatsapp/' + timestamp + '.' + ext;
+
+  console.log('UPLOAD MEDIA:', path, '|', fileBuffer.byteLength, 'bytes');
+
+  // 2. Upload para o Supabase Storage
+  const storageUrl = SUPABASE_URL + '/storage/v1/object/mentai-files/' + path;
+  const upRes = await fetch(storageUrl, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
+      'Content-Type':  mediaType,
+      'x-upsert':      'true',
+    },
+    body: fileBuffer,
+  });
+  if (!upRes.ok) {
+    const upErr = await upRes.text();
+    throw new Error('Erro no upload Storage: ' + upRes.status + ' ' + upErr);
+  }
+  console.log('STORAGE UPLOAD OK:', upRes.status, path);
+
+  // 3. Gera URL assinada válida por 1 hora
+  const signRes = await fetch(
+    SUPABASE_URL + '/storage/v1/object/sign/mentai-files/' + path,
+    {
+      method: 'POST',
+      headers: {
+        'apikey':        SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({ expiresIn: 3600 }),
+    }
+  );
+  const signData = await signRes.json();
+  const signedUrl = signData.signedURL
+    ? SUPABASE_URL + '/storage/v1' + signData.signedURL
+    : null;
+  console.log('SIGNED URL:', signedUrl ? 'OK' : 'FAILED');
+
+  // 4. Salva metadados na tabela files
+  const fileId = 'wa-' + timestamp;
+  await fetch(SUPABASE_URL + '/rest/v1/files', {
+    method: 'POST',
+    headers: { ...sbHeaders(), 'Prefer': 'resolution=merge-duplicates' },
+    body: JSON.stringify({
+      id:         fileId,
+      note_id:    null,
+      user_id:    userId || null,
+      name:       timestamp + '.' + ext,
+      size:       fileBuffer.byteLength,
+      mime_type:  mediaType,
+      path:       path,
+      url:        path,
+      created_at: new Date().toISOString(),
+    }),
+  });
+  console.log('FILE METADATA SAVED:', fileId);
+
+  // 5. Retorna a URL assinada
+  return signedUrl;
+}
+
 // ─── Claude ──────────────────────────────────────────────────────────────────
 
 async function askClaude(system, messages) {
@@ -419,9 +510,11 @@ export default async function handler(req, res) {
   const mediaUrl  = body.MediaUrl0 || '';
   const mediaType = (body.MediaContentType0 || '').toLowerCase();
   const hasAudio  = mediaType.startsWith('audio/') && mediaUrl;
+  const hasMedia  = !hasAudio && mediaUrl && mediaType; // imagem ou documento
 
-  let userMessage = (body.Body || '').trim();
-  console.log('FROM:', phone, '| MSG:', userMessage.substring(0, 80), '| AUDIO:', hasAudio ? mediaType : 'none');
+  let userMessage  = (body.Body || '').trim();
+  let savedFileUrl = null; // URL assinada do arquivo salvo (se houver)
+  console.log('FROM:', phone, '| MSG:', userMessage.substring(0, 80), '| MEDIA:', mediaType || 'none');
 
   // ── Transcrição de áudio ──────────────────────────────────────────────────
   if (hasAudio) {
@@ -439,7 +532,7 @@ export default async function handler(req, res) {
     }
   }
 
-  if (!userMessage) return res.send(twiml('Envie uma mensagem de texto ou áudio.'));
+  if (!userMessage && !hasMedia) return res.send(twiml('Envie uma mensagem de texto, áudio, imagem ou documento.'));
 
   // ── Detecta intenções ─────────────────────────────────────────────────────
   const needsCalendar = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
@@ -447,11 +540,11 @@ export default async function handler(req, res) {
   const needsGoogle   = needsCalendar || needsGmail;
 
   // ── Google: tokens + dados ────────────────────────────────────────────────
-  let accessToken    = null;
-  let calendarEvents = [];
-  let gmailMessages  = [];
+  let accessToken     = null;
+  let calendarEvents  = [];
+  let gmailMessages   = [];
   let googleConnected = false;
-  let userId         = null;
+  let userId          = null;
 
   try {
     const [googleTokens, resolvedUserId] = await Promise.all([
@@ -461,6 +554,23 @@ export default async function handler(req, res) {
     userId = resolvedUserId;
     console.log('GOOGLE TOKENS FOUND:', !!googleTokens, '| PHONE:', phone);
     console.log('USER ID:', userId);
+
+    // ── Upload de imagem / documento (agora com userId resolvido) ─────────
+    if (hasMedia) {
+      try {
+        savedFileUrl = await uploadMediaToStorage(mediaUrl, mediaType, phone, userId);
+        console.log('MEDIA SAVED:', savedFileUrl ? 'OK' : 'sem URL assinada');
+        if (!userMessage) {
+          const isImage = mediaType.startsWith('image/');
+          userMessage = isImage
+            ? '[O usuário enviou uma imagem que foi salva no vault.]'
+            : '[O usuário enviou um documento (' + mediaType + ') que foi salvo no vault.]';
+        }
+      } catch (err) {
+        console.error('UPLOAD MEDIA ERR:', err.message);
+        userMessage = userMessage || '[O usuário enviou um arquivo, mas não foi possível salvá-lo: ' + err.message + ']';
+      }
+    }
 
     if (googleTokens) {
       accessToken = Date.now() >= googleTokens.expiry_date - 60000
@@ -505,6 +615,10 @@ export default async function handler(req, res) {
     // ── System Prompt ─────────────────────────────────────────────────────
     let system = 'Você é o Jarvis, assistente pessoal via WhatsApp. Responda em português, de forma curta e direta.\n\n';
     system += 'Data/hora atual: ' + now + '\n\n';
+
+    if (savedFileUrl) {
+      system += 'ARQUIVO RECEBIDO: O usuário enviou um arquivo via WhatsApp que foi salvo com sucesso no vault (Supabase Storage). Mencione de forma curta que o arquivo foi recebido e salvo.\n\n';
+    }
 
     if (searchResults.length > 0) {
       const relevantVault = searchResults
