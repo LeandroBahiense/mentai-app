@@ -162,8 +162,7 @@ async function processMeetingTranscript(transcriptText, userId) {
     '## Resumo\n' +
     (data.summary || '');
 
-  const rawTitle = data.title || new Date().toLocaleDateString('pt-BR');
-  const title = rawTitle.toLowerCase().startsWith('reuni') ? rawTitle : 'Reunião: ' + rawTitle;
+  const title = data.title || ('Reunião ' + new Date().toLocaleDateString('pt-BR'));
   await createNote({
     title:   title,
     content: noteContent,
@@ -198,21 +197,34 @@ async function createNote(note) {
   return id;
 }
 
-async function updateNote(title, newContent) {
+async function updateNote(title, newContent, userId) {
+  // Busca a nota pelo título filtrando pelo usuário — usa service role para bypassar RLS
+  const filter = userId
+    ? 'title=ilike.' + encodeURIComponent(title) + '&user_id=eq.' + encodeURIComponent(userId)
+    : 'title=ilike.' + encodeURIComponent(title);
+
   const res = await fetch(
-    SUPABASE_URL + '/rest/v1/notes?title=ilike.' + encodeURIComponent(title) + '&limit=1&select=id,title',
-    { headers: sbHeaders() }
+    SUPABASE_URL + '/rest/v1/notes?' + filter + '&limit=1&select=id,title,content',
+    { headers: googleSbHeaders() }
   );
   const notes = await res.json();
   console.log('NOTE UPDATE SEARCH:', JSON.stringify(notes));
   if (!Array.isArray(notes) || notes.length === 0) return false;
 
+  // Se newContent parece um lembrete/adição, ACRESCENTA ao conteúdo existente
+  // Se parece uma reescrita completa, SUBSTITUI
+  const existingContent = notes[0].content || '';
+  const isAddition = newContent.length < 300;
+  const finalContent = isAddition
+    ? existingContent + '\n\n- ' + newContent.trim()
+    : newContent;
+
   const patch = await fetch(
     SUPABASE_URL + '/rest/v1/notes?id=eq.' + encodeURIComponent(notes[0].id),
     {
       method: 'PATCH',
-      headers: { ...sbHeaders(), 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ content: newContent, updated_at: new Date().toISOString() }),
+      headers: { ...googleSbHeaders(), 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ content: finalContent, updated_at: new Date().toISOString() }),
     }
   );
   console.log('NOTE UPDATE STATUS:', patch.status, '|', title);
@@ -809,7 +821,7 @@ export default async function handler(req, res) {
     // ── ATUALIZAR_NOTA ────────────────────────────────────────────────────
     const atualizarNota = parseRobust('ATUALIZAR_NOTA', reply);
     if (atualizarNota) {
-      try { await updateNote(atualizarNota.title, atualizarNota.content); }
+      try { await updateNote(atualizarNota.title, atualizarNota.content, userId); }
       catch (e) { console.error('UPDATE NOTE ERR:', e.message); }
     }
 
