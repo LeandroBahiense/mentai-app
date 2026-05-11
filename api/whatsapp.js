@@ -452,16 +452,33 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
     : null;
   console.log('SIGNED URL:', signedUrl ? 'OK' : 'FAILED');
 
-  // 4. Salva metadados na tabela files
-  const fileId = 'wa-' + timestamp;
+  // 4. Busca a nota mais recente do usuário para vincular o arquivo
+  let noteId = null;
+  if (userId) {
+    try {
+      const notesRes = await fetch(
+        SUPABASE_URL + '/rest/v1/notes?user_id=eq.' + encodeURIComponent(userId) + '&order=updated_at.desc&limit=1&select=id',
+        { headers: googleSbHeaders() }
+      );
+      const notes = await notesRes.json();
+      noteId = Array.isArray(notes) && notes.length > 0 ? notes[0].id : null;
+      console.log('LINK NOTE ID:', noteId);
+    } catch (e) {
+      console.error('FETCH NOTE FOR FILE ERR:', e.message);
+    }
+  }
+
+  // Salva metadados na tabela files
+  const fileId   = 'wa-' + timestamp;
+  const filename = timestamp + '.' + ext;
   await fetch(SUPABASE_URL + '/rest/v1/files', {
     method: 'POST',
-    headers: { ...sbHeaders(), 'Prefer': 'resolution=merge-duplicates' },
+    headers: { ...googleSbHeaders(), 'Prefer': 'resolution=merge-duplicates' },
     body: JSON.stringify({
       id:         fileId,
-      note_id:    null,
+      note_id:    noteId,
       user_id:    userId || null,
-      name:       timestamp + '.' + ext,
+      name:       filename,
       size:       fileBuffer.byteLength,
       mime_type:  mediaType,
       path:       path,
@@ -469,7 +486,7 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
       created_at: new Date().toISOString(),
     }),
   });
-  console.log('FILE METADATA SAVED:', fileId);
+  console.log('FILE METADATA SAVED:', fileId, '| note_id:', noteId);
 
   // 5. Retorna a URL assinada
   return signedUrl;
