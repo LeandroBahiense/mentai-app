@@ -1543,6 +1543,8 @@ async function syncSupabase(){
   const note = APP.notes.find(n=>n.id===APP.currentNoteId);
   if(!note) return;
   try{
+    const now = new Date().toISOString();
+    note.updated_at = now; // atualiza local para o merge funcionar
     await fetch(sbUrl('notes'), {
       method:'POST',
       headers:sbHeaders(),
@@ -1554,9 +1556,10 @@ async function syncSupabase(){
         cluster: note.cluster||'produto',
         tags: note.tags||[],
         date: note.date||'agora',
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       }),
     });
+    localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
     document.getElementById('save-indicator').textContent='✓ salvo no Supabase';
     document.getElementById('save-indicator').style.color='var(--green)';
   }catch(e){
@@ -1572,26 +1575,58 @@ async function loadFromSupabase(){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const rows = await res.json();
     if(rows && rows.length > 0){
-      APP.notes = rows.map(r=>({
-        id: r.id,
-        title: r.title,
-        content: r.content||'',
-        folder: r.folder||'inbox',
-        cluster: r.cluster||'produto',
-        tags: r.tags||[],
-        date: r.date||'salvo',
-      }));
-      APP.activeNotes = new Set(APP.notes.map(n=>n.id));
+
+      // ── Merge inteligente: só substitui se o banco for mais recente ──────
+      rows.forEach(function(r) {
+        const localNote = APP.notes.find(function(n) { return n.id === r.id; });
+        if (localNote) {
+          const bankDate  = new Date(r.updated_at  || 0).getTime();
+          const localDate = new Date(localNote.updated_at || 0).getTime();
+          if (bankDate > localDate) {
+            Object.assign(localNote, {
+              title:      r.title,
+              content:    r.content  || '',
+              folder:     r.folder   || 'inbox',
+              cluster:    r.cluster  || 'produto',
+              tags:       r.tags     || [],
+              date:       r.date     || 'salvo',
+              updated_at: r.updated_at,
+            });
+          }
+        } else {
+          // Nota nova que não existe localmente — adiciona
+          APP.notes.push({
+            id:         r.id,
+            title:      r.title,
+            content:    r.content  || '',
+            folder:     r.folder   || 'inbox',
+            cluster:    r.cluster  || 'produto',
+            tags:       r.tags     || [],
+            date:       r.date     || 'salvo',
+            updated_at: r.updated_at,
+          });
+        }
+      });
+
+      APP.activeNotes = new Set(APP.notes.map(function(n) { return n.id; }));
       localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
       renderSidebar();
       renderChatCtx();
       buildGraphData();
       updateStatusBar();
       updateSystemStatus();
-      if(APP.notes.length>0) openNote(APP.notes[0].id);
-      document.getElementById('save-indicator').textContent='✓ notas carregadas';
+
+      // Atualiza a nota aberta se foi modificada no banco; senão abre a primeira
+      if (APP.currentNoteId) {
+        const current = APP.notes.find(function(n) { return n.id === APP.currentNoteId; });
+        if (current) openNote(APP.currentNoteId);
+      } else if (APP.notes.length > 0) {
+        openNote(APP.notes[0].id);
+      }
+
+      document.getElementById('save-indicator').textContent='✓ notas sincronizadas';
       document.getElementById('save-indicator').style.color='var(--green)';
-      showSBStatus(rows.length+' nota(s) carregada(s) ✓','ok');
+      showSBStatus(rows.length+' nota(s) sincronizada(s) ✓','ok');
     } else {
       // banco vazio — sobe as notas locais
       await pushAllToSupabase();
@@ -1607,6 +1642,8 @@ async function pushAllToSupabase(){
   let ok=0;
   for(const note of APP.notes){
     try{
+      const now = note.updated_at || new Date().toISOString();
+      note.updated_at = now; // garante que o objeto local tem updated_at
       await fetch(sbUrl('notes'), {
         method:'POST',
         headers:sbHeaders(),
@@ -1618,12 +1655,13 @@ async function pushAllToSupabase(){
           cluster: note.cluster||'produto',
           tags: note.tags||[],
           date: note.date||'agora',
-          updated_at: new Date().toISOString(),
+          updated_at: now,
         }),
       });
       ok++;
     }catch(e){ console.warn('push error',note.id,e); }
   }
+  localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
   showSBStatus(ok+' notas enviadas ao Supabase ✓','ok');
   document.getElementById('save-indicator').textContent='✓ salvo no Supabase';
   document.getElementById('save-indicator').style.color='var(--green)';
@@ -1985,6 +2023,10 @@ function initSupabaseAuth() {
   const ANON_KEY     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtc3V5a2ZxdGlxYWF1aW5laGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDYyMDMsImV4cCI6MjA5MzY4MjIwM30.fTiJ4pmmYMaDRWooDqClGWPpQM5-pta4zSd0Z5gQ6lM';
   _supabase = supabase.createClient(SUPABASE_URL, ANON_KEY);
 
+  // Guarda as assinaturas Realtime para poder cancelar ao fazer logout
+  let _realtimeNotes = null;
+  let _realtimeFiles = null;
+
   _supabase.auth.onAuthStateChange(async function(event, session) {
     if (session && session.user) {
       currentUser = session.user;
@@ -2003,9 +2045,51 @@ function initSupabaseAuth() {
         document.getElementById('db-label').textContent = 'IA + Supabase';
         loadFromSupabase();
       }
+
+      // ── Realtime: notas ──────────────────────────────────────────────
+      if (!_realtimeNotes) {
+        _realtimeNotes = _supabase
+          .channel('notes-changes')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'notes', filter: 'user_id=eq.' + session.user.id },
+            function(payload) {
+              console.log('REALTIME notes:', payload.eventType);
+              loadFromSupabase();
+            }
+          )
+          .subscribe(function(status) {
+            console.log('REALTIME notes status:', status);
+          });
+      }
+
+      // ── Realtime: arquivos ───────────────────────────────────────────
+      if (!_realtimeFiles) {
+        _realtimeFiles = _supabase
+          .channel('files-changes')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'files', filter: 'user_id=eq.' + session.user.id },
+            function(payload) {
+              console.log('REALTIME files:', payload.eventType);
+              // Recarrega anexos da nota aberta, se houver
+              if (APP.currentNoteId) {
+                loadNoteAttachments(APP.currentNoteId);
+              }
+            }
+          )
+          .subscribe(function(status) {
+            console.log('REALTIME files status:', status);
+          });
+      }
+
     } else {
       currentUser = null;
       showAuthScreen();
+
+      // Cancela as assinaturas Realtime ao sair
+      if (_realtimeNotes) { _supabase.removeChannel(_realtimeNotes); _realtimeNotes = null; }
+      if (_realtimeFiles) { _supabase.removeChannel(_realtimeFiles); _realtimeFiles = null; }
     }
   });
 }
