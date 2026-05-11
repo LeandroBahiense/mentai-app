@@ -2023,9 +2023,38 @@ function initSupabaseAuth() {
   const ANON_KEY     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtc3V5a2ZxdGlxYWF1aW5laGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDYyMDMsImV4cCI6MjA5MzY4MjIwM30.fTiJ4pmmYMaDRWooDqClGWPpQM5-pta4zSd0Z5gQ6lM';
   _supabase = supabase.createClient(SUPABASE_URL, ANON_KEY);
 
-  // Guarda as assinaturas Realtime para poder cancelar ao fazer logout
-  let _realtimeNotes = null;
-  let _realtimeFiles = null;
+  // ── Realtime: canal único com reconexão automática ──────────────────────
+  let _realtimeChannel = null;
+
+  function setupRealtime(userId) {
+    console.log('REALTIME: configurando para user', userId);
+
+    // Remove canal anterior se existir
+    if (_realtimeChannel) {
+      _supabase.removeChannel(_realtimeChannel);
+      _realtimeChannel = null;
+    }
+
+    _realtimeChannel = _supabase
+      .channel('db-changes')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'notes' },
+        function(payload) {
+          console.log('REALTIME notes:', payload.eventType, payload.new && payload.new.id);
+          loadFromSupabase();
+        }
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'files' },
+        function(payload) {
+          console.log('REALTIME files:', payload.eventType);
+          if (APP.currentNoteId) loadNoteAttachments(APP.currentNoteId);
+        }
+      )
+      .subscribe(function(status) {
+        console.log('REALTIME STATUS:', status);
+      });
+  }
 
   _supabase.auth.onAuthStateChange(async function(event, session) {
     if (session && session.user) {
@@ -2046,50 +2075,18 @@ function initSupabaseAuth() {
         loadFromSupabase();
       }
 
-      // ── Realtime: notas ──────────────────────────────────────────────
-      if (!_realtimeNotes) {
-        _realtimeNotes = _supabase
-          .channel('notes-changes')
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'notes', filter: 'user_id=eq.' + session.user.id },
-            function(payload) {
-              console.log('REALTIME notes:', payload.eventType);
-              loadFromSupabase();
-            }
-          )
-          .subscribe(function(status) {
-            console.log('REALTIME notes status:', status);
-          });
-      }
-
-      // ── Realtime: arquivos ───────────────────────────────────────────
-      if (!_realtimeFiles) {
-        _realtimeFiles = _supabase
-          .channel('files-changes')
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'files', filter: 'user_id=eq.' + session.user.id },
-            function(payload) {
-              console.log('REALTIME files:', payload.eventType);
-              // Recarrega anexos da nota aberta, se houver
-              if (APP.currentNoteId) {
-                loadNoteAttachments(APP.currentNoteId);
-              }
-            }
-          )
-          .subscribe(function(status) {
-            console.log('REALTIME files status:', status);
-          });
-      }
+      // Inicia assinatura Realtime
+      setupRealtime(session.user.id);
 
     } else {
       currentUser = null;
       showAuthScreen();
 
-      // Cancela as assinaturas Realtime ao sair
-      if (_realtimeNotes) { _supabase.removeChannel(_realtimeNotes); _realtimeNotes = null; }
-      if (_realtimeFiles) { _supabase.removeChannel(_realtimeFiles); _realtimeFiles = null; }
+      // Cancela o canal Realtime ao sair
+      if (_realtimeChannel) {
+        _supabase.removeChannel(_realtimeChannel);
+        _realtimeChannel = null;
+      }
     }
   });
 }
