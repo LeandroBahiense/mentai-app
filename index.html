@@ -2043,9 +2043,7 @@ function initSupabaseAuth() {
         { event: '*', schema: 'public', table: 'notes' },
         function(payload) {
           console.log('REALTIME notes:', payload.eventType);
-          loadFromSupabase().then(function() {
-            if (APP.currentNoteId) loadNoteAttachments(APP.currentNoteId);
-          });
+          loadFromSupabase();
         }
       )
       .on('postgres_changes',
