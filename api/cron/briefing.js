@@ -97,11 +97,32 @@ async function getCalendarEventsToday(accessToken) {
   return data.items || [];
 }
 
-async function getRecentNotes(phone) {
-  // Busca as 5 notas mais recentes (vault geral — não filtra por phone pois o vault é compartilhado)
+async function getUserIdByPhone(phone) {
   const res = await fetch(
-    SUPABASE_URL + '/rest/v1/notes?select=title,content,cluster&order=updated_at.desc&limit=5',
-    { headers: sbHeaders() }
+    SUPABASE_URL + '/rest/v1/phone_users?phone=eq.' + encodeURIComponent(phone) + '&limit=1&select=user_id',
+    { headers: googleSbHeaders() }
+  );
+  const data = await res.json();
+  return Array.isArray(data) && data.length > 0 ? data[0].user_id : null;
+}
+
+async function getRecentNotes(userId) {
+  if (!userId) return [];
+  // Busca as 10 notas mais recentes do usuário — inclui todas as pastas
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/notes?user_id=eq.' + encodeURIComponent(userId) + '&select=title,content,cluster,folder,tags&order=updated_at.desc&limit=10',
+    { headers: googleSbHeaders() }
+  );
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+async function getPersonalNotes(userId) {
+  if (!userId) return [];
+  // Busca especificamente notas pessoais e inbox com tarefas pendentes
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/notes?user_id=eq.' + encodeURIComponent(userId) + '&folder=in.(pessoal,inbox)&select=title,content,folder&order=updated_at.desc&limit=5',
+    { headers: googleSbHeaders() }
   );
   const data = await res.json();
   return Array.isArray(data) ? data : [];
@@ -124,13 +145,21 @@ function formatEvents(events) {
 function formatNotes(notes) {
   if (!notes || notes.length === 0) return 'Nenhuma nota recente.';
   return notes.map(function(n) {
-    return '• ' + n.title + (n.content ? ': ' + n.content.substring(0, 80) + '...' : '');
+    const folder = n.folder ? '[' + n.folder + '] ' : '';
+    return '• ' + folder + n.title + (n.content ? ': ' + n.content.substring(0, 120) : '');
+  }).join('\n');
+}
+
+function formatPersonalNotes(notes) {
+  if (!notes || notes.length === 0) return 'Nenhum lembrete ou tarefa pessoal.';
+  return notes.map(function(n) {
+    return '• ' + n.title + (n.content ? '\n  ' + n.content.substring(0, 200) : '');
   }).join('\n');
 }
 
 // ─── Claude ───────────────────────────────────────────────────────────────────
 
-async function generateBriefing(eventsText, notesText) {
+async function generateBriefing(eventsText, notesText, personalText) {
   const date = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo'
   });
@@ -140,8 +169,15 @@ async function generateBriefing(eventsText, notesText) {
   const prompt =
     'Hoje é ' + date + '.\n\n' +
     'AGENDA DE HOJE:\n' + eventsText + '\n\n' +
+    'LEMBRETES E TAREFAS PESSOAIS:\n' + (personalText || 'Nenhum lembrete pessoal.') + '\n\n' +
     'NOTAS RECENTES DO VAULT:\n' + notesText + '\n\n' +
-    'Gere um briefing matinal personalizado: cumprimente, resuma o dia, destaque algo relevante das notas e finalize com energia positiva.';
+    'Gere um briefing matinal personalizado em português. Inclua:\n' +
+    '1. Cumprimento com o dia e data\n' +
+    '2. Agenda do dia (eventos do calendário)\n' +
+    '3. Lembretes e tarefas pessoais pendentes — SEMPRE inclua se existirem\n' +
+    '4. Destaques relevantes do vault\n' +
+    '5. Foco sugerido para o dia\n' +
+    'Seja direto e prático. Máximo 300 palavras.';
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -232,13 +268,20 @@ export default async function handler(req, res) {
         }
       }
 
-      // Notas recentes
-      const notes = await getRecentNotes(phone);
+      // Busca user_id pelo telefone
+      const userId = await getUserIdByPhone(phone);
+      console.log('BRIEFING USER ID:', phone, userId);
+
+      // Notas recentes e pessoais
+      const notes         = await getRecentNotes(userId);
+      const personalNotes = await getPersonalNotes(userId);
+      console.log('BRIEFING NOTES:', notes.length, '| PERSONAL:', personalNotes.length);
 
       // Gera briefing
-      const eventsText = formatEvents(calendarEvents);
-      const notesText  = formatNotes(notes);
-      const briefing   = await generateBriefing(eventsText, notesText);
+      const eventsText   = formatEvents(calendarEvents);
+      const notesText    = formatNotes(notes);
+      const personalText = formatPersonalNotes(personalNotes);
+      const briefing     = await generateBriefing(eventsText, notesText, personalText);
 
       if (!briefing) {
         console.error('BRIEFING: Claude retornou null para', phone);
