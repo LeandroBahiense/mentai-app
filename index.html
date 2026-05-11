@@ -1709,12 +1709,16 @@ async function handleFileUpload(event) {
   renderAttachmentChip({ id: tempId, name: file.name, size: file.size, uploading: true });
 
   try {
+    // Obtém o token da sessão autenticada (necessário para RLS do Storage)
+    const session = await _supabase.auth.getSession();
+    const token = session.data.session?.access_token || APP.supabaseKey;
+
     // 1. Upload para o Supabase Storage
     const upRes = await fetch(storageUrl, {
       method: 'POST',
       headers: {
         'apikey':        APP.supabaseKey,
-        'Authorization': 'Bearer ' + APP.supabaseKey,
+        'Authorization': 'Bearer ' + token,
         'Content-Type':  file.type || 'application/octet-stream',
         'x-upsert':      'true',
       },
@@ -1735,7 +1739,7 @@ async function handleFileUpload(event) {
       headers: {
         'Content-Type':  'application/json',
         'apikey':        APP.supabaseKey,
-        'Authorization': 'Bearer ' + APP.supabaseKey,
+        'Authorization': 'Bearer ' + token,
         'Prefer':        'resolution=merge-duplicates',
       },
       body: JSON.stringify({
