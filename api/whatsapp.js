@@ -100,6 +100,7 @@ async function searchNotesByContent(userId, query) {
 }
 
 function extractKeywords(text) {
+  // Remove stopwords e retorna as palavras mais relevantes
   const stopwords = new Set([
     'o','a','os','as','um','uma','uns','umas','de','do','da','dos','das',
     'em','no','na','nos','nas','por','para','com','que','me','se','não',
@@ -419,7 +420,7 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
   const upRes = await fetch(storageUrl, {
     method: 'POST',
     headers: {
-      'apikey':        SUPABASE_KEY,
+      'apikey':        SUPABASE_SERVICE_KEY,
       'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
       'Content-Type':  mediaType,
       'x-upsert':      'true',
@@ -438,7 +439,7 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
     {
       method: 'POST',
       headers: {
-        'apikey':        SUPABASE_KEY,
+        'apikey':        SUPABASE_SERVICE_KEY,
         'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
         'Content-Type':  'application/json',
       },
@@ -467,7 +468,7 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
     }
   }
 
-  // 5. Salva metadados na tabela files
+  // Salva metadados na tabela files
   const fileId   = 'wa-' + timestamp;
   const filename = timestamp + '.' + ext;
   const metaBody = JSON.stringify({
@@ -496,7 +497,7 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
   console.log('FILE META STATUS:', metaRes.status);
   console.log('FILE META BODY:', metaText);
 
-  // 6. Retorna a URL assinada
+  // 5. Retorna a URL assinada
   return signedUrl;
 }
 
@@ -538,7 +539,7 @@ export default async function handler(req, res) {
   const hasMedia  = !hasAudio && mediaUrl && mediaType; // imagem ou documento
 
   let userMessage  = (body.Body || '').trim();
-  let savedFileUrl = null;
+  let savedFileUrl = null; // URL assinada do arquivo salvo (se houver)
   console.log('FROM:', phone, '| MSG:', userMessage.substring(0, 80), '| MEDIA:', mediaType || 'none');
 
   // ── Transcrição de áudio ──────────────────────────────────────────────────
@@ -565,11 +566,11 @@ export default async function handler(req, res) {
   const needsGoogle   = needsCalendar || needsGmail;
 
   // ── Google: tokens + dados ────────────────────────────────────────────────
-  let accessToken     = null;
-  let calendarEvents  = [];
-  let gmailMessages   = [];
+  let accessToken    = null;
+  let calendarEvents = [];
+  let gmailMessages  = [];
   let googleConnected = false;
-  let userId          = null;
+  let userId         = null;
 
   try {
     const [googleTokens, resolvedUserId] = await Promise.all([
@@ -753,6 +754,7 @@ export default async function handler(req, res) {
     }
 
     // ── Salva histórico ───────────────────────────────────────────────────
+
     await saveMessage(phone, 'user', userMessage);
     await saveMessage(phone, 'assistant', finalReply);
 
