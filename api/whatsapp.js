@@ -117,6 +117,70 @@ function extractKeywords(text) {
     .join(' ');
 }
 
+// ─── Transcrição de Reunião ───────────────────────────────────────────────────
+
+function detectMeetingTranscript(text) {
+  if (text.length < 500) return false;
+  // Palavras-chave explícitas de reunião
+  const hasTriggerWords = /transcri[çc][aã]o|reuni[aã]o|meeting|ata\b|call\b/i.test(text);
+  // Padrão de transcrição: pelo menos 2 linhas com "Nome:" ou "NOME:"
+  const speakerLines = (text.match(/^[A-ZÀ-Úa-záéíóúâêôãõü][^\n:]{1,40}:/gm) || []).length;
+  const hasTranscriptPattern = speakerLines >= 2;
+  return hasTriggerWords || hasTranscriptPattern;
+}
+
+async function processMeetingTranscript(transcriptText, userId) {
+  const extractPrompt = [
+    'Analise esta transcrição de reunião e extraia as informações estruturadas.',
+    'Responda APENAS com JSON:',
+    '{',
+    '  "title": "título da reunião",',
+    '  "participants": ["nome1", "nome2"],',
+    '  "decisions": ["decisão 1", "decisão 2"],',
+    '  "actions": ["ação 1 - responsável", "ação 2 - responsável"],',
+    '  "summary": "resumo executivo em 3-4 linhas"',
+    '}',
+  ].join('\n');
+
+  const raw = await askClaude(extractPrompt, [{ role: 'user', content: transcriptText }]);
+  if (!raw) throw new Error('Claude não retornou dados da transcrição');
+
+  const cleaned = raw
+    .replace(/```json\n?|\n?```/g, '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .trim();
+  const data = JSON.parse(cleaned);
+  console.log('TRANSCRIPT PARSED:', data.title, '| PARTICIPANTS:', (data.participants || []).length);
+
+  // Formata o conteúdo em markdown estruturado
+  const lines = [];
+  lines.push('## Participantes');
+  (data.participants || []).forEach(function(p) { lines.push('- ' + p); });
+  lines.push('');
+  lines.push('## Decisões');
+  (data.decisions || []).forEach(function(d) { lines.push('- ' + d); });
+  lines.push('');
+  lines.push('## Próximas Ações');
+  (data.actions || []).forEach(function(a) { lines.push('- [ ] ' + a); });
+  lines.push('');
+  lines.push('## Resumo');
+  lines.push(data.summary || '');
+  const content = lines.join('\n');
+
+  const title = data.title || ('Reunião ' + new Date().toLocaleDateString('pt-BR'));
+  await createNote({
+    title:   title,
+    content: content,
+    folder:  'reunioes',
+    cluster: 'equipe',
+    tags:    ['reunião', 'transcrição'],
+    user_id: userId,
+  });
+  console.log('MEETING NOTE CREATED:', title);
+
+  return data;
+}
+
 async function createNote(note) {
   const id = 'wa-' + Date.now();
   const res = await fetch(SUPABASE_URL + '/rest/v1/notes', {
@@ -472,6 +536,7 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
   const fileId   = 'wa-' + timestamp;
   const filename = timestamp + '.' + ext;
   const metaBody = JSON.stringify({
+    id:         fileId,
     note_id:    noteId,
     user_id:    userId || null,
     name:       filename,
@@ -617,6 +682,34 @@ export default async function handler(req, res) {
 
   // ── Histórico + Notas ─────────────────────────────────────────────────────
   try {
+
+    // ── Detecta e processa transcrição de reunião ─────────────────────────
+    if (detectMeetingTranscript(userMessage)) {
+      console.log('TRANSCRIPT DETECTED: processando como reunião');
+      try {
+        const meetData = await processMeetingTranscript(userMessage, userId);
+        const parts = (meetData.participants || []).join(', ') || '—';
+        const nDec  = (meetData.decisions || []).length;
+        const nAct  = (meetData.actions   || []).length;
+        const confirmMsg = [
+          '✅ *Reunião registrada no vault!*',
+          '',
+          '📌 *' + (meetData.title || 'Reunião') + '*',
+          '👥 Participantes: ' + parts,
+          '✔️ ' + nDec + ' decisão(ões) registrada(s)',
+          '📋 ' + nAct + ' próxima(s) ação(ões)',
+          '',
+          '📝 ' + (meetData.summary || '').substring(0, 250),
+        ].join('\n');
+        await saveMessage(phone, 'user', '[transcrição de reunião — ' + userMessage.length + ' chars]');
+        await saveMessage(phone, 'assistant', confirmMsg);
+        return res.send(twiml(confirmMsg));
+      } catch (transcriptErr) {
+        console.error('TRANSCRIPT ERR:', transcriptErr.message, '— continuando fluxo normal');
+        // Se a extração falhar, continua para o fluxo normal do Claude
+      }
+    }
+
     const [notes, history] = await Promise.all([getNotes(), getHistory(phone)]);
     console.log('NOTES:', Array.isArray(notes) ? notes.length : 0);
 
