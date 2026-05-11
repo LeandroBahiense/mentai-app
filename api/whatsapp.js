@@ -420,7 +420,7 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
   const upRes = await fetch(storageUrl, {
     method: 'POST',
     headers: {
-      'apikey':        SUPABASE_SERVICE_KEY,
+      'apikey':        SUPABASE_KEY,
       'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
       'Content-Type':  mediaType,
       'x-upsert':      'true',
@@ -439,7 +439,7 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
     {
       method: 'POST',
       headers: {
-        'apikey':        SUPABASE_SERVICE_KEY,
+        'apikey':        SUPABASE_KEY,
         'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
         'Content-Type':  'application/json',
       },
@@ -472,7 +472,6 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
   const fileId   = 'wa-' + timestamp;
   const filename = timestamp + '.' + ext;
   const metaBody = JSON.stringify({
-    id:         fileId,
     note_id:    noteId,
     user_id:    userId || null,
     name:       filename,
