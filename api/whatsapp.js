@@ -467,27 +467,36 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
     }
   }
 
-  // Salva metadados na tabela files
+  // 5. Salva metadados na tabela files
   const fileId   = 'wa-' + timestamp;
   const filename = timestamp + '.' + ext;
-  await fetch(SUPABASE_URL + '/rest/v1/files', {
-    method: 'POST',
-    headers: { ...googleSbHeaders(), 'Prefer': 'resolution=merge-duplicates' },
-    body: JSON.stringify({
-      id:         fileId,
-      note_id:    noteId,
-      user_id:    userId || null,
-      name:       filename,
-      size:       fileBuffer.byteLength,
-      mime_type:  mediaType,
-      path:       path,
-      url:        path,
-      created_at: new Date().toISOString(),
-    }),
+  const metaBody = JSON.stringify({
+    id:         fileId,
+    note_id:    noteId,
+    user_id:    userId || null,
+    name:       filename,
+    size:       fileBuffer.byteLength,
+    mime_type:  mediaType,
+    path:       path,
+    url:        path,
+    created_at: new Date().toISOString(),
   });
-  console.log('FILE METADATA SAVED:', fileId, '| note_id:', noteId);
+  console.log('FILE META PAYLOAD:', metaBody);
+  const metaRes = await fetch(SUPABASE_URL + '/rest/v1/files', {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'apikey':        SUPABASE_SERVICE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
+      'Prefer':        'return=representation',
+    },
+    body: metaBody,
+  });
+  const metaText = await metaRes.text();
+  console.log('FILE META STATUS:', metaRes.status);
+  console.log('FILE META BODY:', metaText);
 
-  // 5. Retorna a URL assinada
+  // 6. Retorna a URL assinada
   return signedUrl;
 }
 
