@@ -100,7 +100,6 @@ async function searchNotesByContent(userId, query) {
 }
 
 function extractKeywords(text) {
-  // Remove stopwords e retorna as palavras mais relevantes
   const stopwords = new Set([
     'o','a','os','as','um','uma','uns','umas','de','do','da','dos','das',
     'em','no','na','nos','nas','por','para','com','que','me','se','não',
@@ -530,7 +529,7 @@ export default async function handler(req, res) {
   const hasMedia  = !hasAudio && mediaUrl && mediaType; // imagem ou documento
 
   let userMessage  = (body.Body || '').trim();
-  let savedFileUrl = null; // URL assinada do arquivo salvo (se houver)
+  let savedFileUrl = null;
   console.log('FROM:', phone, '| MSG:', userMessage.substring(0, 80), '| MEDIA:', mediaType || 'none');
 
   // ── Transcrição de áudio ──────────────────────────────────────────────────
@@ -675,16 +674,30 @@ export default async function handler(req, res) {
     if (!reply) return res.send(twiml('Não consegui processar. Tente novamente.'));
 
     // ── Executa ações a partir das tags ──────────────────────────────────
+    let finalReply = stripActionTags(reply);
 
-    // Notas
-    const criarNotaTag = reply.includes('[CRIAR_NOTA:');
-    if (criarNotaTag) {
+    function parseRobust(tag, rawReply) {
+      const m = rawReply.match(new RegExp('\\[' + tag + ':([\\s\\S]*?)\\](?=\\s|$)'));
+      if (!m) return null;
+      try {
+        const cleaned = m[1]
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+          .trim();
+        return JSON.parse(cleaned);
+      } catch (e) {
+        console.error('PARSE TAG ERR (' + tag + '):', e.message, 'RAW:', m[1].substring(0, 100));
+        return null;
+      }
+    }
+
+    // ── CRIAR_NOTA ────────────────────────────────────────────────────────
+    if (reply.includes('[CRIAR_NOTA:')) {
       try {
         const noteJson = await askClaude(
           'Extraia informações estruturadas. Responda SOMENTE com JSON puro, sem markdown, sem explicações: {"title":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."]}',
           [{ role: 'user', content: 'Mensagem: ' + userMessage }]
         );
-        const cleaned = noteJson.replace(/```json\n?|\n?```/g, '').trim();
+        const cleaned  = noteJson.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').replace(/```json\n?|\n?```/g, '').trim();
         const noteData = JSON.parse(cleaned);
         noteData.content = userMessage;
         noteData.user_id = userId;
@@ -695,40 +708,42 @@ export default async function handler(req, res) {
       }
     }
 
-    const atualizarNota = parseTagJson(reply, 'ATUALIZAR_NOTA');
+    // ── ATUALIZAR_NOTA ────────────────────────────────────────────────────
+    const atualizarNota = parseRobust('ATUALIZAR_NOTA', reply);
     if (atualizarNota) {
       try { await updateNote(atualizarNota.title, atualizarNota.content); }
       catch (e) { console.error('UPDATE NOTE ERR:', e.message); }
     }
 
-    const apagarNota = parseTagJson(reply, 'APAGAR_NOTA');
+    // ── APAGAR_NOTA ───────────────────────────────────────────────────────
+    const apagarNota = parseRobust('APAGAR_NOTA', reply);
     if (apagarNota) {
       try { await deleteNote(apagarNota.title); }
       catch (e) { console.error('DELETE NOTE ERR:', e.message); }
     }
 
-    // Eventos
-    const criarEvento = parseTagJson(reply, 'CRIAR_EVENTO');
+    // ── CRIAR_EVENTO ──────────────────────────────────────────────────────
+    const criarEvento = parseRobust('CRIAR_EVENTO', reply);
     if (criarEvento && accessToken) {
       try { await createCalendarEvent(accessToken, criarEvento.title, criarEvento.datetime, criarEvento.description || ''); }
       catch (e) { console.error('CREATE EVENT ERR:', e.message); }
     }
 
-    const atualizarEvento = parseTagJson(reply, 'ATUALIZAR_EVENTO');
+    // ── ATUALIZAR_EVENTO ──────────────────────────────────────────────────
+    const atualizarEvento = parseRobust('ATUALIZAR_EVENTO', reply);
     if (atualizarEvento && accessToken) {
       try { await updateCalendarEvent(accessToken, atualizarEvento.title, atualizarEvento.newDatetime); }
       catch (e) { console.error('UPDATE EVENT ERR:', e.message); }
     }
 
-    const apagarEvento = parseTagJson(reply, 'APAGAR_EVENTO');
+    // ── APAGAR_EVENTO ─────────────────────────────────────────────────────
+    const apagarEvento = parseRobust('APAGAR_EVENTO', reply);
     if (apagarEvento && accessToken) {
       try { await deleteCalendarEvent(accessToken, apagarEvento.title); }
       catch (e) { console.error('DELETE EVENT ERR:', e.message); }
     }
 
-    // ── Limpa tags do reply e salva histórico ─────────────────────────────
-    const finalReply = stripActionTags(reply);
-
+    // ── Salva histórico ───────────────────────────────────────────────────
     await saveMessage(phone, 'user', userMessage);
     await saveMessage(phone, 'assistant', finalReply);
 
