@@ -1906,6 +1906,7 @@ async function loadNoteAttachments(noteId) {
   area.classList.remove('has-files');
 
   if (!APP.supabaseConnected || !noteId) return;
+  console.log('LOAD ATTACHMENTS noteId:', noteId);
 
   try {
     // Obtém token de sessão para gerar URLs assinadas
@@ -1925,6 +1926,7 @@ async function loadNoteAttachments(noteId) {
       }
     );
     const files = await res.json();
+    console.log('ATTACHMENTS RESULT:', JSON.stringify(files));
     if (!Array.isArray(files) || files.length === 0) return;
 
     // Gera URL assinada para cada arquivo (path salvo na tabela)
@@ -2049,9 +2051,8 @@ function initSupabaseAuth() {
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'files' },
         function(payload) {
-          console.log('REALTIME files INSERT:', payload.new && payload.new.note_id);
-          const noteId = payload.new && payload.new.note_id;
-          if (noteId && noteId === APP.currentNoteId) {
+          console.log('REALTIME files INSERT:', JSON.stringify(payload.new));
+          if (APP.currentNoteId) {
             loadNoteAttachments(APP.currentNoteId);
           }
         }
