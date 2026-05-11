@@ -152,25 +152,21 @@ async function processMeetingTranscript(transcriptText, userId) {
   const data = JSON.parse(cleaned);
   console.log('TRANSCRIPT PARSED:', data.title, '| PARTICIPANTS:', (data.participants || []).length);
 
-  // Formata o conteúdo em markdown estruturado
-  const lines = [];
-  lines.push('## Participantes');
-  (data.participants || []).forEach(function(p) { lines.push('- ' + p); });
-  lines.push('');
-  lines.push('## Decisões');
-  (data.decisions || []).forEach(function(d) { lines.push('- ' + d); });
-  lines.push('');
-  lines.push('## Próximas Ações');
-  (data.actions || []).forEach(function(a) { lines.push('- [ ] ' + a); });
-  lines.push('');
-  lines.push('## Resumo');
-  lines.push(data.summary || '');
-  const content = lines.join('\n');
+  // Formata o conteúdo em markdown estruturado a partir do JSON extraído
+  const noteContent =
+    '## Participantes\n' +
+    (data.participants || []).map(function(p) { return '- ' + p; }).join('\n') + '\n\n' +
+    '## Decisões\n' +
+    (data.decisions || []).map(function(d) { return '- ' + d; }).join('\n') + '\n\n' +
+    '## Próximas Ações\n' +
+    (data.actions || []).map(function(a) { return '- [ ] ' + a; }).join('\n') + '\n\n' +
+    '## Resumo\n' +
+    (data.summary || '');
 
   const title = data.title || ('Reunião ' + new Date().toLocaleDateString('pt-BR'));
   await createNote({
     title:   title,
-    content: content,
+    content: noteContent,
     folder:  'reunioes',
     cluster: 'equipe',
     tags:    ['reunião', 'transcrição'],
