@@ -86,6 +86,37 @@ async function getNotes() {
   return await res.json();
 }
 
+async function searchNotesByContent(userId, query) {
+  const encoded = encodeURIComponent('%' + query + '%');
+  const url = SUPABASE_URL + '/rest/v1/notes'
+    + '?or=(title.ilike.' + encoded + ',content.ilike.' + encoded + ')'
+    + (userId ? '&user_id=eq.' + encodeURIComponent(userId) : '')
+    + '&select=title,content,cluster'
+    + '&limit=5';
+  const res = await fetch(url, { headers: googleSbHeaders() });
+  const data = await res.json();
+  console.log('SEARCH NOTES:', query, '| FOUND:', Array.isArray(data) ? data.length : 0);
+  return Array.isArray(data) ? data : [];
+}
+
+function extractKeywords(text) {
+  // Remove stopwords e retorna as palavras mais relevantes
+  const stopwords = new Set([
+    'o','a','os','as','um','uma','uns','umas','de','do','da','dos','das',
+    'em','no','na','nos','nas','por','para','com','que','me','se','não',
+    'é','foi','são','está','isso','isto','aqui','você','eu','ele','ela',
+    'quando','onde','quem','como','qual','quais','sobre','mais','já','tem',
+    'o que','anotei','decidi','falei','escrito','lembro','tinha','disse',
+  ]);
+  return text
+    .toLowerCase()
+    .replace(/[^\w\sáéíóúâêôãõüç]/g, '')
+    .split(/\s+/)
+    .filter(function(w) { return w.length > 3 && !stopwords.has(w); })
+    .slice(0, 3)
+    .join(' ');
+}
+
 async function createNote(note) {
   const id = 'wa-' + Date.now();
   const res = await fetch(SUPABASE_URL + '/rest/v1/notes', {
@@ -416,11 +447,11 @@ export default async function handler(req, res) {
   const needsGoogle   = needsCalendar || needsGmail;
 
   // ── Google: tokens + dados ────────────────────────────────────────────────
-  let accessToken     = null;
-  let calendarEvents  = [];
-  let gmailMessages   = [];
+  let accessToken    = null;
+  let calendarEvents = [];
+  let gmailMessages  = [];
   let googleConnected = false;
-  let userId          = null;
+  let userId         = null;
 
   try {
     const [googleTokens, resolvedUserId] = await Promise.all([
@@ -454,6 +485,17 @@ export default async function handler(req, res) {
     const [notes, history] = await Promise.all([getNotes(), getHistory(phone)]);
     console.log('NOTES:', Array.isArray(notes) ? notes.length : 0);
 
+    // ── Detecta pergunta sobre o vault e busca por conteúdo ───────────────
+    const isVaultQuestion = /o que|quando|quem|onde|anotei|decidi|falei|está escrito|lembro|o que eu|o que a/i.test(userMessage);
+    let searchResults = [];
+    if (isVaultQuestion && userId) {
+      const keywords = extractKeywords(userMessage);
+      if (keywords) {
+        searchResults = await searchNotesByContent(userId, keywords);
+        console.log('VAULT SEARCH:', keywords, '| RESULTS:', searchResults.length);
+      }
+    }
+
     const vault = Array.isArray(notes)
       ? notes.map(function(n) { return '### ' + n.title + '\n' + (n.content || '').substring(0, 300); }).join('\n---\n')
       : '';
@@ -463,6 +505,13 @@ export default async function handler(req, res) {
     // ── System Prompt ─────────────────────────────────────────────────────
     let system = 'Você é o Jarvis, assistente pessoal via WhatsApp. Responda em português, de forma curta e direta.\n\n';
     system += 'Data/hora atual: ' + now + '\n\n';
+
+    if (searchResults.length > 0) {
+      const relevantVault = searchResults
+        .map(function(n) { return '### ' + n.title + '\n' + (n.content || '').substring(0, 500); })
+        .join('\n---\n');
+      system += 'NOTAS RELEVANTES (corresponderam à busca — priorize estas na resposta):\n' + relevantVault + '\n\n';
+    }
 
     system += 'NOTAS DO VAULT:\n' + (vault || '(nenhuma nota ainda)') + '\n\n';
 
