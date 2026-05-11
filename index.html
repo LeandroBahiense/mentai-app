@@ -2040,15 +2040,20 @@ function initSupabaseAuth() {
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'notes' },
         function(payload) {
-          console.log('REALTIME notes:', payload.eventType, payload.new && payload.new.id);
-          loadFromSupabase();
+          console.log('REALTIME notes:', payload.eventType);
+          loadFromSupabase().then(function() {
+            if (APP.currentNoteId) loadNoteAttachments(APP.currentNoteId);
+          });
         }
       )
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'files' },
+        { event: 'INSERT', schema: 'public', table: 'files' },
         function(payload) {
-          console.log('REALTIME files:', payload.eventType);
-          if (APP.currentNoteId) loadNoteAttachments(APP.currentNoteId);
+          console.log('REALTIME files INSERT:', payload.new && payload.new.note_id);
+          const noteId = payload.new && payload.new.note_id;
+          if (noteId && noteId === APP.currentNoteId) {
+            loadNoteAttachments(APP.currentNoteId);
+          }
         }
       )
       .subscribe(function(status) {
