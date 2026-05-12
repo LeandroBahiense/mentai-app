@@ -313,8 +313,10 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 .kb-col-count{font-size:10px;padding:1px 7px;border-radius:10px;background:rgba(255,255,255,.08);color:inherit;opacity:.7;}
 .kb-cards{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding:8px 6px 4px;scrollbar-width:thin;scrollbar-color:transparent transparent;border-radius:0 0 8px 8px;}
 .kb-cards:hover{scrollbar-color:var(--border2) transparent;}
-.kb-card{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:11px 13px;cursor:pointer;transition:all .15s;position:relative;}
+.kb-card{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:11px 13px;cursor:grab;transition:all .15s;position:relative;}
 .kb-card:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.2);}
+.kb-card.dragging{opacity:.45;cursor:grabbing;transform:rotate(1deg);box-shadow:0 8px 24px rgba(0,0,0,.35);}
+.kb-cards.drag-over{background:rgba(124,110,240,.06);outline:1.5px dashed rgba(124,110,240,.35);outline-offset:-3px;border-radius:0 0 8px 8px;}
 .kb-card-title{font-size:12px;font-weight:500;color:var(--text);line-height:1.4;margin-bottom:6px;}
 .kb-card-tags{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;}
 .kb-card-tag{font-size:9px;padding:1px 6px;border-radius:10px;font-weight:500;}
@@ -752,7 +754,7 @@ function renderKanban() {
     const cards = colNotes.map(n => {
       const clColor = CLUSTER_COLORS[n.cluster] || '#6b7fe8';
       const hasAtt = n.attachments && n.attachments.length > 0;
-      return `<div class="kb-card" style="border-left:3px solid ${col.color};"
+      return `<div class="kb-card" draggable="true" data-note-id="${n.id}" style="border-left:3px solid ${col.color};"
           onclick="openNoteFromKanban('${n.id}')"
           oncontextmenu="showKbMenu(event,'${n.id}');return false;">
         <button class="kb-menu-btn" onclick="showKbMenu(event,'${n.id}')">⋮</button>
@@ -771,13 +773,79 @@ function renderKanban() {
         <span class="kb-col-title">${col.label}</span>
         <span class="kb-col-count">${colNotes.length}</span>
       </div>
-      <div class="kb-cards">${cards}</div>
+      <div class="kb-cards" data-col-status="${col.id}">${cards}</div>
       <button class="kb-add-btn" onclick="newNoteInCol('${col.id}')">+ Adicionar nota</button>
     </div>`;
   }).join('');
+  _bindKbDragDrop(board);
+}
+
+let _kbDragging = false;
+
+function _bindKbDragDrop(board) {
+  // ── cards ──────────────────────────────────────────────────────
+  board.querySelectorAll('.kb-card[draggable]').forEach(card => {
+    const noteId = card.dataset.noteId;
+    card.addEventListener('dragstart', function(e) {
+      _kbDragging = true;
+      e.dataTransfer.setData('text/plain', noteId);
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => card.classList.add('dragging'), 0);
+    });
+    card.addEventListener('dragend', function() {
+      card.classList.remove('dragging');
+      setTimeout(() => { _kbDragging = false; }, 50);
+    });
+  });
+
+  // ── drop zones (.kb-cards) ─────────────────────────────────────
+  board.querySelectorAll('.kb-cards[data-col-status]').forEach(zone => {
+    const colStatus = zone.dataset.colStatus;
+    zone.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      zone.classList.add('drag-over');
+    });
+    zone.addEventListener('dragleave', function(e) {
+      // só remove se o mouse saiu da zona (não de um filho)
+      if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over');
+    });
+    zone.addEventListener('drop', async function(e) {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const noteId = e.dataTransfer.getData('text/plain');
+      const note = APP.notes.find(n => n.id === noteId);
+      if (!note || note.status === colStatus) return;
+      note.status = colStatus;
+      note.updated_at = new Date().toISOString();
+      saveNotes();
+      renderKanban();
+      renderSidebar();
+      if (APP.supabaseConnected) {
+        try {
+          await fetch(sbUrl('notes'), {
+            method: 'POST',
+            headers: sbHeaders(),
+            body: JSON.stringify({
+              id: note.id,
+              title: note.title,
+              content: note.content || '',
+              folder: note.folder || 'inbox',
+              cluster: note.cluster || 'produto',
+              tags: note.tags || [],
+              date: note.date || 'agora',
+              status: colStatus,
+              updated_at: note.updated_at,
+            }),
+          });
+        } catch(err) { console.warn('Supabase drag-drop sync error:', err); }
+      }
+    });
+  });
 }
 
 function openNoteFromKanban(id) {
+  if (_kbDragging) return;
   openNote(id);
 }
 
