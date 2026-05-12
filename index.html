@@ -776,6 +776,7 @@ const KANBAN_COLS = [
   { id:'andamento', label:'Em Andamento',color:'#7c6ef0' },
   { id:'concluido', label:'Concluído',   color:'#1D9E75' },
 ];
+const STATUS_COLORS = Object.fromEntries(KANBAN_COLS.map(c => [c.id, c.color]));
 
 let _kbView = 'kanban'; // 'kanban' | 'list'
 
@@ -796,22 +797,20 @@ function renderKanban() {
     board.style.overflowX = 'hidden';
     board.style.overflowY = 'auto';
     board.innerHTML = notes.map(n => {
-      const col = KANBAN_COLS.find(c => c.id === (n.status || 'inbox')) || KANBAN_COLS[0];
-      const clColor = CLUSTER_COLORS[n.cluster] || '#6b7fe8';
-      const hasAtt = n.attachments && n.attachments.length > 0;
-      return `<div class="kb-card" style="border-left:3px solid ${col.color};padding-right:36px;"
+      const safeTitle = n.title.replace(/'/g, "\\'");
+      return `<div style="position:relative;display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg2);transition:all .1s;"
           onclick="openNoteFromKanban('${n.id}')"
-          oncontextmenu="showKbMenu(event,'${n.id}');return false;">
-        <button class="kb-list-del" onclick="deleteKbCard(event,'${n.id}')">🗑</button>
-        <div class="kb-card-title">${n.title}</div>
-        <div class="kb-card-tags">
-          ${(n.tags||[]).map(t=>`<span class="kb-card-tag" style="background:${clColor}18;color:${clColor}">${t}</span>`).join('')}
+          oncontextmenu="showKbMenu(event,'${n.id}');return false;"
+          onmouseover="this.style.borderColor='var(--border2)';this.style.background='var(--bg3)';this.querySelector('.btn-del').style.opacity='1'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg2)';this.querySelector('.btn-del').style.opacity='0'">
+        <span style="width:3px;height:32px;border-radius:2px;background:${STATUS_COLORS[n.status||'inbox']};flex-shrink:0;"></span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.title}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px;">${n.date||''}</div>
         </div>
-        <div class="kb-card-footer">
-          <span class="kb-card-date">${n.date||''}</span>
-          <span style="padding:1px 7px;border-radius:10px;font-size:9px;background:${col.color}18;color:${col.color}">${col.label}</span>
-          ${hasAtt ? '<span class="kb-card-att">📎</span>' : ''}
-        </div>
+        <span style="position:absolute;bottom:8px;right:10px;font-size:10px;color:var(--text3);">${n.folder||'inbox'}</span>
+        <button class="btn-del" onclick="event.stopPropagation();deleteNoteFromKanban('${n.id}','${safeTitle}')"
+          style="position:absolute;top:6px;right:8px;opacity:0;transition:opacity .15s;background:transparent;border:none;color:var(--coral);font-size:11px;cursor:pointer;padding:2px 4px;border-radius:4px;">🗑</button>
       </div>`;
     }).join('');
     return;
@@ -926,6 +925,15 @@ function deleteKbCard(e, noteId) {
   const note = APP.notes.find(n => n.id === noteId);
   if (!note) return;
   if (!confirm('Apagar a nota "' + note.title + '"?')) return;
+  APP.notes = APP.notes.filter(n => n.id !== noteId);
+  deleteFromSupabase(noteId);
+  saveNotes();
+  renderKanban();
+  renderSidebar();
+}
+
+function deleteNoteFromKanban(noteId, title) {
+  if (!confirm('Apagar a nota "' + title + '"?')) return;
   APP.notes = APP.notes.filter(n => n.id !== noteId);
   deleteFromSupabase(noteId);
   saveNotes();
