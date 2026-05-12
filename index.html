@@ -1189,24 +1189,6 @@ function _npUpdateWC() {
 }
 
 // NOTAS INICIAIS
-const SEED_NOTES = [
-  { id:'mvp', title:'MVP do Segundo Cérebro', folder:'projetos', cluster:'produto', tags:['produto','estratégia'], date:'hoje',
-    content:`## Objetivo\n\nConstruir a **Fase 1** do segundo cérebro digital pessoal.\nApp web que combina [[Graph View]], [[Chat com IA]] e [[Captura por Voz]].\n\n---\n\n## Por que isso importa\n\nNenhum produto no mercado tem as três capacidades juntas.\nO [[Obsidian]] tem o graph mas não tem IA nativa.\nO [[Posicionamento]] explica o gap de mercado em detalhes.\n\n---\n\n## Pilares da Fase 1\n\n- Editor de notas com [[wikilinks]] ✓\n- [[Graph View]] animado ✓\n- [[Chat com IA]] contextual ✓\n- [[Captura por Voz]] sem fricção ✓\n\n---\n\n## Decisão técnica\n\n> Usar Supabase para o banco de dados e Vercel para hospedagem.\n> Ver [[Decisão Supabase]] para o raciocínio completo.\n\n## Próximos passos\n\nApós unificar o app, conectar ao Supabase para persistência real.\nReunião de status em [[Reunião 06 Mai]].` },
-  { id:'graph', title:'Graph View', folder:'projetos', cluster:'produto', tags:['produto','design'], date:'ontem',
-    content:`## O que é\n\nVisualização da rede de notas como nós conectados.\nInspirado no [[Obsidian]] mas construído para web.\n\n## Comportamento\n\n- Nós pulsam como ondas\n- Hover destaca o nó e suas conexões\n- Clicar abre a nota\n- Cores por cluster\n\n## Parte do [[MVP do Segundo Cérebro]]` },
-  { id:'chat-ia', title:'Chat com IA', folder:'projetos', cluster:'produto', tags:['produto','ia'], date:'ontem',
-    content:`## Conceito\n\nA IA lê todas as notas do vault e responde com contexto real.\nNão é um chatbot genérico — é um assistente que conhece o seu trabalho.\n\n## Funcionalidades\n\n- Briefings automáticos\n- Resumo de decisões passadas\n- Preparação para reuniões\n- Geração de relatórios\n\n## Parte do [[MVP do Segundo Cérebro]]` },
-  { id:'voz', title:'Captura por Voz', folder:'projetos', cluster:'produto', tags:['produto','ux'], date:'ontem',
-    content:`## Conceito\n\nZero atrito para capturar ideias.\nFale — a IA transcreve, organiza e cria [[wikilinks]] automaticamente.\n\n## Fluxo\n\n1. Pressiona o microfone\n2. Fala naturalmente\n3. IA transcreve e identifica entidades\n4. Cria nota com links automáticos\n\n## Parte do [[MVP do Segundo Cérebro]]` },
-  { id:'decisao-supabase', title:'Decisão Supabase', folder:'decisoes', cluster:'estrategia', tags:['decisão','tecnologia'], date:'3 dias',
-    content:`## Contexto\n\nEscolha do banco de dados para o [[MVP do Segundo Cérebro]].\n\n## Opções consideradas\n\n- **Supabase** — open source, PostgreSQL, gratuito\n- Firebase — Google, NoSQL, mais complexo\n- PlanetScale — MySQL, mais caro\n\n## Decisão\n\nSupabase. PostgreSQL real, gratuito para uso pessoal, integra com Vercel.\n\n## Revisão em\n\n3 meses ou ao atingir 10k notas.` },
-  { id:'posicionamento', title:'Posicionamento', folder:'inbox', cluster:'estrategia', tags:['estratégia'], date:'2 dias',
-    content:`## Gap de mercado\n\nNenhum produto tem [[Graph View]] + IA + Voz juntos.\n\n## Público-alvo\n\nCTOs, fundadores, líderes de produto.\nPessoas que tomam muitas decisões e precisam de contexto.\n\n## Diferencial\n\nMemória contextual que acumula. O valor aumenta com o uso.\nO usuário não consegue sair sem perder o histórico.` },
-  { id:'obsidian', title:'Obsidian', folder:'inbox', cluster:'estrategia', tags:['referência'], date:'5 dias',
-    content:`## O que é\n\nApp de notas local com [[Graph View]] e wikilinks.\n\n## Faz bem\n\nGraph view, performance local, plugins.\n\n## Não tem\n\nIA nativa, voz, web multi-device.\n\n## Relevância\n\nInspiração para o [[MVP do Segundo Cérebro]].\nNosso [[Posicionamento]] parte do que o Obsidian não faz.` },
-  { id:'reuniao', title:'Reunião 06 Mai', folder:'reunioes', cluster:'equipe', tags:['reunião','produto'], date:'hoje',
-    content:`## Pauta\n\n- Status do [[MVP do Segundo Cérebro]]\n- Escolha da biblioteca para o [[Graph View]]\n- Próximas duas semanas\n\n## Decisões\n\nD3.js escolhido para o Graph View.\nPróximo milestone: app unificado.\n\n## Ações\n\n- [x] Finalizar editor de notas\n- [x] Criar Graph View\n- [x] Chat com IA\n- [x] Captura por Voz\n- [ ] Unificar app\n- [ ] Conectar Supabase` },
-];
 
 function initApp() {
   APP.notes = JSON.parse(localStorage.getItem('mentai-notes') || '[]');
@@ -2262,6 +2244,7 @@ async function loadFromSupabase(){
               cluster:    r.cluster  || 'produto',
               tags:       r.tags     || [],
               date:       r.date     || 'salvo',
+              status:     r.status   || 'inbox',
               updated_at: r.updated_at,
             });
           }
@@ -2275,6 +2258,7 @@ async function loadFromSupabase(){
             cluster:    r.cluster  || 'produto',
             tags:       r.tags     || [],
             date:       r.date     || 'salvo',
+            status:     r.status   || 'inbox',
             updated_at: r.updated_at,
           });
         }
@@ -2296,6 +2280,7 @@ async function loadFromSupabase(){
         openNote(APP.notes[0].id);
       }
 
+      renderKanban();
       document.getElementById('save-indicator').textContent='✓ notas sincronizadas';
       document.getElementById('save-indicator').style.color='var(--green)';
       showSBStatus(rows.length+' nota(s) sincronizada(s) ✓','ok');
@@ -2637,11 +2622,38 @@ async function loadNoteAttachments(noteId) {
 // ── ONBOARDING ───────────────────────────────────────────────────────────────
 let _obDrawers = ['trabalho', 'pessoal', 'projetos'];
 
-function checkOnboarding() {
-  const key = 'koreo-onboarding-done-' + (currentUser?.id || 'anon');
-  if (!localStorage.getItem(key)) {
+async function checkOnboarding() {
+  if (!_supabase || !currentUser) {
     document.getElementById('onboarding').classList.remove('hidden');
+    return;
   }
+  const { data } = await _supabase.from('user_preferences')
+    .select('onboarding_done, gavetas, assistant_name')
+    .eq('user_id', currentUser.id)
+    .single();
+  if (!data || !data.onboarding_done) {
+    document.getElementById('onboarding').classList.remove('hidden');
+  } else {
+    loadGavetasFromPrefs(data.gavetas || []);
+    localStorage.setItem('koreo-assistant-name', data.assistant_name || 'Jarvis');
+  }
+}
+
+function loadGavetasFromPrefs(gavetas) {
+  const container = document.getElementById('extra-gavetas');
+  container.innerHTML = '';
+  const colors  = { trabalho:'#7c6ef0', pessoal:'#BA7517', projetos:'#1D9E75', viagem:'#D4537E', estudos:'#D85A30', financeiro:'#534AB7' };
+  const labels  = { trabalho:'💼 Trabalho', pessoal:'🏠 Pessoal', projetos:'🚀 Projetos', viagem:'✈️ Viagem', estudos:'📚 Estudos', financeiro:'💰 Financeiro' };
+  const defaultFolders = ['inbox','projetos','decisoes','reunioes'];
+  gavetas.forEach(id => {
+    if (defaultFolders.includes(id)) return;
+    const color = colors[id] || '#7c6ef0';
+    const el = document.createElement('div');
+    el.className = 's-item';
+    el.innerHTML = `<span class="s-dot" style="background:${color}"></span>${labels[id]||id} <span class="s-count">0</span>`;
+    el.onclick = function() { selectFolder(id, el); };
+    container.appendChild(el);
+  });
 }
 
 function obNext(step) {
@@ -2666,10 +2678,21 @@ function toggleDrawer(el, id) {
   }
 }
 
-function finishOnboarding() {
+async function finishOnboarding() {
   const assistantName = (document.getElementById('ob-assistant-name').value || '').trim() || 'Jarvis';
   localStorage.setItem('koreo-assistant-name', assistantName);
   localStorage.setItem('koreo-onboarding-done-' + (currentUser?.id || 'anon'), '1');
+  if (_supabase && currentUser) {
+    try {
+      await _supabase.from('user_preferences').upsert({
+        user_id:        currentUser.id,
+        assistant_name: assistantName,
+        gavetas:        _obDrawers,
+        onboarding_done: true,
+        updated_at:     new Date().toISOString(),
+      });
+    } catch(e) { console.warn('prefs upsert error:', e); }
+  }
 
   const container = document.getElementById('extra-gavetas');
   const colors  = { trabalho:'#7c6ef0', pessoal:'#BA7517', projetos:'#1D9E75', viagem:'#D4537E', estudos:'#D85A30', financeiro:'#534AB7' };
