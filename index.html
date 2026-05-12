@@ -2772,6 +2772,13 @@ function initSupabaseAuth() {
 
   _supabase.auth.onAuthStateChange(async function(event, session) {
     if (session && session.user) {
+      const lastUserId = localStorage.getItem('koreo-user-id');
+      if (lastUserId && lastUserId !== session.user.id) {
+        localStorage.removeItem('mentai-notes');
+        APP.notes = [];
+      }
+      localStorage.setItem('koreo-user-id', session.user.id);
+
       currentUser = session.user;
       hideAuthScreen();
       injectTopbarButtons();
