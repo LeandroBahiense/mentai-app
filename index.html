@@ -339,6 +339,26 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 .kb-ctx-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .kb-ctx-sep{height:1px;background:var(--border);margin:4px 0;}
 
+/* ── NOTE PANEL (slide-in lateral) ── */
+#note-panel{position:fixed;top:48px;right:0;width:480px;height:calc(100vh - 74px);background:var(--bg2);border-left:1px solid var(--border2);display:flex;flex-direction:column;z-index:500;transform:translateX(100%);transition:transform .25s ease;box-shadow:-8px 0 32px rgba(0,0,0,.25);}
+#note-panel.open{transform:translateX(0);}
+#np-header{display:flex;align-items:center;gap:10px;padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
+#np-title{flex:1;background:transparent;border:none;outline:none;font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);caret-color:var(--accent);}
+#np-title::placeholder{color:var(--text3);}
+#np-close{width:28px;height:28px;border-radius:7px;background:transparent;border:1px solid var(--border2);color:var(--text2);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0;line-height:1;}
+#np-close:hover{background:rgba(216,90,48,.1);border-color:rgba(216,90,48,.3);color:var(--coral);}
+#np-toolbar{display:flex;align-items:center;gap:2px;padding:5px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+#np-scroll{flex:1;overflow-y:auto;padding:14px 20px 24px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+#np-content{min-height:200px;outline:none;font-size:14px;line-height:1.85;color:var(--text);caret-color:var(--accent);white-space:pre-wrap;word-break:break-word;}
+#np-content h1,#np-content h2{font-family:'DM Serif Display',serif;color:var(--text);}
+#np-content strong{color:var(--accent2);}
+#np-content code{font-family:'DM Mono',monospace;font-size:12px;background:var(--bg3);padding:1px 5px;border-radius:4px;color:var(--green);}
+#np-content blockquote{border-left:3px solid var(--accent);padding-left:12px;color:var(--text2);font-style:italic;margin:6px 0;}
+#np-footer{padding:6px 16px;border-top:1px solid var(--border);font-size:10px;color:var(--text3);flex-shrink:0;display:flex;align-items:center;gap:6px;}
+#np-save-indicator{transition:color .2s;}
+#np-overlay{position:fixed;inset:0;top:48px;z-index:499;display:none;}
+#np-overlay.open{display:block;}
+
 /* STATUS BAR */
 #statusbar{height:26px;background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:14px;font-size:10px;color:var(--text3);flex-shrink:0;letter-spacing:.4px;}
 #statusbar span{display:flex;align-items:center;gap:4px;}
@@ -684,6 +704,33 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 <!-- KANBAN CONTEXT MENU -->
 <div id="kb-ctx-menu"></div>
 
+<!-- NOTE PANEL -->
+<div id="np-overlay" onclick="closeNotePanel()"></div>
+<div id="note-panel">
+  <div id="np-header">
+    <input id="np-title" type="text" placeholder="Título da nota..." oninput="npOnTitleChange(this.value)"/>
+    <button id="np-close" onclick="closeNotePanel()" title="Fechar">✕</button>
+  </div>
+  <div id="np-toolbar">
+    <button class="tool" onclick="npFmt('bold')"  title="Negrito"><b>B</b></button>
+    <button class="tool" onclick="npFmt('italic')" title="Itálico"><i>I</i></button>
+    <div class="tool-sep"></div>
+    <button class="tool" onclick="npIns('## ')"  title="H2">H2</button>
+    <button class="tool" onclick="npIns('> ')"   title="Citação">❝</button>
+    <button class="tool" onclick="npIns('- ')"   title="Lista">≡</button>
+    <div style="flex:1"></div>
+    <span style="font-size:10px;color:var(--text3)" id="np-wc">0 palavras</span>
+  </div>
+  <div id="np-scroll">
+    <div id="np-content" contenteditable="true" spellcheck="false"
+         oninput="npOnInput()" onkeydown="npOnKeyDown(event)"></div>
+  </div>
+  <div id="np-footer">
+    <span id="np-save-indicator" style="color:var(--text3)">◌</span>
+    <span id="np-save-label">auto-save</span>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════
@@ -869,7 +916,7 @@ function _bindKbDragDrop(board) {
 
 function openNoteFromKanban(id) {
   if (_kbDragging) return;
-  openNote(id);
+  openNotePanel(id);
 }
 
 function deleteKbCard(e, noteId) {
@@ -964,7 +1011,102 @@ function newNoteInCol(status) {
   APP.notes.unshift(note);
   APP.currentNoteId = id;
   saveNotes();
-  openNote(id);
+  openNotePanel(id);
+}
+
+// ── Note Panel ───────────────────────────────────────────────────────────────
+let _npSaveTimer = null;
+
+function openNotePanel(noteId) {
+  const note = APP.notes.find(n => n.id === noteId);
+  if (!note) return;
+  APP.currentNoteId = noteId;
+
+  document.getElementById('np-title').value   = note.title || '';
+  document.getElementById('np-content').innerHTML = renderMD(note.content || '');
+  _npUpdateWC();
+  _npSetSaved();
+
+  document.getElementById('note-panel').classList.add('open');
+  document.getElementById('np-overlay').classList.add('open');
+
+  setTimeout(() => document.getElementById('np-title').focus(), 260);
+}
+
+function closeNotePanel() {
+  document.getElementById('note-panel').classList.remove('open');
+  document.getElementById('np-overlay').classList.remove('open');
+  clearTimeout(_npSaveTimer);
+  renderKanban();
+  renderSidebar();
+}
+
+function npOnTitleChange(val) {
+  const note = APP.notes.find(n => n.id === APP.currentNoteId);
+  if (!note) return;
+  note.title = val;
+  _npScheduleSave();
+}
+
+function npOnInput() {
+  const note = APP.notes.find(n => n.id === APP.currentNoteId);
+  if (!note) return;
+  note.content = document.getElementById('np-content').innerText;
+  _npUpdateWC();
+  _npScheduleSave();
+}
+
+function npOnKeyDown(e) {
+  if (e.key === 'Escape') { closeNotePanel(); return; }
+  if (e.key === 'Tab') { e.preventDefault(); document.execCommand('insertText', false, '  '); }
+}
+
+function npFmt(cmd) { document.getElementById('np-content').focus(); document.execCommand(cmd); }
+function npIns(prefix) {
+  const el = document.getElementById('np-content');
+  el.focus();
+  document.execCommand('insertText', false, '\n' + prefix);
+}
+
+function _npScheduleSave() {
+  const ind = document.getElementById('np-save-indicator');
+  const lbl = document.getElementById('np-save-label');
+  ind.style.color = 'var(--text3)'; lbl.textContent = 'salvando...';
+  clearTimeout(_npSaveTimer);
+  _npSaveTimer = setTimeout(async () => {
+    saveNotes();
+    if (APP.supabaseConnected) {
+      const note = APP.notes.find(n => n.id === APP.currentNoteId);
+      if (note) {
+        note.updated_at = new Date().toISOString();
+        try {
+          await fetch(sbUrl('notes'), {
+            method: 'POST', headers: sbHeaders(),
+            body: JSON.stringify({ id: note.id, title: note.title, content: note.content || '',
+              folder: note.folder || 'inbox', cluster: note.cluster || 'produto',
+              tags: note.tags || [], date: note.date || 'agora',
+              status: note.status || 'inbox', updated_at: note.updated_at }),
+          });
+        } catch(e) { console.warn('np sync error:', e); }
+      }
+    }
+    _npSetSaved();
+  }, 900);
+}
+
+function _npSetSaved() {
+  const ind = document.getElementById('np-save-indicator');
+  const lbl = document.getElementById('np-save-label');
+  if (!ind) return;
+  ind.style.color = 'var(--green)'; ind.textContent = '✓';
+  lbl.textContent = APP.supabaseConnected ? 'salvo no Supabase' : 'salvo localmente';
+}
+
+function _npUpdateWC() {
+  const text = document.getElementById('np-content').innerText || '';
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const el = document.getElementById('np-wc');
+  if (el) el.textContent = words + ' palavra' + (words !== 1 ? 's' : '');
 }
 
 // NOTAS INICIAIS
@@ -1184,6 +1326,13 @@ function newNote() {
   APP.notes.unshift(note);
   APP.currentNoteId = id;
   saveNotes();
+
+  // se estiver no kanban, abre o painel lateral em vez de trocar de view
+  if (APP.currentView === 'kanban') {
+    renderKanban();
+    openNotePanel(id);
+    return;
+  }
 
   // update editor directly — sem navigate para nao interferir no render
   const titleEl = document.getElementById('note-title');
