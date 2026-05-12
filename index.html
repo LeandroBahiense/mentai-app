@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>MentAI — Segundo Cérebro</title>
+<title>Koreo — Seu Segundo Cérebro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -309,7 +309,7 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
   <div class="auth-box">
-    <div class="auth-logo">Ment<em>AI</em></div>
+    <div class="auth-logo">Kore<em>o</em></div>
     <div class="auth-sub">Seu segundo cérebro pessoal</div>
     <input class="auth-input" id="auth-email"    type="email"    placeholder="seu@email.com" autocomplete="email"/>
     <input class="auth-input" id="auth-password" type="password" placeholder="Senha" autocomplete="current-password"/>
@@ -323,7 +323,7 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 
 <!-- TOPBAR -->
 <div id="topbar">
-  <div id="logo" onclick="navigate('editor')">Ment<em>AI</em></div>
+  <div id="logo" onclick="navigate('editor')">Kore<em>o</em></div>
   <button class="nav-btn active" id="nav-editor"  onclick="navigate('editor')">✎ Notas</button>
   <button class="nav-btn"        id="nav-graph"   onclick="navigate('graph')">⬡ Graph</button>
   <button class="nav-btn"        id="nav-chat"    onclick="navigate('chat')">◎ Chat IA</button>
@@ -557,7 +557,7 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 
 <!-- STATUS BAR -->
 <div id="statusbar">
-  <span>◈ MentAI v1.0</span>
+  <span>◈ Koreo v1.0</span>
   <span>|</span>
   <span id="sb-note-count">0 notas</span>
   <span>|</span>
@@ -1282,7 +1282,7 @@ function fmtChat(t){
 }
 function buildSysPrompt(){
   const notes=APP.notes.filter(n=>APP.activeNotes.has(n.id));
-  return `Você é o assistente pessoal MentAI — segundo cérebro digital do usuário.\nResponda em português brasileiro. Seja conciso e prático.\nUse **negrito** para pontos importantes. Use [[NomeDaNota]] ao referenciar notas.\n\nVAULT (${notes.length} notas):\n${notes.map(n=>`### ${n.title}\nTags: ${n.tags?.join(', ')||''}\n${n.content||''}`).join('\n---\n')}`;
+  return `Você é o assistente pessoal Koreo — segundo cérebro digital do usuário.\nResponda em português brasileiro. Seja conciso e prático.\nUse **negrito** para pontos importantes. Use [[NomeDaNota]] ao referenciar notas.\n\nVAULT (${notes.length} notas):\n${notes.map(n=>`### ${n.title}\nTags: ${n.tags?.join(', ')||''}\n${n.content||''}`).join('\n---\n')}`;
 }
 async function sendChat(){
   const input=document.getElementById('chat-input');
@@ -1381,7 +1381,7 @@ function useDemoVoice(){
   voiceListening=true; setMicUI('on'); animVoiceViz('on'); startVoiceTimer();
   setVLabel('Modo demo — simulando captura...','on');
   APP.voiceTranscript='';
-  const demos=['Preciso documentar a decisão sobre arquitetura de dados. Estamos usando Supabase mas precisamos avaliar quando atingir dez mil notas conectadas no Graph View.','Ideia para o onboarding: quando o usuário cria a primeira nota, a IA já sugere três conexões com base em padrões de CTOs. Isso mostra o valor imediatamente.','Reunião com potencial investidor. Preciso de um deck mostrando o gap de mercado entre Obsidian, Notion AI e o que estamos construindo com o MentAI.'];
+  const demos=['Preciso documentar a decisão sobre arquitetura de dados. Estamos usando Supabase mas precisamos avaliar quando atingir dez mil notas conectadas no Graph View.','Ideia para o onboarding: quando o usuário cria a primeira nota, a IA já sugere três conexões com base em padrões de CTOs. Isso mostra o valor imediatamente.','Reunião com potencial investidor. Preciso de um deck mostrando o gap de mercado entre Obsidian, Notion AI e o que estamos construindo com o Koreo.'];
   const demo=demos[Math.floor(Math.random()*demos.length)];
   let idx=0;
   const iv=setInterval(()=>{
