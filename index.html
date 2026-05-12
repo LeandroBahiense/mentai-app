@@ -1040,6 +1040,7 @@ function selectFolder(f, el) {
   document.querySelectorAll('#sidebar .s-item').forEach(i => i.classList.remove('active'));
   el.classList.add('active');
   renderSidebar();
+  renderKanban();
 }
 
 function openNote(id) {
