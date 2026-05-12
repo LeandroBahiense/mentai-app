@@ -2592,7 +2592,8 @@ async function loadNoteAttachments(noteId) {
 let _obDrawers = ['trabalho', 'pessoal', 'projetos'];
 
 function checkOnboarding() {
-  if (!localStorage.getItem('koreo-onboarding-done')) {
+  const key = 'koreo-onboarding-done-' + (currentUser?.id || 'anon');
+  if (!localStorage.getItem(key)) {
     document.getElementById('onboarding').classList.remove('hidden');
   }
 }
@@ -2622,7 +2623,7 @@ function toggleDrawer(el, id) {
 function finishOnboarding() {
   const assistantName = (document.getElementById('ob-assistant-name').value || '').trim() || 'Jarvis';
   localStorage.setItem('koreo-assistant-name', assistantName);
-  localStorage.setItem('koreo-onboarding-done', '1');
+  localStorage.setItem('koreo-onboarding-done-' + (currentUser?.id || 'anon'), '1');
 
   const container = document.getElementById('extra-gavetas');
   const colors  = { trabalho:'#7c6ef0', pessoal:'#BA7517', projetos:'#1D9E75', viagem:'#D4537E', estudos:'#D85A30', financeiro:'#534AB7' };
