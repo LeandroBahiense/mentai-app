@@ -371,8 +371,26 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
   <div class="auth-box">
     <div class="auth-logo">Kore<em>o</em></div>
     <div class="auth-sub">Seu segundo cérebro pessoal</div>
-    <input class="auth-input" id="auth-email"    type="email"    placeholder="seu@email.com" autocomplete="email"/>
-    <input class="auth-input" id="auth-password" type="password" placeholder="Senha" autocomplete="current-password"/>
+    <!-- login form -->
+    <div id="login-fields">
+      <input class="auth-input" id="auth-email"    type="email"    placeholder="seu@email.com" autocomplete="email"/>
+      <input class="auth-input" id="auth-password" type="password" placeholder="Senha" autocomplete="current-password" style="margin-top:12px;"/>
+      <div style="text-align:right;margin-top:6px;">
+        <span onclick="showForgotPassword()" style="font-size:12px;color:var(--accent2);cursor:pointer;">Esqueceu a senha?</span>
+      </div>
+    </div>
+
+    <!-- forgot password panel (oculto por padrão) -->
+    <div id="forgot-panel" style="display:none;">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">Informe seu e-mail para receber o link de redefinição.</div>
+      <input class="auth-input" id="forgot-email" type="email" placeholder="seu@email.com" autocomplete="email"/>
+      <div class="auth-err" id="forgot-err" style="margin-top:6px;"></div>
+      <button class="auth-btn" style="margin-top:10px;" onclick="sendPasswordReset()">Enviar link de recuperação</button>
+      <div style="text-align:center;margin-top:10px;">
+        <span onclick="hideForgotPassword()" style="font-size:12px;color:var(--text3);cursor:pointer;">← Voltar ao login</span>
+      </div>
+    </div>
+
     <div class="auth-err" id="auth-err"></div>
     <button class="auth-btn" id="auth-action-btn" onclick="authAction()">Entrar</button>
     <div class="auth-toggle" id="auth-toggle-text">
@@ -2350,6 +2368,43 @@ function injectTopbarButtons() {
     }
   };
 }
+function showForgotPassword() {
+  document.getElementById('login-fields').style.display    = 'none';
+  document.getElementById('auth-err').style.display        = 'none';
+  document.getElementById('auth-action-btn').style.display = 'none';
+  document.getElementById('auth-toggle-text').style.display= 'none';
+  document.getElementById('forgot-panel').style.display    = 'block';
+  document.getElementById('forgot-email').value            = document.getElementById('auth-email').value;
+  document.getElementById('forgot-err').textContent        = '';
+}
+
+function hideForgotPassword() {
+  document.getElementById('forgot-panel').style.display    = 'none';
+  document.getElementById('login-fields').style.display    = 'block';
+  document.getElementById('auth-err').style.display        = 'block';
+  document.getElementById('auth-action-btn').style.display = 'block';
+  document.getElementById('auth-toggle-text').style.display= 'block';
+}
+
+async function sendPasswordReset() {
+  const email  = document.getElementById('forgot-email').value.trim();
+  const errEl  = document.getElementById('forgot-err');
+  errEl.textContent = '';
+  errEl.style.color = 'var(--coral)';
+  if (!email) { errEl.textContent = 'Informe seu e-mail.'; return; }
+  if (!_supabase) { errEl.textContent = 'Supabase não configurado.'; return; }
+  try {
+    const { error } = await _supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://mykoreo.com.br',
+    });
+    if (error) throw error;
+    errEl.style.color   = 'var(--green)';
+    errEl.textContent   = 'Verifique seu email para redefinir a senha.';
+  } catch(e) {
+    errEl.textContent = e.message || 'Erro ao enviar. Tente novamente.';
+  }
+}
+
 function toggleAuthMode() {
   _authMode = _authMode === 'login' ? 'signup' : 'login';
   const btn  = document.getElementById('auth-action-btn');
