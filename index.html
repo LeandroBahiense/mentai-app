@@ -1209,7 +1209,7 @@ const SEED_NOTES = [
 ];
 
 function initApp() {
-  APP.notes = JSON.parse(localStorage.getItem('mentai-notes') || 'null') || SEED_NOTES;
+  APP.notes = JSON.parse(localStorage.getItem('mentai-notes') || '[]');
   APP.apiKey = localStorage.getItem('mentai-api-key') || '';
   APP.supabaseUrl = localStorage.getItem('mentai-sb-url') || '';
   APP.supabaseKey = localStorage.getItem('mentai-sb-key') || '';
@@ -2187,9 +2187,17 @@ async function syncSupabase(){
 
 async function loadFromSupabase(){
   if(!APP.supabaseConnected) return;
+  const session = await _supabase.auth.getSession();
+  const token = session.data.session?.access_token || APP.supabaseKey;
   try{
     document.getElementById('save-indicator').textContent='◌ carregando do Supabase...';
-    const res = await fetch(sbUrl('notes?order=updated_at.desc'), { headers:await sbHeaders() });
+    const res = await fetch(sbUrl('notes?order=updated_at.desc'), {
+      headers: {
+        'apikey': APP.supabaseKey,
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      }
+    });
     if(!res.ok) throw new Error('HTTP '+res.status);
     const rows = await res.json();
     if(rows && rows.length > 0){
