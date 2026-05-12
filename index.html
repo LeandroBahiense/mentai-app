@@ -369,6 +369,31 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .fade-in{animation:fadeIn .2s ease;}
 
+/* ── ONBOARDING ── */
+#onboarding{position:fixed;inset:0;background:var(--bg);z-index:9998;display:flex;align-items:center;justify-content:center;flex-direction:column;}
+#onboarding.hidden{display:none;}
+.ob-box{max-width:480px;width:100%;padding:48px 40px;background:var(--bg2);border:1px solid var(--border2);border-radius:20px;text-align:center;display:flex;flex-direction:column;gap:20px;}
+.ob-logo{font-family:'DM Serif Display',serif;font-size:32px;color:var(--accent2);}
+.ob-logo em{color:var(--accent);font-style:normal;}
+.ob-box h2{font-size:20px;color:var(--text);font-weight:500;}
+.ob-box p{font-size:13px;color:var(--text2);line-height:1.6;}
+.ob-box input{width:100%;padding:12px 16px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;font-size:15px;color:var(--text);outline:none;text-align:center;font-family:'Sora',sans-serif;}
+.ob-box input:focus{border-color:var(--accent);}
+.ob-suggestions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+.ob-suggestions span{padding:6px 14px;border-radius:20px;font-size:12px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);cursor:pointer;transition:all .15s;}
+.ob-suggestions span:hover{background:rgba(124,110,240,.15);color:var(--accent2);border-color:var(--accent);}
+.ob-drawers{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+.ob-drawer-opt{padding:10px 16px;border-radius:10px;font-size:13px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);cursor:pointer;transition:all .15s;}
+.ob-drawer-opt:hover{border-color:var(--accent);color:var(--text);}
+.ob-drawer-opt.selected{background:rgba(124,110,240,.15);border-color:var(--accent);color:var(--accent2);}
+.ob-box button{padding:13px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:15px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;transition:opacity .15s;}
+.ob-box button:hover{opacity:.85;}
+.ob-skip{font-size:12px;color:var(--text3);cursor:pointer;}
+.ob-skip:hover{color:var(--text2);}
+.ob-progress{display:flex;gap:6px;justify-content:center;margin-bottom:8px;}
+.ob-dot{width:6px;height:6px;border-radius:50%;background:var(--border2);transition:background .2s;}
+.ob-dot.active{background:var(--accent);}
+
 /* ── AUTH SCREEN ── */
 #auth-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;}
 #auth-screen.hidden{display:none;}
@@ -418,6 +443,50 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
     <button class="auth-btn" id="auth-action-btn" onclick="authAction()">Entrar</button>
     <div class="auth-toggle" id="auth-toggle-text">
       Não tem conta? <span onclick="toggleAuthMode()">Criar conta</span>
+    </div>
+  </div>
+</div>
+
+<!-- ONBOARDING -->
+<div id="onboarding" class="hidden">
+  <div class="ob-box">
+    <div class="ob-progress">
+      <div class="ob-dot active"></div>
+      <div class="ob-dot"></div>
+      <div class="ob-dot"></div>
+    </div>
+    <div class="ob-step" id="ob-step-1" style="display:flex;flex-direction:column;gap:16px;">
+      <div class="ob-logo">Kore<em>o</em></div>
+      <h2>Seu segundo cérebro pessoal</h2>
+      <p>Organize suas ideias, decisões e reuniões em um só lugar — com IA que realmente te conhece.</p>
+      <button onclick="obNext(2)">Vamos começar →</button>
+    </div>
+    <div class="ob-step" id="ob-step-2" style="display:none;flex-direction:column;gap:16px;">
+      <h2>Como quer chamar seu assistente?</h2>
+      <p>Esse será o nome do seu segundo cérebro no WhatsApp e no app.</p>
+      <input type="text" id="ob-assistant-name" placeholder="Ex: Jarvis, Sofia, Max..." maxlength="20"/>
+      <div class="ob-suggestions">
+        <span onclick="setAssistantName('Jarvis')">Jarvis</span>
+        <span onclick="setAssistantName('Sofia')">Sofia</span>
+        <span onclick="setAssistantName('Max')">Max</span>
+        <span onclick="setAssistantName('Aria')">Aria</span>
+        <span onclick="setAssistantName('Neo')">Neo</span>
+      </div>
+      <button onclick="obNext(3)">Continuar →</button>
+      <span onclick="obNext(3)" class="ob-skip">Pular</span>
+    </div>
+    <div class="ob-step" id="ob-step-3" style="display:none;flex-direction:column;gap:16px;">
+      <h2>Como quer organizar seu cérebro?</h2>
+      <p>Selecione as gavetas que fazem sentido para você. Pode criar mais depois.</p>
+      <div class="ob-drawers">
+        <div class="ob-drawer-opt selected" onclick="toggleDrawer(this,'trabalho')">💼 Trabalho</div>
+        <div class="ob-drawer-opt selected" onclick="toggleDrawer(this,'pessoal')">🏠 Pessoal</div>
+        <div class="ob-drawer-opt selected" onclick="toggleDrawer(this,'projetos')">🚀 Projetos</div>
+        <div class="ob-drawer-opt" onclick="toggleDrawer(this,'viagem')">✈️ Viagem</div>
+        <div class="ob-drawer-opt" onclick="toggleDrawer(this,'estudos')">📚 Estudos</div>
+        <div class="ob-drawer-opt" onclick="toggleDrawer(this,'financeiro')">💰 Financeiro</div>
+      </div>
+      <button onclick="finishOnboarding()">Entrar no Koreo →</button>
     </div>
   </div>
 </div>
@@ -2509,6 +2578,59 @@ async function loadNoteAttachments(noteId) {
 // ══════════════════════════════════════════════════════════════════
 // AUTH — Supabase Auth
 // ══════════════════════════════════════════════════════════════════
+// ── ONBOARDING ───────────────────────────────────────────────────────────────
+let _obDrawers = ['trabalho', 'pessoal', 'projetos'];
+
+function checkOnboarding() {
+  if (!localStorage.getItem('koreo-onboarding-done')) {
+    document.getElementById('onboarding').classList.remove('hidden');
+  }
+}
+
+function obNext(step) {
+  document.querySelectorAll('.ob-step').forEach(s => s.style.display = 'none');
+  const el = document.getElementById('ob-step-' + step);
+  if (el) { el.style.display = 'flex'; }
+  document.querySelectorAll('.ob-dot').forEach((d, i) => {
+    d.classList.toggle('active', i < step);
+  });
+}
+
+function setAssistantName(name) {
+  document.getElementById('ob-assistant-name').value = name;
+}
+
+function toggleDrawer(el, id) {
+  el.classList.toggle('selected');
+  if (el.classList.contains('selected')) {
+    if (!_obDrawers.includes(id)) _obDrawers.push(id);
+  } else {
+    _obDrawers = _obDrawers.filter(d => d !== id);
+  }
+}
+
+function finishOnboarding() {
+  const assistantName = (document.getElementById('ob-assistant-name').value || '').trim() || 'Jarvis';
+  localStorage.setItem('koreo-assistant-name', assistantName);
+  localStorage.setItem('koreo-onboarding-done', '1');
+
+  const container = document.getElementById('extra-gavetas');
+  const colors  = { trabalho:'#7c6ef0', pessoal:'#BA7517', projetos:'#1D9E75', viagem:'#D4537E', estudos:'#D85A30', financeiro:'#534AB7' };
+  const labels  = { trabalho:'💼 Trabalho', pessoal:'🏠 Pessoal', projetos:'🚀 Projetos', viagem:'✈️ Viagem', estudos:'📚 Estudos', financeiro:'💰 Financeiro' };
+  const defaultFolders = ['inbox', 'projetos', 'decisoes', 'reunioes'];
+  _obDrawers.forEach(id => {
+    if (defaultFolders.includes(id)) return;
+    const color = colors[id] || '#7c6ef0';
+    const el = document.createElement('div');
+    el.className = 's-item';
+    el.innerHTML = `<span class="s-dot" style="background:${color}"></span>${labels[id]} <span class="s-count">0</span>`;
+    el.onclick = function() { selectFolder(id, el); };
+    container.appendChild(el);
+  });
+
+  document.getElementById('onboarding').classList.add('hidden');
+}
+
 function hideAuthScreen() {
   document.getElementById('auth-screen').classList.add('hidden');
 }
@@ -2651,6 +2773,7 @@ function initSupabaseAuth() {
       currentUser = session.user;
       hideAuthScreen();
       injectTopbarButtons();
+      checkOnboarding();
 
       // Auto-conecta o Supabase se não estiver conectado
       if (!APP.supabaseConnected) {
