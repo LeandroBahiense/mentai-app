@@ -364,55 +364,38 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 
   <!-- SIDEBAR (notas) -->
   <div id="sidebar">
-
-    <!-- ── Gavetas ── -->
-    <div class="s-section-header">
-      <span class="s-label" style="padding:0;margin:0">Gavetas</span>
-      <button class="s-add-btn" onclick="newGaveta()" title="Nova gaveta">+</button>
+    <div class="s-section-header" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 4px;">
+      <span class="s-label">Gavetas</span>
+      <button onclick="newGaveta()" style="background:transparent;border:none;color:var(--accent2);font-size:16px;cursor:pointer;line-height:1;">+</button>
     </div>
     <div class="s-item active" onclick="selectFolder('all',this)">
-      <span class="s-dot" style="background:var(--text2)"></span>
+      <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;display:inline-block;"></span>
       Todas <span class="s-count" id="cnt-all">0</span>
     </div>
     <div class="s-item" onclick="selectFolder('inbox',this)">
-      <span class="s-dot" style="background:var(--gold)"></span>
+      <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0;display:inline-block;"></span>
       Inbox <span class="s-count" id="cnt-inbox">0</span>
     </div>
     <div class="s-item" onclick="selectFolder('projetos',this)">
-      <span class="s-dot" style="background:var(--accent)"></span>
+      <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;display:inline-block;"></span>
       Projetos <span class="s-count" id="cnt-proj">0</span>
     </div>
     <div class="s-item" onclick="selectFolder('decisoes',this)">
-      <span class="s-dot" style="background:var(--coral)"></span>
+      <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--coral);flex-shrink:0;display:inline-block;"></span>
       Decisões <span class="s-count" id="cnt-dec">0</span>
     </div>
     <div class="s-item" onclick="selectFolder('reunioes',this)">
-      <span class="s-dot" style="background:var(--green)"></span>
+      <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;display:inline-block;"></span>
       Reuniões <span class="s-count" id="cnt-reu">0</span>
     </div>
-    <!-- gavetas criadas pelo usuário renderizadas aqui -->
     <div id="extra-gavetas"></div>
-
-    <!-- ── Filtros ── -->
-    <div class="s-section-header" style="margin-top:6px">
-      <span class="s-label" style="padding:0;margin:0">Filtros</span>
+    <div style="padding:10px 14px 4px;margin-top:8px;">
+      <span class="s-label">Filtros</span>
     </div>
-    <div class="s-item" onclick="document.getElementById('search').focus()">
-      <span class="s-dot" style="background:var(--text2)"></span>
-      Buscar
-    </div>
-    <div class="s-item" onclick="selectFolder('favoritos',this)">
-      <span class="s-dot" style="background:var(--pink)"></span>
-      Favoritos
-    </div>
-    <div class="s-item" onclick="selectFolder('anexos',this)">
-      <span class="s-dot" style="background:var(--purple)"></span>
-      Com anexos
-    </div>
-
-    <!-- ── Notas ── -->
-    <div class="s-label" style="margin-top:6px">Notas</div>
-    <div id="notes-list-sidebar"></div>
+    <div class="s-item" onclick="navigate('editor')">🔍 Buscar notas</div>
+    <div class="s-item">⭐ Favoritos</div>
+    <div class="s-item">📎 Com anexos</div>
+    <div id="notes-list-sidebar" style="flex:1;overflow-y:auto;padding:4px 0;scrollbar-width:thin;"></div>
     <button id="new-note-btn" onclick="newNote()">+ Nova nota</button>
   </div>
 
