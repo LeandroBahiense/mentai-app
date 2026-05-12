@@ -965,7 +965,7 @@ function _bindKbDragDrop(board) {
         try {
           await fetch(sbUrl('notes'), {
             method: 'POST',
-            headers: sbHeaders(),
+            headers: await sbHeaders(),
             body: JSON.stringify({
               id: note.id,
               title: note.title,
@@ -1058,7 +1058,7 @@ async function setNoteStatus(noteId, newStatus) {
       note.updated_at = now;
       await fetch(sbUrl('notes'), {
         method: 'POST',
-        headers: sbHeaders(),
+        headers: await sbHeaders(),
         body: JSON.stringify({
           id: note.id,
           title: note.title,
@@ -1160,7 +1160,7 @@ function _npScheduleSave() {
         note.updated_at = new Date().toISOString();
         try {
           await fetch(sbUrl('notes'), {
-            method: 'POST', headers: sbHeaders(),
+            method: 'POST', headers: await sbHeaders(),
             body: JSON.stringify({ id: note.id, title: note.title, content: note.content || '',
               folder: note.folder || 'inbox', cluster: note.cluster || 'produto',
               tags: note.tags || [], date: note.date || 'agora',
@@ -2128,7 +2128,7 @@ async function testSupabase(){
   if(!APP.supabaseConnected){showSBStatus('Configure primeiro','err');return;}
   showSBStatus('Testando...','ok');
   try{
-    const res=await fetch(sbUrl('notes?limit=1'),{headers:sbHeaders()});
+    const res=await fetch(sbUrl('notes?limit=1'),{headers:await sbHeaders()});
     if(res.ok) showSBStatus('Conexão OK ✓','ok');
     else showSBStatus('Erro HTTP '+res.status,'err');
   }catch(e){showSBStatus('Erro: '+e.message,'err');}
@@ -2144,11 +2144,13 @@ function connectAPI(){
   updateAPIStatus(true);
 }
 // ── SUPABASE API HELPERS ──────────────────────────────────────────
-function sbHeaders(){
+async function sbHeaders(){
+  const session = await _supabase.auth.getSession();
+  const token = session.data.session?.access_token || APP.supabaseKey;
   return {
-    'Content-Type':'application/json',
+    'Content-Type': 'application/json',
     'apikey': APP.supabaseKey,
-    'Authorization': 'Bearer ' + APP.supabaseKey,
+    'Authorization': 'Bearer ' + token,
     'Prefer': 'resolution=merge-duplicates',
   };
 }
@@ -2163,7 +2165,7 @@ async function syncSupabase(){
     note.updated_at = now; // atualiza local para o merge funcionar
     await fetch(sbUrl('notes'), {
       method:'POST',
-      headers:sbHeaders(),
+      headers:await sbHeaders(),
       body: JSON.stringify({
         id: note.id,
         title: note.title,
@@ -2187,7 +2189,7 @@ async function loadFromSupabase(){
   if(!APP.supabaseConnected) return;
   try{
     document.getElementById('save-indicator').textContent='◌ carregando do Supabase...';
-    const res = await fetch(sbUrl('notes?order=updated_at.desc'), { headers:sbHeaders() });
+    const res = await fetch(sbUrl('notes?order=updated_at.desc'), { headers:await sbHeaders() });
     if(!res.ok) throw new Error('HTTP '+res.status);
     const rows = await res.json();
     if(rows && rows.length > 0){
@@ -2262,7 +2264,7 @@ async function pushAllToSupabase(){
       note.updated_at = now; // garante que o objeto local tem updated_at
       await fetch(sbUrl('notes'), {
         method:'POST',
-        headers:sbHeaders(),
+        headers:await sbHeaders(),
         body: JSON.stringify({
           id: note.id,
           title: note.title,
@@ -2287,7 +2289,7 @@ async function deleteFromSupabase(id){
   if(!APP.supabaseConnected) return;
   try{
     await fetch(sbUrl('notes?id=eq.'+encodeURIComponent(id)), {
-      method:'DELETE', headers:sbHeaders(),
+      method:'DELETE', headers:await sbHeaders(),
     });
   }catch(e){ console.warn('delete error',e); }
 }
