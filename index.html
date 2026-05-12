@@ -395,11 +395,11 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
     <div class="auth-logo">Kore<em>o</em></div>
     <div class="auth-sub">Seu segundo cérebro pessoal</div>
     <!-- login form -->
-    <div id="login-fields">
+    <div id="login-fields" style="display:flex;flex-direction:column;gap:10px;">
       <input class="auth-input" id="auth-email"    type="email"    placeholder="seu@email.com" autocomplete="email"/>
-      <input class="auth-input" id="auth-password" type="password" placeholder="Senha" autocomplete="current-password" style="margin-top:12px;"/>
-      <div id="forgot-link" style="text-align:right;margin-top:-4px;margin-bottom:4px;">
-        <span onclick="showForgotPassword()" style="font-size:12px;color:var(--accent2);cursor:pointer;">Esqueceu a senha?</span>
+      <input class="auth-input" id="auth-password" type="password" placeholder="Senha" autocomplete="current-password"/>
+      <div id="forgot-link" style="text-align:right;margin-top:8px;margin-bottom:4px;">
+        <span onclick="showForgotPassword()" style="font-size:12px;color:var(--accent2);cursor:pointer;text-decoration:underline;">Esqueceu a senha?</span>
       </div>
     </div>
 
