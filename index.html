@@ -8,21 +8,33 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
 :root {
-  --bg:      #080c18;
-  --bg2:     #0d1220;
-  --bg3:     #111828;
-  --border:  rgba(100,120,220,0.12);
-  --border2: rgba(100,120,220,0.25);
-  --accent:  #6b7fe8;
-  --accent2: #a8b4f0;
-  --text:    #c8d0f0;
-  --text2:   #7a86b0;
-  --text3:   #3a4260;
+  --bg:      #070710;
+  --bg2:     #0e0e1a;
+  --bg3:     #16162a;
+  --border:  rgba(255,255,255,0.05);
+  --border2: rgba(255,255,255,0.09);
+  --text:    #ddddf5;
+  --text2:   #6060a0;
+  --text3:   #303050;
+  --accent:  #7c6ef0;
+  --accent2: #a99cf5;
   --green:   #1D9E75;
   --coral:   #D85A30;
   --pink:    #D4537E;
   --gold:    #BA7517;
   --purple:  #534AB7;
+}
+html.light {
+  --bg:      #f5f5fa;
+  --bg2:     #ffffff;
+  --bg3:     #ededf5;
+  --border:  rgba(0,0,0,0.07);
+  --border2: rgba(0,0,0,0.12);
+  --text:    #1a1a2e;
+  --text2:   #5a5a8a;
+  --text3:   #9090b0;
+  --accent:  #7c6ef0;
+  --accent2: #5a4ed0;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
@@ -40,7 +52,9 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 #db-badge:hover{border-color:var(--accent);}
 #db-dot{width:6px;height:6px;border-radius:50%;background:var(--coral);transition:background .3s;}
 #db-dot.on{background:var(--green);}
-#user-avatar{width:30px;height:30px;border-radius:50%;background:rgba(107,127,232,.2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--accent2);cursor:pointer;}
+#user-avatar{width:30px;height:30px;border-radius:50%;background:rgba(124,110,240,.2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--accent2);cursor:pointer;}
+#theme-toggle{width:30px;height:30px;border-radius:8px;background:transparent;border:1px solid var(--border2);color:var(--text2);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1;padding:0;}
+#theme-toggle:hover{background:rgba(124,110,240,.1);border-color:var(--accent);color:var(--text);}
 
 /* ── LAYOUT ── */
 #app-body{display:flex;flex:1;overflow:hidden;}
@@ -65,7 +79,13 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 .note-row-meta{font-size:10px;color:var(--text3);display:flex;gap:5px;}
 .note-cluster{padding:1px 6px;border-radius:10px;font-size:9px;font-weight:500;}
 #new-note-btn{margin:8px 10px;padding:8px;border-radius:8px;border:1px dashed var(--border2);background:transparent;color:var(--text2);font-size:12px;font-family:'Sora',sans-serif;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;}
-#new-note-btn:hover{background:rgba(107,127,232,.1);color:var(--accent2);border-color:var(--accent);}
+#new-note-btn:hover{background:rgba(124,110,240,.1);color:var(--accent2);border-color:var(--accent);}
+/* ── SIDEBAR GAVETAS ── */
+.s-section-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 5px;}
+.s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.s-add-btn{background:transparent;border:1px solid var(--border2);color:var(--text2);font-size:14px;width:20px;height:20px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .15s;font-family:'Sora',sans-serif;}
+.s-add-btn:hover{background:rgba(124,110,240,.12);color:var(--accent2);border-color:var(--accent);}
+#extra-gavetas .s-item{font-style:normal;}
 
 /* ── MAIN AREA ── */
 #main-area{flex:1;overflow:hidden;display:flex;flex-direction:column;}
@@ -330,11 +350,12 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
   <button class="nav-btn"        id="nav-voice"   onclick="navigate('voice')">🎙 Voz</button>
   <div class="nav-sep"></div>
   <div id="topbar-right">
+    <button id="theme-toggle" onclick="toggleTheme()" title="Alternar tema">🌙</button>
     <div id="db-badge" onclick="navigate('settings')">
       <div id="db-dot"></div>
       <span id="db-label">Banco local</span>
     </div>
-    <div id="user-avatar">V</div>
+    <div id="user-avatar">K</div>
   </div>
 </div>
 
@@ -343,16 +364,54 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 
   <!-- SIDEBAR (notas) -->
   <div id="sidebar">
-    <div id="search-wrap">
-      <input id="search" placeholder="Buscar notas..." oninput="filterNotes(this.value)"/>
+
+    <!-- ── Gavetas ── -->
+    <div class="s-section-header">
+      <span class="s-label" style="padding:0;margin:0">Gavetas</span>
+      <button class="s-add-btn" onclick="newGaveta()" title="Nova gaveta">+</button>
     </div>
-    <div class="s-label">Pastas</div>
-    <div class="s-item active" onclick="selectFolder('all',this)">◈ Todas <span class="s-count" id="cnt-all">0</span></div>
-    <div class="s-item" onclick="selectFolder('inbox',this)"><span style="color:var(--gold)">↓</span> Inbox <span class="s-count" id="cnt-inbox">0</span></div>
-    <div class="s-item" onclick="selectFolder('projetos',this)"><span style="color:var(--accent)">◻</span> Projetos <span class="s-count" id="cnt-proj">0</span></div>
-    <div class="s-item" onclick="selectFolder('decisoes',this)"><span style="color:var(--coral)">⬡</span> Decisões <span class="s-count" id="cnt-dec">0</span></div>
-    <div class="s-item" onclick="selectFolder('reunioes',this)"><span style="color:var(--green)">◎</span> Reuniões <span class="s-count" id="cnt-reu">0</span></div>
-    <div class="s-label">Notas</div>
+    <div class="s-item active" onclick="selectFolder('all',this)">
+      <span class="s-dot" style="background:var(--text2)"></span>
+      Todas <span class="s-count" id="cnt-all">0</span>
+    </div>
+    <div class="s-item" onclick="selectFolder('inbox',this)">
+      <span class="s-dot" style="background:var(--gold)"></span>
+      Inbox <span class="s-count" id="cnt-inbox">0</span>
+    </div>
+    <div class="s-item" onclick="selectFolder('projetos',this)">
+      <span class="s-dot" style="background:var(--accent)"></span>
+      Projetos <span class="s-count" id="cnt-proj">0</span>
+    </div>
+    <div class="s-item" onclick="selectFolder('decisoes',this)">
+      <span class="s-dot" style="background:var(--coral)"></span>
+      Decisões <span class="s-count" id="cnt-dec">0</span>
+    </div>
+    <div class="s-item" onclick="selectFolder('reunioes',this)">
+      <span class="s-dot" style="background:var(--green)"></span>
+      Reuniões <span class="s-count" id="cnt-reu">0</span>
+    </div>
+    <!-- gavetas criadas pelo usuário renderizadas aqui -->
+    <div id="extra-gavetas"></div>
+
+    <!-- ── Filtros ── -->
+    <div class="s-section-header" style="margin-top:6px">
+      <span class="s-label" style="padding:0;margin:0">Filtros</span>
+    </div>
+    <div class="s-item" onclick="document.getElementById('search').focus()">
+      <span class="s-dot" style="background:var(--text2)"></span>
+      Buscar
+    </div>
+    <div class="s-item" onclick="selectFolder('favoritos',this)">
+      <span class="s-dot" style="background:var(--pink)"></span>
+      Favoritos
+    </div>
+    <div class="s-item" onclick="selectFolder('anexos',this)">
+      <span class="s-dot" style="background:var(--purple)"></span>
+      Com anexos
+    </div>
+
+    <!-- ── Notas ── -->
+    <div class="s-label" style="margin-top:6px">Notas</div>
     <div id="notes-list-sidebar"></div>
     <button id="new-note-btn" onclick="newNote()">+ Nova nota</button>
   </div>
@@ -646,6 +705,7 @@ function initApp() {
     }, 300);
   }
 
+  initTheme();
   renderSidebar();
   renderChatCtx();
   initVoiceViz();
@@ -669,6 +729,44 @@ function initApp() {
 // ══════════════════════════════════════════════════════════════════
 // NAVEGAÇÃO
 // ══════════════════════════════════════════════════════════════════
+// ── Dark / Light mode ────────────────────────────────────────────────────────
+function initTheme() {
+  // Preferência salva tem prioridade; caso contrário, segue o sistema
+  const saved = localStorage.getItem('koreo-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isLight = saved ? saved === 'light' : !prefersDark;
+  if (isLight) {
+    document.documentElement.classList.add('light');
+    document.getElementById('theme-toggle').textContent = '☀️';
+  } else {
+    document.documentElement.classList.remove('light');
+    document.getElementById('theme-toggle').textContent = '🌙';
+  }
+}
+
+function toggleTheme() {
+  const isLight = document.documentElement.classList.toggle('light');
+  document.getElementById('theme-toggle').textContent = isLight ? '☀️' : '🌙';
+  localStorage.setItem('koreo-theme', isLight ? 'light' : 'dark');
+}
+
+// ── Nova gaveta ───────────────────────────────────────────────────────────────
+function newGaveta() {
+  const name = prompt('Nome da nova gaveta:');
+  if (!name || !name.trim()) return;
+  const id = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  if (!id) return;
+  // Renderiza na sidebar
+  const container = document.getElementById('extra-gavetas');
+  const colors = ['#7c6ef0','#1D9E75','#D85A30','#D4537E','#BA7517','#534AB7'];
+  const color = colors[container.children.length % colors.length];
+  const el = document.createElement('div');
+  el.className = 's-item';
+  el.innerHTML = `<span class="s-dot" style="background:${color}"></span>${name.trim()} <span class="s-count">0</span>`;
+  el.onclick = function() { selectFolder(id, el); };
+  container.appendChild(el);
+}
+
 function navigate(view) {
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
