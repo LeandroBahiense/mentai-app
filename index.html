@@ -323,6 +323,16 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 .kb-card-att{opacity:.6;}
 .kb-add-btn{flex-shrink:0;margin-top:6px;padding:7px;border-radius:8px;border:1px dashed var(--border2);background:transparent;color:var(--text3);font-size:11px;font-family:'Sora',sans-serif;cursor:pointer;transition:all .15s;text-align:center;width:100%;}
 .kb-add-btn:hover{background:rgba(124,110,240,.08);color:var(--accent2);border-color:var(--accent);}
+.kb-menu-btn{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:5px;background:transparent;border:none;color:var(--text3);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .12s, background .12s;line-height:1;padding:0;z-index:2;}
+.kb-card:hover .kb-menu-btn{opacity:1;}
+.kb-menu-btn:hover{background:rgba(107,127,232,.15);color:var(--accent2);}
+#kb-ctx-menu{position:fixed;z-index:9000;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:5px;min-width:168px;box-shadow:0 8px 32px rgba(0,0,0,.45);display:none;animation:fadeIn .12s ease;}
+#kb-ctx-menu.open{display:block;}
+.kb-ctx-item{display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:7px;font-size:12px;color:var(--text2);cursor:pointer;transition:background .1s;}
+.kb-ctx-item:hover{background:rgba(107,127,232,.1);color:var(--text);}
+.kb-ctx-item.current{color:var(--text);font-weight:600;}
+.kb-ctx-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.kb-ctx-sep{height:1px;background:var(--border);margin:4px 0;}
 
 /* STATUS BAR */
 #statusbar{height:26px;background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:14px;font-size:10px;color:var(--text3);flex-shrink:0;letter-spacing:.4px;}
@@ -648,6 +658,9 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 <!-- AUTOCOMPLETE -->
 <div id="autocomplete"></div>
 
+<!-- KANBAN CONTEXT MENU -->
+<div id="kb-ctx-menu"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════
@@ -713,7 +726,10 @@ function renderKanban() {
       const col = KANBAN_COLS.find(c => c.id === (n.status || 'inbox')) || KANBAN_COLS[0];
       const clColor = CLUSTER_COLORS[n.cluster] || '#6b7fe8';
       const hasAtt = n.attachments && n.attachments.length > 0;
-      return `<div class="kb-card" onclick="openNoteFromKanban('${n.id}')" style="border-left:3px solid ${col.color}">
+      return `<div class="kb-card" style="border-left:3px solid ${col.color};"
+          onclick="openNoteFromKanban('${n.id}')"
+          oncontextmenu="showKbMenu(event,'${n.id}');return false;">
+        <button class="kb-menu-btn" onclick="showKbMenu(event,'${n.id}')">⋮</button>
         <div class="kb-card-title">${n.title}</div>
         <div class="kb-card-tags">
           ${(n.tags||[]).map(t=>`<span class="kb-card-tag" style="background:${clColor}18;color:${clColor}">${t}</span>`).join('')}
@@ -736,7 +752,10 @@ function renderKanban() {
     const cards = colNotes.map(n => {
       const clColor = CLUSTER_COLORS[n.cluster] || '#6b7fe8';
       const hasAtt = n.attachments && n.attachments.length > 0;
-      return `<div class="kb-card" onclick="openNoteFromKanban('${n.id}')">
+      return `<div class="kb-card" style="border-left:3px solid ${col.color};"
+          onclick="openNoteFromKanban('${n.id}')"
+          oncontextmenu="showKbMenu(event,'${n.id}');return false;">
+        <button class="kb-menu-btn" onclick="showKbMenu(event,'${n.id}')">⋮</button>
         <div class="kb-card-title">${n.title}</div>
         <div class="kb-card-tags">
           ${(n.tags||[]).map(t=>`<span class="kb-card-tag" style="background:${clColor}18;color:${clColor}">${t}</span>`).join('')}
@@ -761,6 +780,80 @@ function renderKanban() {
 function openNoteFromKanban(id) {
   openNote(id);
 }
+
+function showKbMenu(e, noteId) {
+  e.stopPropagation();
+  const note = APP.notes.find(n => n.id === noteId);
+  if (!note) return;
+  const current = note.status || 'inbox';
+  const menu = document.getElementById('kb-ctx-menu');
+
+  menu.innerHTML =
+    '<div class="kb-ctx-sep" style="margin:2px 0 6px;border-top:none;"><span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);padding:0 11px;">Mover para</span></div>' +
+    KANBAN_COLS.map(col =>
+      `<div class="kb-ctx-item${col.id === current ? ' current' : ''}" onclick="setNoteStatus('${noteId}','${col.id}')">
+        <span class="kb-ctx-dot" style="background:${col.color}"></span>
+        ${col.label}
+        ${col.id === current ? '<span style="margin-left:auto;font-size:10px;opacity:.5">✓</span>' : ''}
+      </div>`
+    ).join('');
+
+  // posiciona próximo ao cursor, mas dentro da tela
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let x = e.clientX, y = e.clientY;
+  menu.classList.add('open');
+  const mw = menu.offsetWidth || 172, mh = menu.offsetHeight || 180;
+  if (x + mw > vw - 8) x = vw - mw - 8;
+  if (y + mh > vh - 8) y = vh - mh - 8;
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+}
+
+function closeKbMenu() {
+  const menu = document.getElementById('kb-ctx-menu');
+  if (menu) menu.classList.remove('open');
+}
+
+async function setNoteStatus(noteId, newStatus) {
+  closeKbMenu();
+  const note = APP.notes.find(n => n.id === noteId);
+  if (!note || note.status === newStatus) return;
+  note.status = newStatus;
+  saveNotes();
+  renderKanban();
+  renderSidebar();
+  // persiste o status no Supabase
+  if (APP.supabaseConnected) {
+    try {
+      const now = new Date().toISOString();
+      note.updated_at = now;
+      await fetch(sbUrl('notes'), {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({
+          id: note.id,
+          title: note.title,
+          content: note.content || '',
+          folder: note.folder || 'inbox',
+          cluster: note.cluster || 'produto',
+          tags: note.tags || [],
+          date: note.date || 'agora',
+          status: newStatus,
+          updated_at: now,
+        }),
+      });
+    } catch(e) { console.warn('Supabase status sync error:', e); }
+  }
+}
+
+// fecha o menu ao clicar fora
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('kb-ctx-menu');
+  if (menu && !menu.contains(e.target)) closeKbMenu();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeKbMenu();
+});
 
 function newNoteInCol(status) {
   const id = 'note-' + Date.now();
