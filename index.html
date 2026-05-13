@@ -1400,14 +1400,13 @@ function initApp() {
   updateStatusBar();
   updateSystemStatus();
 
-  // boot na view kanban
+  // boot na view home
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
-  const kanbanView = document.getElementById('view-kanban');
-  if (kanbanView) { kanbanView.classList.add('active'); kanbanView.style.display = 'flex'; }
+  const homeView = document.getElementById('view-home');
+  if (homeView) { homeView.classList.add('active'); homeView.style.display = 'flex'; }
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('nav-kanban')?.classList.add('active');
-  APP.currentView = 'kanban';
-  renderKanban();
+  APP.currentView = 'home';
+  renderHome();
 
   setTimeout(() => {
     initGraph();
@@ -2469,15 +2468,11 @@ async function loadFromSupabase(){
       updateStatusBar();
       updateSystemStatus();
 
-      // Atualiza a nota aberta se foi modificada no banco; senão abre a primeira
-      if (APP.currentNoteId) {
-        const current = APP.notes.find(function(n) { return n.id === APP.currentNoteId; });
-        if (current) openNote(APP.currentNoteId);
-      } else if (APP.notes.length > 0) {
-        openNote(APP.notes[0].id);
+      if (APP.currentView === 'home') {
+        renderHome();
+      } else {
+        renderKanban();
       }
-
-      renderKanban();
       document.getElementById('save-indicator').textContent='✓ notas sincronizadas';
       document.getElementById('save-indicator').style.color='var(--green)';
       showSBStatus(rows.length+' nota(s) sincronizada(s) ✓','ok');
