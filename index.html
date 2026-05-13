@@ -8,21 +8,21 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
 :root {
-  --bg:      #070710;
-  --bg2:     #0e0e1a;
-  --bg3:     #16162a;
+  --bg:      #07080f;
+  --bg2:     #0d0e1a;
+  --bg3:     #111218;
   --border:  rgba(255,255,255,0.05);
   --border2: rgba(255,255,255,0.09);
-  --text:    #ddddf5;
-  --text2:   #6060a0;
-  --text3:   #303050;
-  --accent:  #7c6ef0;
-  --accent2: #a99cf5;
-  --green:   #1D9E75;
-  --coral:   #D85A30;
-  --pink:    #D4537E;
-  --gold:    #BA7517;
-  --purple:  #534AB7;
+  --text:    #e2e8f0;
+  --text2:   #4b5563;
+  --text3:   #1f2937;
+  --accent:  #7c3aed;
+  --accent2: #a78bfa;
+  --green:   #34d399;
+  --coral:   #ef4444;
+  --pink:    #f472b6;
+  --gold:    #fb923c;
+  --purple:  #7c3aed;
 }
 html.light {
   --bg:      #f5f5fa;
@@ -916,11 +916,11 @@ const CLUSTER_COLORS = {
 };
 
 const KANBAN_COLS = [
-  { id:'inbox',     label:'Inbox',       color:'#BA7517' },
-  { id:'urgente',   label:'Urgente',     color:'#D85A30' },
-  { id:'alta',      label:'Alta Prior.', color:'#D4537E' },
-  { id:'andamento', label:'Em Andamento',color:'#7c6ef0' },
-  { id:'concluido', label:'Concluído',   color:'#1D9E75' },
+  { id:'inbox',     label:'Inbox',        color:'#fb923c' },
+  { id:'urgente',   label:'Urgente',      color:'#ef4444' },
+  { id:'alta',      label:'Alta Prior.',  color:'#f472b6' },
+  { id:'andamento', label:'Em Andamento', color:'#7c3aed' },
+  { id:'concluido', label:'Concluído',    color:'#34d399' },
 ];
 const STATUS_COLORS = Object.fromEntries(KANBAN_COLS.map(c => [c.id, c.color]));
 
