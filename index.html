@@ -70,7 +70,10 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 .s-item{display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:12px;color:var(--text2);cursor:pointer;border-left:2px solid transparent;transition:all .1s;}
 .s-item:hover{background:rgba(107,127,232,.06);color:var(--text);}
 .s-item.active{background:rgba(107,127,232,.1);color:var(--accent2);border-left-color:var(--accent);}
-.s-count{margin-left:auto;font-size:10px;color:var(--text3);background:var(--bg3);padding:1px 6px;border-radius:10px;}
+.s-count{margin-left:auto;font-size:11px;color:var(--text3);}
+.gb-menu-btn{background:transparent;border:none;color:var(--text3);font-size:14px;cursor:pointer;padding:0 3px;line-height:1;opacity:0;transition:opacity .12s;flex-shrink:0;}
+#gaveta-ctx-menu,#gavetas-header-menu{position:fixed;z-index:9000;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:5px;min-width:160px;box-shadow:0 8px 32px rgba(0,0,0,.45);display:none;animation:fadeIn .12s ease;}
+#gaveta-ctx-menu.open,#gavetas-header-menu.open{display:block;}
 #notes-list-sidebar{display:none;}
 .note-row{padding:8px 14px;cursor:pointer;border-left:2px solid transparent;transition:all .1s;}
 .note-row:hover{background:rgba(107,127,232,.05);}
@@ -518,33 +521,37 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
   <div id="sidebar">
     <div class="s-section-header" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 4px;">
       <span class="s-label">Gavetas</span>
-      <button onclick="newGaveta()" style="background:transparent;border:none;color:var(--accent2);font-size:16px;cursor:pointer;line-height:1;">+</button>
+      <button onclick="toggleGavetasMenu(event)" style="background:transparent;border:none;color:var(--text2);font-size:16px;cursor:pointer;line-height:1;">⋯</button>
     </div>
-    <div class="s-item active" onclick="selectFolder('all',this)">
+    <div class="s-item active" onclick="selectFolder('all',this)" data-label="☰ Todas" onmouseenter="this.querySelector('.gb-menu-btn')&&(this.querySelector('.gb-menu-btn').style.opacity='1')" onmouseleave="this.querySelector('.gb-menu-btn')&&(this.querySelector('.gb-menu-btn').style.opacity='0')">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;display:inline-block;"></span>
       ☰ Todas <span class="s-count" id="cnt-all">0</span>
     </div>
-    <div class="s-item" data-gaveta-id="inbox" onclick="selectFolder('inbox',this)" onmouseenter="this.querySelector('.s-hide-btn').style.opacity='1'" onmouseleave="this.querySelector('.s-hide-btn').style.opacity='0'">
+    <div class="s-item" data-gaveta-id="inbox" data-label="📥 Inbox" onclick="selectFolder('inbox',this)" onmouseenter="this.querySelector('.gb-menu-btn').style.opacity='1'" onmouseleave="this.querySelector('.gb-menu-btn').style.opacity='0'">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0;display:inline-block;"></span>
       📥 Inbox <span class="s-count" id="cnt-inbox">0</span>
-      <span class="s-hide-btn" onclick="event.stopPropagation();hideGaveta('inbox',this.parentElement)" style="margin-left:auto;opacity:0;font-size:10px;color:var(--text3);cursor:pointer;padding:0 2px;line-height:1;">✕</span>
+      <button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'inbox',true)">⋮</button>
     </div>
-    <div class="s-item" data-gaveta-id="projetos" onclick="selectFolder('projetos',this)" onmouseenter="this.querySelector('.s-hide-btn').style.opacity='1'" onmouseleave="this.querySelector('.s-hide-btn').style.opacity='0'">
+    <div class="s-item" data-gaveta-id="projetos" data-label="🚀 Projetos" onclick="selectFolder('projetos',this)" onmouseenter="this.querySelector('.gb-menu-btn').style.opacity='1'" onmouseleave="this.querySelector('.gb-menu-btn').style.opacity='0'">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;display:inline-block;"></span>
       🚀 Projetos <span class="s-count" id="cnt-proj">0</span>
-      <span class="s-hide-btn" onclick="event.stopPropagation();hideGaveta('projetos',this.parentElement)" style="margin-left:auto;opacity:0;font-size:10px;color:var(--text3);cursor:pointer;padding:0 2px;line-height:1;">✕</span>
+      <button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'projetos',false)">⋮</button>
     </div>
-    <div class="s-item" data-gaveta-id="decisoes" onclick="selectFolder('decisoes',this)" onmouseenter="this.querySelector('.s-hide-btn').style.opacity='1'" onmouseleave="this.querySelector('.s-hide-btn').style.opacity='0'">
+    <div class="s-item" data-gaveta-id="decisoes" data-label="⚡ Decisões" onclick="selectFolder('decisoes',this)" onmouseenter="this.querySelector('.gb-menu-btn').style.opacity='1'" onmouseleave="this.querySelector('.gb-menu-btn').style.opacity='0'">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--coral);flex-shrink:0;display:inline-block;"></span>
       ⚡ Decisões <span class="s-count" id="cnt-dec">0</span>
-      <span class="s-hide-btn" onclick="event.stopPropagation();hideGaveta('decisoes',this.parentElement)" style="margin-left:auto;opacity:0;font-size:10px;color:var(--text3);cursor:pointer;padding:0 2px;line-height:1;">✕</span>
+      <button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'decisoes',false)">⋮</button>
     </div>
-    <div class="s-item" data-gaveta-id="reunioes" onclick="selectFolder('reunioes',this)" onmouseenter="this.querySelector('.s-hide-btn').style.opacity='1'" onmouseleave="this.querySelector('.s-hide-btn').style.opacity='0'">
+    <div class="s-item" data-gaveta-id="reunioes" data-label="👥 Reuniões" onclick="selectFolder('reunioes',this)" onmouseenter="this.querySelector('.gb-menu-btn').style.opacity='1'" onmouseleave="this.querySelector('.gb-menu-btn').style.opacity='0'">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;display:inline-block;"></span>
       👥 Reuniões <span class="s-count" id="cnt-reu">0</span>
-      <span class="s-hide-btn" onclick="event.stopPropagation();hideGaveta('reunioes',this.parentElement)" style="margin-left:auto;opacity:0;font-size:10px;color:var(--text3);cursor:pointer;padding:0 2px;line-height:1;">✕</span>
+      <button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'reunioes',false)">⋮</button>
     </div>
     <div id="extra-gavetas"></div>
+    <div class="s-item" data-gaveta-id="trash" data-label="🗑 Lixeira" onclick="selectFolder('trash',this)" style="border-top:1px solid var(--border);margin-top:4px;">
+      <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--coral);flex-shrink:0;display:inline-block;"></span>
+      🗑 Lixeira <span class="s-count" id="cnt-trash">0</span>
+    </div>
     <div style="padding:10px 14px 4px;margin-top:8px;">
       <span class="s-label">Filtros</span>
     </div>
@@ -837,6 +844,8 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 
 <!-- KANBAN CONTEXT MENU -->
 <div id="kb-ctx-menu"></div>
+<div id="gavetas-header-menu"></div>
+<div id="gaveta-ctx-menu"></div>
 
 <!-- NOTE PANEL -->
 <div id="np-overlay" onclick="closeNotePanel()"></div>
@@ -928,6 +937,7 @@ function renderKanban() {
   const board = document.getElementById('kanban-board');
   if (!board) return;
   const notes = getFilteredNotes();
+  if (currentFolder === 'trash') { renderTrash(board); return; }
 
   // sincroniza título com gaveta atual
   const kbTitle = document.querySelector('#kanban-topbar h3');
@@ -936,7 +946,7 @@ function renderKanban() {
       kbTitle.textContent = 'Notas — ' + APP.notes.length + ' notas';
     } else {
       const activeEl = document.querySelector('#sidebar .s-item.active');
-      const folderName = activeEl ? activeEl.textContent.replace(/\d+$/, '').trim() : currentFolder;
+      const folderName = activeEl ? (activeEl.dataset.label || activeEl.textContent.replace(/[0-9⋮]+/g, '').trim()) : currentFolder;
       kbTitle.textContent = folderName + ' — ' + notes.length + ' notas';
     }
   }
@@ -1160,6 +1170,8 @@ async function setNoteStatus(noteId, newStatus) {
 document.addEventListener('click', function(e) {
   const menu = document.getElementById('kb-ctx-menu');
   if (menu && !menu.contains(e.target)) closeKbMenu();
+  if (!e.target.closest('#gaveta-ctx-menu') && !e.target.closest('.gb-menu-btn')) closeGavetasMenus();
+  if (!e.target.closest('#gavetas-header-menu') && !e.target.closest('.s-section-header button')) closeGavetasMenus();
 });
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeKbMenu();
@@ -1473,9 +1485,15 @@ function newGaveta() {
   const color = colors[container.children.length % colors.length];
   const el = document.createElement('div');
   el.className = 's-item';
-  el.innerHTML = `<span class="s-dot" style="background:${color}"></span>${name.trim()} <span class="s-count">0</span>`;
+  el.dataset.gavataId = id;
+  el.dataset.label = name.trim();
+  el.draggable = true;
+  el.innerHTML = `<span class="s-dot" style="background:${color};width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block;"></span>${name.trim()} <span class="s-count">0</span><button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'${id}',false)">⋮</button>`;
   el.onclick = function() { selectFolder(id, el); };
+  el.onmouseenter = () => el.querySelector('.gb-menu-btn').style.opacity = '1';
+  el.onmouseleave = () => el.querySelector('.gb-menu-btn').style.opacity = '0';
   container.appendChild(el);
+  bindGavetaDragDrop();
 }
 
 function navigate(view) {
@@ -1529,7 +1547,11 @@ let currentFolder = 'all';
 let searchQuery = '';
 
 function getFilteredNotes() {
+  if (currentFolder === 'trash') {
+    return APP.notes.filter(n => n.in_trash === true);
+  }
   return APP.notes.filter(n => {
+    if (n.in_trash) return false;
     const folderOk = currentFolder === 'all' || n.folder === currentFolder;
     const searchOk = !searchQuery || n.title.toLowerCase().includes(searchQuery.toLowerCase());
     return folderOk && searchOk;
@@ -1537,13 +1559,22 @@ function getFilteredNotes() {
 }
 
 function renderSidebar() {
-  const all = APP.notes;
+  const live = APP.notes.filter(n => !n.in_trash);
   const upd = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-  upd('cnt-all',   all.length);
-  upd('cnt-inbox', all.filter(n=>n.folder==='inbox').length);
-  upd('cnt-proj',  all.filter(n=>n.folder==='projetos').length);
-  upd('cnt-dec',   all.filter(n=>n.folder==='decisoes').length);
-  upd('cnt-reu',   all.filter(n=>n.folder==='reunioes').length);
+  upd('cnt-all',   live.length);
+  upd('cnt-inbox', live.filter(n=>n.folder==='inbox').length);
+  upd('cnt-proj',  live.filter(n=>n.folder==='projetos').length);
+  upd('cnt-dec',   live.filter(n=>n.folder==='decisoes').length);
+  upd('cnt-reu',   live.filter(n=>n.folder==='reunioes').length);
+  upd('cnt-trash', APP.notes.filter(n=>n.in_trash).length);
+  // update extra-gavetas counts
+  document.querySelectorAll('#extra-gavetas .s-item').forEach(el => {
+    const id = el.dataset.gavataId || el.getAttribute('data-gaveta-id');
+    if (id) {
+      const sc = el.querySelector('.s-count');
+      if (sc) sc.textContent = live.filter(n => n.folder === id).length;
+    }
+  });
 }
 
 function filterNotes(q) { searchQuery = q; renderSidebar(); }
@@ -1558,7 +1589,7 @@ function selectFolder(f, el) {
     if (f === 'all') {
       title.textContent = 'Notas — ' + APP.notes.length + ' notas';
     } else {
-      const folderName = el.textContent.replace(/\d+$/, '').trim();
+      const folderName = el.dataset.label || el.textContent.replace(/[0-9⋮]+/g, '').trim();
       const count = getFilteredNotes().length;
       title.textContent = folderName + ' — ' + count + ' notas';
     }
@@ -2464,6 +2495,8 @@ async function loadFromSupabase(){
               date:       r.date     || 'salvo',
               status:     r.status   || 'inbox',
               updated_at: r.updated_at,
+              in_trash:   r.in_trash   || false,
+              deleted_at: r.deleted_at || null,
             });
           }
         } else {
@@ -2478,6 +2511,8 @@ async function loadFromSupabase(){
             date:       r.date     || 'salvo',
             status:     r.status   || 'inbox',
             updated_at: r.updated_at,
+            in_trash:   r.in_trash   || false,
+            deleted_at: r.deleted_at || null,
           });
         }
       });
@@ -2530,6 +2565,8 @@ async function pushAllToSupabase() {
           status:     note.status   || 'inbox',
           user_id:    currentUser.id,
           updated_at: note.updated_at,
+          in_trash:   note.in_trash   || false,
+          deleted_at: note.deleted_at || null,
         }),
       });
       if (res.ok) ok++;
@@ -2876,17 +2913,21 @@ function loadGavetasFromPrefs(gavetas) {
     const color = colors[id] || '#7c6ef0';
     const el = document.createElement('div');
     el.className = 's-item';
-    el.style.position = 'relative';
-    el.innerHTML = `<span class="s-dot" style="background:${color}"></span>${labels[id]||id} <span class="s-count">0</span><span class="s-hide-btn" onclick="event.stopPropagation();hideGaveta('${id}',this.parentElement)" style="margin-left:auto;opacity:0;font-size:10px;color:var(--text3);cursor:pointer;padding:0 2px;line-height:1;">✕</span>`;
+    el.dataset.gavataId = id;
+    el.dataset.label = labels[id] || id;
+    el.draggable = true;
+    el.innerHTML = `<span class="s-dot" style="background:${color};width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block;"></span>${labels[id]||id} <span class="s-count">0</span><button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'${id}',false)">⋮</button>`;
     el.onclick = function() { selectFolder(id, el); };
-    el.onmouseenter = () => el.querySelector('.s-hide-btn').style.opacity = '1';
-    el.onmouseleave = () => el.querySelector('.s-hide-btn').style.opacity = '0';
+    el.onmouseenter = () => el.querySelector('.gb-menu-btn').style.opacity = '1';
+    el.onmouseleave = () => el.querySelector('.gb-menu-btn').style.opacity = '0';
     container.appendChild(el);
   });
+  bindGavetaDragDrop();
 }
 
 async function hideGaveta(id, el) {
-  el.remove();
+  el.style.display = 'none';
+  closeGavetasMenus();
   if (currentUser && _supabase) {
     const { data } = await _supabase.from('user_preferences')
       .select('gavetas_ocultas').eq('user_id', currentUser.id).single();
@@ -2895,6 +2936,241 @@ async function hideGaveta(id, el) {
     await _supabase.from('user_preferences')
       .upsert({ user_id: currentUser.id, gavetas_ocultas: ocultas, updated_at: new Date().toISOString() });
   }
+}
+
+let _gavetaMenuTarget = null;
+
+function toggleGavetasMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('gavetas-header-menu');
+  if (menu.classList.contains('open')) { menu.classList.remove('open'); return; }
+  menu.innerHTML =
+    `<div class="kb-ctx-item" onclick="newGaveta();closeGavetasMenus()">+ Nova gaveta</div>` +
+    `<div class="kb-ctx-item" onclick="showAllGavetas()">👁 Mostrar todas</div>` +
+    `<div class="kb-ctx-item" onclick="hideAllGavetas()">🙈 Ocultar todas</div>`;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let x = e.clientX, y = e.clientY;
+  menu.classList.add('open');
+  const mw = menu.offsetWidth || 168, mh = menu.offsetHeight || 100;
+  if (x + mw > vw - 8) x = vw - mw - 8;
+  if (y + mh > vh - 8) y = vh - mh - 8;
+  menu.style.left = x + 'px'; menu.style.top = y + 'px';
+}
+
+function showGavetaMenu(e, id, noDelete) {
+  e.stopPropagation();
+  closeGavetasMenus();
+  _gavetaMenuTarget = id;
+  const menu = document.getElementById('gaveta-ctx-menu');
+  const targetEl = document.querySelector(`[data-gaveta-id="${id}"]`) ||
+    document.querySelector(`#extra-gavetas [data-gavata-id="${id}"]`);
+  menu.innerHTML =
+    `<div class="kb-ctx-item" onclick="renameGaveta('${id}')">✏️ Renomear</div>` +
+    `<div class="kb-ctx-item" onclick="hideGaveta('${id}',document.querySelector('[data-gaveta-id=\\'${id}\\']')||document.querySelector('#extra-gavetas [data-gavata-id=\\'${id}\\']'))">👁 Ocultar</div>` +
+    (!noDelete ? `<div class="kb-ctx-sep"></div><div class="kb-ctx-item" style="color:var(--coral);" onclick="deleteGaveta('${id}')">🗑 Deletar gaveta</div>` : '');
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let x = e.clientX, y = e.clientY;
+  menu.classList.add('open');
+  const mw = menu.offsetWidth || 168, mh = menu.offsetHeight || 100;
+  if (x + mw > vw - 8) x = vw - mw - 8;
+  if (y + mh > vh - 8) y = vh - mh - 8;
+  menu.style.left = x + 'px'; menu.style.top = y + 'px';
+}
+
+function closeGavetasMenus() {
+  document.getElementById('gaveta-ctx-menu')?.classList.remove('open');
+  document.getElementById('gavetas-header-menu')?.classList.remove('open');
+}
+
+async function deleteGaveta(id) {
+  closeGavetasMenus();
+  const count = APP.notes.filter(n => n.folder === id && !n.in_trash).length;
+  if (!confirm(`Deletar gaveta "${id}"? ${count} nota(s) serão movidas para a lixeira.`)) return;
+  const now = new Date().toISOString();
+  APP.notes.filter(n => n.folder === id).forEach(n => {
+    n.in_trash = true;
+    n.deleted_at = now;
+    n.updated_at = now;
+  });
+  // hide gaveta element
+  const el = document.querySelector(`[data-gaveta-id="${id}"]`) ||
+    document.querySelector(`#extra-gavetas [data-gavata-id="${id}"]`);
+  if (el) el.style.display = 'none';
+  saveNotes();
+  renderSidebar();
+  renderKanban();
+  // sync trash to Supabase
+  if (APP.supabaseConnected && currentUser) {
+    const headers = await sbHeaders();
+    for (const note of APP.notes.filter(n => n.folder === id && n.in_trash)) {
+      await fetch(sbUrl('notes'), {
+        method: 'POST', headers,
+        body: JSON.stringify({ id: note.id, title: note.title, content: note.content || '',
+          folder: note.folder, cluster: note.cluster || 'produto', tags: note.tags || [],
+          date: note.date || 'agora', status: note.status || 'inbox',
+          user_id: currentUser.id, updated_at: note.updated_at,
+          in_trash: true, deleted_at: note.deleted_at }),
+      });
+    }
+  }
+}
+
+function renderTrash(board) {
+  const trashNotes = APP.notes.filter(n => n.in_trash);
+  board.style.flexDirection = 'column';
+  board.style.overflowX = 'hidden';
+  board.style.overflowY = 'auto';
+  if (!trashNotes.length) {
+    board.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text3);font-size:13px;">🗑 Lixeira vazia</div>`;
+    return;
+  }
+  board.innerHTML = trashNotes.map(n => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);margin:0 0 6px 0;">
+      <span style="flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${n.title || 'Sem título'}</span>
+      <span style="font-size:10px;color:var(--text3);flex-shrink:0;">${n.folder || 'inbox'}</span>
+      <button onclick="restoreNote('${n.id}')" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;flex-shrink:0;">↩ Restaurar</button>
+      <button onclick="permanentlyDeleteNote('${n.id}')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(216,90,48,.3);background:transparent;color:var(--coral);font-size:11px;cursor:pointer;flex-shrink:0;">✕ Apagar</button>
+    </div>`).join('');
+}
+
+async function restoreNote(id) {
+  const note = APP.notes.find(n => n.id === id);
+  if (!note) return;
+  note.in_trash = false;
+  note.deleted_at = null;
+  note.folder = note.folder || 'inbox';
+  note.updated_at = new Date().toISOString();
+  saveNotes();
+  renderSidebar();
+  renderKanban();
+  if (APP.supabaseConnected && currentUser) {
+    const headers = await sbHeaders();
+    await fetch(sbUrl('notes'), {
+      method: 'POST', headers,
+      body: JSON.stringify({ id: note.id, title: note.title, content: note.content || '',
+        folder: note.folder, cluster: note.cluster || 'produto', tags: note.tags || [],
+        date: note.date || 'agora', status: note.status || 'inbox',
+        user_id: currentUser.id, updated_at: note.updated_at,
+        in_trash: false, deleted_at: null }),
+    });
+  }
+}
+
+async function permanentlyDeleteNote(id) {
+  if (!confirm('Apagar definitivamente? Esta ação não pode ser desfeita.')) return;
+  APP.notes = APP.notes.filter(n => n.id !== id);
+  saveNotes();
+  renderSidebar();
+  renderKanban();
+  if (APP.supabaseConnected) await deleteFromSupabase(id);
+}
+
+async function showAllGavetas() {
+  closeGavetasMenus();
+  document.querySelectorAll('#sidebar .s-item[data-gaveta-id]').forEach(el => el.style.display = '');
+  document.querySelectorAll('#extra-gavetas .s-item').forEach(el => el.style.display = '');
+  if (currentUser && _supabase) {
+    await _supabase.from('user_preferences')
+      .upsert({ user_id: currentUser.id, gavetas_ocultas: [], updated_at: new Date().toISOString() });
+  }
+}
+
+async function hideAllGavetas() {
+  closeGavetasMenus();
+  const toHide = [];
+  document.querySelectorAll('#sidebar .s-item[data-gaveta-id]').forEach(el => {
+    const id = el.getAttribute('data-gaveta-id');
+    if (id && id !== 'inbox' && id !== 'trash') {
+      el.style.display = 'none';
+      toHide.push(id);
+    }
+  });
+  document.querySelectorAll('#extra-gavetas .s-item').forEach(el => {
+    const id = el.dataset.gavataId || el.getAttribute('data-gaveta-id');
+    if (id) { el.style.display = 'none'; if (!toHide.includes(id)) toHide.push(id); }
+  });
+  if (currentUser && _supabase) {
+    await _supabase.from('user_preferences')
+      .upsert({ user_id: currentUser.id, gavetas_ocultas: toHide, updated_at: new Date().toISOString() });
+  }
+}
+
+function renameGaveta(id) {
+  closeGavetasMenus();
+  const el = document.querySelector(`[data-gaveta-id="${id}"]`) ||
+    document.querySelector(`#extra-gavetas [data-gavata-id="${id}"]`);
+  if (!el) return;
+  const dot = el.querySelector('.s-dot');
+  const sc  = el.querySelector('.s-count');
+  const btn = el.querySelector('.gb-menu-btn');
+  const currentLabel = el.dataset.label || id;
+  const nameOnly = currentLabel.replace(/^[\u{1F300}-\u{1FFFF}\u{2600}-\u{26FF}️⃣\s]+/u, '').trim() || currentLabel;
+  // replace content with inline input
+  const savedHTML = el.innerHTML;
+  el.innerHTML = '';
+  if (dot) el.appendChild(dot);
+  const inp = document.createElement('input');
+  inp.value = nameOnly;
+  inp.style.cssText = 'flex:1;background:transparent;border:none;outline:1px solid var(--accent);border-radius:4px;padding:2px 6px;font-size:12px;color:var(--text);font-family:inherit;';
+  el.appendChild(inp);
+  inp.focus(); inp.select();
+  const commit = async () => {
+    const newName = inp.value.trim();
+    if (!newName) { el.innerHTML = savedHTML; return; }
+    const newLabel = newName;
+    // update data-label
+    el.dataset.label = newLabel;
+    // rebuild innerHTML
+    const color = dot ? dot.style.background : '#7c6ef0';
+    el.innerHTML = `<span class="s-dot" style="background:${color};width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block;"></span>${newLabel} <span class="s-count">${sc ? sc.textContent : '0'}</span><button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'${id}',false)">⋮</button>`;
+    el.onmouseenter = () => el.querySelector('.gb-menu-btn').style.opacity = '1';
+    el.onmouseleave = () => el.querySelector('.gb-menu-btn').style.opacity = '0';
+    // update notes with old folder id → new name won't change folder id, only label
+    if (currentUser && _supabase) {
+      const { data } = await _supabase.from('user_preferences')
+        .select('gavetas').eq('user_id', currentUser.id).single();
+      // persist updated label (stored as the gaveta id for now, label is display only)
+      await _supabase.from('user_preferences')
+        .upsert({ user_id: currentUser.id, gavetas: data?.gavetas || [], updated_at: new Date().toISOString() });
+    }
+  };
+  inp.onblur = commit;
+  inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } if (e.key === 'Escape') { el.innerHTML = savedHTML; } };
+}
+
+function bindGavetaDragDrop() {
+  const container = document.getElementById('extra-gavetas');
+  if (!container) return;
+  let dragSrc = null;
+  container.querySelectorAll('.s-item[draggable]').forEach(item => {
+    item.addEventListener('dragstart', e => {
+      dragSrc = item;
+      e.dataTransfer.effectAllowed = 'move';
+      item.style.opacity = '0.5';
+    });
+    item.addEventListener('dragend', () => { item.style.opacity = ''; saveGavetasOrder(); });
+    item.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; item.classList.add('drag-over-gaveta'); });
+    item.addEventListener('dragleave', () => item.classList.remove('drag-over-gaveta'));
+    item.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation();
+      item.classList.remove('drag-over-gaveta');
+      if (dragSrc && dragSrc !== item) {
+        const items = [...container.querySelectorAll('.s-item')];
+        const srcIdx = items.indexOf(dragSrc), tgtIdx = items.indexOf(item);
+        if (srcIdx < tgtIdx) container.insertBefore(dragSrc, item.nextSibling);
+        else container.insertBefore(dragSrc, item);
+      }
+    });
+  });
+}
+
+async function saveGavetasOrder() {
+  if (!currentUser || !_supabase) return;
+  const order = [...document.querySelectorAll('#extra-gavetas .s-item')]
+    .map(el => el.dataset.gavataId || el.getAttribute('data-gaveta-id'))
+    .filter(Boolean);
+  await _supabase.from('user_preferences')
+    .upsert({ user_id: currentUser.id, gavetas_ordem: order, updated_at: new Date().toISOString() });
 }
 
 async function saveAssistantName() {
@@ -2960,11 +3236,13 @@ async function finishOnboarding() {
     const color = colors[id] || '#7c6ef0';
     const el = document.createElement('div');
     el.className = 's-item';
-    el.style.position = 'relative';
-    el.innerHTML = `<span class="s-dot" style="background:${color}"></span>${labels[id]} <span class="s-count">0</span><span class="s-hide-btn" onclick="event.stopPropagation();hideGaveta('${id}',this.parentElement)" style="margin-left:auto;opacity:0;font-size:10px;color:var(--text3);cursor:pointer;padding:0 2px;line-height:1;">✕</span>`;
+    el.dataset.gavataId = id;
+    el.dataset.label = labels[id] || id;
+    el.draggable = true;
+    el.innerHTML = `<span class="s-dot" style="background:${color};width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block;"></span>${labels[id]} <span class="s-count">0</span><button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'${id}',false)">⋮</button>`;
     el.onclick = function() { selectFolder(id, el); };
-    el.onmouseenter = () => el.querySelector('.s-hide-btn').style.opacity = '1';
-    el.onmouseleave = () => el.querySelector('.s-hide-btn').style.opacity = '0';
+    el.onmouseenter = () => el.querySelector('.gb-menu-btn').style.opacity = '1';
+    el.onmouseleave = () => el.querySelector('.gb-menu-btn').style.opacity = '0';
     container.appendChild(el);
   });
 
