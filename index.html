@@ -520,23 +520,23 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
     </div>
     <div class="s-item active" onclick="selectFolder('all',this)">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;display:inline-block;"></span>
-      Todas <span class="s-count" id="cnt-all">0</span>
+      ☰ Todas <span class="s-count" id="cnt-all">0</span>
     </div>
     <div class="s-item" onclick="selectFolder('inbox',this)">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0;display:inline-block;"></span>
-      Inbox <span class="s-count" id="cnt-inbox">0</span>
+      📥 Inbox <span class="s-count" id="cnt-inbox">0</span>
     </div>
     <div class="s-item" onclick="selectFolder('projetos',this)">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;display:inline-block;"></span>
-      Projetos <span class="s-count" id="cnt-proj">0</span>
+      🚀 Projetos <span class="s-count" id="cnt-proj">0</span>
     </div>
     <div class="s-item" onclick="selectFolder('decisoes',this)">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--coral);flex-shrink:0;display:inline-block;"></span>
-      Decisões <span class="s-count" id="cnt-dec">0</span>
+      ⚡ Decisões <span class="s-count" id="cnt-dec">0</span>
     </div>
     <div class="s-item" onclick="selectFolder('reunioes',this)">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;display:inline-block;"></span>
-      Reuniões <span class="s-count" id="cnt-reu">0</span>
+      👥 Reuniões <span class="s-count" id="cnt-reu">0</span>
     </div>
     <div id="extra-gavetas"></div>
     <div style="padding:10px 14px 4px;margin-top:8px;">
@@ -2650,10 +2650,24 @@ function loadGavetasFromPrefs(gavetas) {
     const color = colors[id] || '#7c6ef0';
     const el = document.createElement('div');
     el.className = 's-item';
-    el.innerHTML = `<span class="s-dot" style="background:${color}"></span>${labels[id]||id} <span class="s-count">0</span>`;
+    el.style.position = 'relative';
+    el.innerHTML = `<span class="s-dot" style="background:${color}"></span>${labels[id]||id} <span class="s-count">0</span><span class="s-hide-btn" onclick="event.stopPropagation();hideGaveta('${id}',this.parentElement)" style="margin-left:auto;opacity:0;font-size:10px;color:var(--text3);cursor:pointer;padding:0 2px;line-height:1;">✕</span>`;
     el.onclick = function() { selectFolder(id, el); };
+    el.onmouseenter = () => el.querySelector('.s-hide-btn').style.opacity = '1';
+    el.onmouseleave = () => el.querySelector('.s-hide-btn').style.opacity = '0';
     container.appendChild(el);
   });
+}
+
+async function hideGaveta(id, el) {
+  el.remove();
+  if (currentUser && _supabase) {
+    const { data } = await _supabase.from('user_preferences')
+      .select('gavetas').eq('user_id', currentUser.id).single();
+    const gavetas = (data?.gavetas || []).filter(g => g !== id);
+    await _supabase.from('user_preferences')
+      .upsert({ user_id: currentUser.id, gavetas, updated_at: new Date().toISOString() });
+  }
 }
 
 function obNext(step) {
@@ -2703,8 +2717,11 @@ async function finishOnboarding() {
     const color = colors[id] || '#7c6ef0';
     const el = document.createElement('div');
     el.className = 's-item';
-    el.innerHTML = `<span class="s-dot" style="background:${color}"></span>${labels[id]} <span class="s-count">0</span>`;
+    el.style.position = 'relative';
+    el.innerHTML = `<span class="s-dot" style="background:${color}"></span>${labels[id]} <span class="s-count">0</span><span class="s-hide-btn" onclick="event.stopPropagation();hideGaveta('${id}',this.parentElement)" style="margin-left:auto;opacity:0;font-size:10px;color:var(--text3);cursor:pointer;padding:0 2px;line-height:1;">✕</span>`;
     el.onclick = function() { selectFolder(id, el); };
+    el.onmouseenter = () => el.querySelector('.s-hide-btn').style.opacity = '1';
+    el.onmouseleave = () => el.querySelector('.s-hide-btn').style.opacity = '0';
     container.appendChild(el);
   });
 
