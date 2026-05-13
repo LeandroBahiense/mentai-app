@@ -459,6 +459,8 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
       <div class="ob-logo">Kore<em>o</em></div>
       <h2>Seu segundo cérebro pessoal</h2>
       <p>Organize suas ideias, decisões e reuniões em um só lugar — com IA que realmente te conhece.</p>
+      <p>Como posso te chamar?</p>
+      <input type="text" id="ob-display-name" placeholder="Ex: Leandro, Leo, Ana..." maxlength="30"/>
       <button onclick="obNext(2)">Vamos começar →</button>
     </div>
     <div class="ob-step" id="ob-step-2" style="display:none;flex-direction:column;gap:16px;">
@@ -2711,7 +2713,7 @@ async function checkOnboarding() {
     return;
   }
   const { data } = await _supabase.from('user_preferences')
-    .select('onboarding_done, gavetas, assistant_name')
+    .select('onboarding_done, gavetas, assistant_name, display_name')
     .eq('user_id', currentUser.id)
     .single();
   if (!data || !data.onboarding_done) {
@@ -2719,6 +2721,7 @@ async function checkOnboarding() {
   } else {
     loadGavetasFromPrefs(data.gavetas || []);
     localStorage.setItem('koreo-assistant-name', data.assistant_name || 'Jarvis');
+    localStorage.setItem('koreo-display-name', data.display_name || '');
   }
 }
 
@@ -2777,16 +2780,19 @@ function toggleDrawer(el, id) {
 
 async function finishOnboarding() {
   const assistantName = (document.getElementById('ob-assistant-name').value || '').trim() || 'Jarvis';
+  const displayName   = (document.getElementById('ob-display-name').value || '').trim() || (currentUser?.email?.split('@')[0] || '');
   localStorage.setItem('koreo-assistant-name', assistantName);
+  localStorage.setItem('koreo-display-name', displayName);
   localStorage.setItem('koreo-onboarding-done-' + (currentUser?.id || 'anon'), '1');
   if (_supabase && currentUser) {
     try {
       await _supabase.from('user_preferences').upsert({
-        user_id:        currentUser.id,
-        assistant_name: assistantName,
-        gavetas:        _obDrawers,
+        user_id:         currentUser.id,
+        assistant_name:  assistantName,
+        display_name:    displayName,
+        gavetas:         _obDrawers,
         onboarding_done: true,
-        updated_at:     new Date().toISOString(),
+        updated_at:      new Date().toISOString(),
       });
     } catch(e) { console.warn('prefs upsert error:', e); }
   }
