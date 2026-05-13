@@ -783,6 +783,12 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
     <input id="np-title" type="text" placeholder="Título da nota..." oninput="npOnTitleChange(this.value)"/>
     <button id="np-close" onclick="closeNotePanel()" title="Fechar">✕</button>
   </div>
+  <div style="padding:0 14px 8px;border-bottom:1px solid var(--border2);">
+    <select id="np-folder-select" onchange="changeNoteFolder(this.value)"
+      style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;
+      padding:4px 8px;font-size:11px;color:var(--text2);font-family:'Sora',sans-serif;cursor:pointer;width:100%;">
+    </select>
+  </div>
   <div id="np-toolbar">
     <button class="tool" onclick="npFmt('bold')"  title="Negrito"><b>B</b></button>
     <button class="tool" onclick="npFmt('italic')" title="Itálico"><i>I</i></button>
@@ -1103,6 +1109,7 @@ function openNotePanel(noteId) {
 
   document.getElementById('np-title').value   = note.title || '';
   document.getElementById('np-content').innerHTML = renderMD(note.content || '');
+  populateNpFolderSelect(note.folder || 'inbox');
   _npUpdateWC();
   _npSetSaved();
 
@@ -1118,6 +1125,50 @@ function closeNotePanel() {
   clearTimeout(_npSaveTimer);
   renderKanban();
   renderSidebar();
+}
+
+function populateNpFolderSelect(currentFolder) {
+  const sel = document.getElementById('np-folder-select');
+  if (!sel) return;
+  const folders = [
+    { id:'inbox',    label:'📥 Inbox' },
+    { id:'projetos', label:'🚀 Projetos' },
+    { id:'decisoes', label:'⚡ Decisões' },
+    { id:'reunioes', label:'👥 Reuniões' },
+  ];
+  // adiciona gavetas extras do usuário
+  document.querySelectorAll('#extra-gavetas .s-item').forEach(el => {
+    const text = el.textContent.trim().replace(/\d+$/, '').trim();
+    const match = el.onclick && el.onclick.toString().match(/'([^']+)'/);
+    const id = match?.[1];
+    if (id) folders.push({ id, label: text });
+  });
+  sel.innerHTML = folders.map(f =>
+    `<option value="${f.id}" ${f.id === currentFolder ? 'selected' : ''}>${f.label}</option>`
+  ).join('');
+}
+
+async function changeNoteFolder(newFolder) {
+  const note = APP.notes.find(n => n.id === APP.currentNoteId);
+  if (!note) return;
+  note.folder = newFolder;
+  note.updated_at = new Date().toISOString();
+  saveNotes();
+  renderKanban();
+  renderSidebar();
+  if (APP.supabaseConnected && currentUser) {
+    const headers = await sbHeaders();
+    await fetch(sbUrl('notes'), {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        id: note.id, title: note.title,
+        content: note.content || '', folder: newFolder,
+        cluster: note.cluster || 'produto', tags: note.tags || [],
+        date: note.date || 'agora', status: note.status || 'inbox',
+        user_id: currentUser.id, updated_at: note.updated_at,
+      }),
+    });
+  }
 }
 
 function npOnTitleChange(val) {
