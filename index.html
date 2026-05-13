@@ -3433,6 +3433,14 @@ function initSupabaseAuth() {
   const ANON_KEY     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtc3V5a2ZxdGlxYWF1aW5laGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDYyMDMsImV4cCI6MjA5MzY4MjIwM30.fTiJ4pmmYMaDRWooDqClGWPpQM5-pta4zSd0Z5gQ6lM';
   _supabase = supabase.createClient(SUPABASE_URL, ANON_KEY);
 
+  // modo login forçado via URL (?mode=login)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('mode') === 'login') {
+    document.getElementById('auth-toggle-text').style.display = 'none';
+    document.getElementById('auth-action-btn').textContent = 'Entrar';
+    _authMode = 'login';
+  }
+
   // ── Realtime: canal único com reconexão automática ──────────────────────
   let _realtimeChannel = null;
 
