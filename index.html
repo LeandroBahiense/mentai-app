@@ -867,6 +867,18 @@ function renderKanban() {
   if (!board) return;
   const notes = getFilteredNotes();
 
+  // sincroniza título com gaveta atual
+  const kbTitle = document.querySelector('#kanban-topbar h3');
+  if (kbTitle) {
+    if (currentFolder === 'all') {
+      kbTitle.textContent = 'Notas — ' + APP.notes.length + ' notas';
+    } else {
+      const activeEl = document.querySelector('#sidebar .s-item.active');
+      const folderName = activeEl ? activeEl.textContent.replace(/\d+$/, '').trim() : currentFolder;
+      kbTitle.textContent = folderName + ' — ' + notes.length + ' notas';
+    }
+  }
+
   if (_kbView === 'list') {
     board.style.flexDirection = 'column';
     board.style.overflowX = 'hidden';
@@ -1405,10 +1417,17 @@ function selectFolder(f, el) {
   currentFolder = f;
   document.querySelectorAll('#sidebar .s-item').forEach(i => i.classList.remove('active'));
   el.classList.add('active');
-  // atualiza título do kanban com nome da gaveta
-  const folderName = el.textContent.replace(/\d+$/, '').trim();
+  // atualiza título do kanban com nome da gaveta e contagem
   const title = document.querySelector('#kanban-topbar h3');
-  if (title) title.textContent = f === 'all' ? 'Notas' : folderName;
+  if (title) {
+    if (f === 'all') {
+      title.textContent = 'Notas — ' + APP.notes.length + ' notas';
+    } else {
+      const folderName = el.textContent.replace(/\d+$/, '').trim();
+      const count = getFilteredNotes().length;
+      title.textContent = folderName + ' — ' + count + ' notas';
+    }
+  }
   renderSidebar();
   renderKanban();
 }
