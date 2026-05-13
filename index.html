@@ -2888,7 +2888,11 @@ async function loadNoteAttachments(noteId) {
 // ── ONBOARDING ───────────────────────────────────────────────────────────────
 let _obDrawers = ['trabalho', 'pessoal', 'projetos'];
 
+let _checkOnboardingRunning = false;
 async function checkOnboarding() {
+  if (_checkOnboardingRunning) return;
+  _checkOnboardingRunning = true;
+  try {
   if (!_supabase || !currentUser) {
     document.getElementById('onboarding').classList.remove('hidden');
     return;
@@ -2945,6 +2949,9 @@ async function checkOnboarding() {
         }
       });
     }
+  }
+  } finally {
+    _checkOnboardingRunning = false;
   }
 }
 
@@ -3334,6 +3341,10 @@ function injectTopbarButtons() {
   if (badge) badge.style.display = isAdmin() ? 'flex' : 'none';
   const adminSettings = document.getElementById('admin-settings');
   if (adminSettings) adminSettings.style.display = isAdmin() ? 'block' : 'none';
+  if (!isAdmin()) {
+    const settingsDesc = document.querySelector('#view-settings > div > p');
+    if (settingsDesc) settingsDesc.textContent = 'Personalize sua experiência no Koreo.';
+  }
 }
 function showForgotPassword() {
   document.getElementById('login-fields').style.display    = 'none';
