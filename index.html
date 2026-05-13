@@ -812,8 +812,15 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
             <span class="ss-label">Nome do assistente</span>
             <input class="ss-input" id="assistant-name-input" placeholder="Ex: Jarvis, Sofia, Max..." maxlength="20"/>
           </div>
+          <div class="ss-row">
+            <span class="ss-label">Horário do briefing</span>
+            <input class="ss-input" id="briefing-hora-input" type="time" value="08:00" style="max-width:120px;"/>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:-8px;margin-bottom:12px;">
+            Você recebe o resumo do dia no WhatsApp nesse horário.
+          </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <button class="ss-btn primary" onclick="saveAssistantName()">Salvar nome</button>
+            <button class="ss-btn primary" onclick="saveAssistantName()">Salvar configurações</button>
             <span id="assistant-name-status" class="ss-status" style="display:none"></span>
           </div>
         </div>
@@ -2935,6 +2942,8 @@ async function checkOnboarding() {
     // preenche campo de nome do assistente nas configurações
     const nameInput = document.getElementById('assistant-name-input');
     if (nameInput) nameInput.value = data.assistant_name || 'Jarvis';
+    const horaInput = document.getElementById('briefing-hora-input');
+    if (horaInput) horaInput.value = data.briefing_hora || '08:00';
     // aplica ordem salva das gavetas
     const ordem = data.gavetas_ordem || [];
     if (ordem.length > 0) {
@@ -3244,15 +3253,30 @@ async function saveGavetasOrdem() {
 
 async function saveAssistantName() {
   const name = document.getElementById('assistant-name-input').value.trim();
+  const hora = document.getElementById('briefing-hora-input').value;
   if (!name) return;
   localStorage.setItem('koreo-assistant-name', name);
   if (currentUser && _supabase) {
     await _supabase.from('user_preferences')
-      .upsert({ user_id: currentUser.id, assistant_name: name, updated_at: new Date().toISOString() });
+      .upsert({
+        user_id:        currentUser.id,
+        assistant_name: name,
+        briefing_hora:  hora,
+        updated_at:     new Date().toISOString(),
+      });
   }
   const el = document.getElementById('assistant-name-status');
-  el.style.display = 'block'; el.textContent = 'Nome salvo ✓'; el.className = 'ss-status ok';
+  el.style.display = 'block'; el.textContent = 'Configurações salvas ✓'; el.className = 'ss-status ok';
   setTimeout(() => { el.style.display = 'none'; }, 2000);
+}
+
+async function saveBriefingHora() {
+  const hora = document.getElementById('briefing-hora-input').value;
+  if (!hora) return;
+  if (currentUser && _supabase) {
+    await _supabase.from('user_preferences')
+      .upsert({ user_id: currentUser.id, briefing_hora: hora, updated_at: new Date().toISOString() });
+  }
 }
 
 function obNext(step) {
