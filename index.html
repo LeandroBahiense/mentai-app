@@ -527,22 +527,22 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;display:inline-block;"></span>
       ☰ Todas <span class="s-count" id="cnt-all">0</span>
     </div>
-    <div class="s-item" data-gaveta-id="inbox" data-label="📥 Inbox" onclick="selectFolder('inbox',this)" onmouseenter="this.querySelector('.gb-menu-btn').style.opacity='1'" onmouseleave="this.querySelector('.gb-menu-btn').style.opacity='0'">
+    <div class="s-item" data-gaveta-id="inbox" data-folder="inbox" data-label="📥 Inbox" onclick="selectFolder('inbox',this)" onmouseenter="this.querySelector('.gb-menu-btn').style.opacity='1'" onmouseleave="this.querySelector('.gb-menu-btn').style.opacity='0'">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0;display:inline-block;"></span>
       📥 Inbox <span class="s-count" id="cnt-inbox">0</span>
       <button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'inbox',true)">⋮</button>
     </div>
-    <div class="s-item" data-gaveta-id="projetos" data-label="🚀 Projetos" onclick="selectFolder('projetos',this)" onmouseenter="this.querySelector('.gb-menu-btn').style.opacity='1'" onmouseleave="this.querySelector('.gb-menu-btn').style.opacity='0'">
+    <div class="s-item" data-gaveta-id="projetos" data-folder="projetos" data-label="🚀 Projetos" onclick="selectFolder('projetos',this)" onmouseenter="this.querySelector('.gb-menu-btn').style.opacity='1'" onmouseleave="this.querySelector('.gb-menu-btn').style.opacity='0'">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;display:inline-block;"></span>
       🚀 Projetos <span class="s-count" id="cnt-proj">0</span>
       <button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'projetos',false)">⋮</button>
     </div>
-    <div class="s-item" data-gaveta-id="decisoes" data-label="⚡ Decisões" onclick="selectFolder('decisoes',this)" onmouseenter="this.querySelector('.gb-menu-btn').style.opacity='1'" onmouseleave="this.querySelector('.gb-menu-btn').style.opacity='0'">
+    <div class="s-item" data-gaveta-id="decisoes" data-folder="decisoes" data-label="⚡ Decisões" onclick="selectFolder('decisoes',this)" onmouseenter="this.querySelector('.gb-menu-btn').style.opacity='1'" onmouseleave="this.querySelector('.gb-menu-btn').style.opacity='0'">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--coral);flex-shrink:0;display:inline-block;"></span>
       ⚡ Decisões <span class="s-count" id="cnt-dec">0</span>
       <button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'decisoes',false)">⋮</button>
     </div>
-    <div class="s-item" data-gaveta-id="reunioes" data-label="👥 Reuniões" onclick="selectFolder('reunioes',this)" onmouseenter="this.querySelector('.gb-menu-btn').style.opacity='1'" onmouseleave="this.querySelector('.gb-menu-btn').style.opacity='0'">
+    <div class="s-item" data-gaveta-id="reunioes" data-folder="reunioes" data-label="👥 Reuniões" onclick="selectFolder('reunioes',this)" onmouseenter="this.querySelector('.gb-menu-btn').style.opacity='1'" onmouseleave="this.querySelector('.gb-menu-btn').style.opacity='0'">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;display:inline-block;"></span>
       👥 Reuniões <span class="s-count" id="cnt-reu">0</span>
       <button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'reunioes',false)">⋮</button>
@@ -1442,6 +1442,12 @@ function initApp() {
   APP.currentView = 'home';
   renderHome();
 
+  // inicia drag nas gavetas padrão
+  document.querySelectorAll('#sidebar .s-item[data-folder]').forEach(el => {
+    const id = el.dataset.folder;
+    if (id && id !== 'trash') makeDraggable(el, id);
+  });
+
   setTimeout(() => {
     initGraph();
     addChatWelcome();
@@ -1486,14 +1492,14 @@ function newGaveta() {
   const el = document.createElement('div');
   el.className = 's-item';
   el.dataset.gavataId = id;
-  el.dataset.label = name.trim();
-  el.draggable = true;
+  el.dataset.folder   = id;
+  el.dataset.label    = name.trim();
   el.innerHTML = `<span class="s-dot" style="background:${color};width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block;"></span>${name.trim()} <span class="s-count">0</span><button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'${id}',false)">⋮</button>`;
   el.onclick = function() { selectFolder(id, el); };
   el.onmouseenter = () => el.querySelector('.gb-menu-btn').style.opacity = '1';
   el.onmouseleave = () => el.querySelector('.gb-menu-btn').style.opacity = '0';
   container.appendChild(el);
-  bindGavetaDragDrop();
+  makeDraggable(el, id);
 }
 
 function navigate(view) {
@@ -2879,7 +2885,7 @@ async function checkOnboarding() {
     return;
   }
   const { data } = await _supabase.from('user_preferences')
-    .select('onboarding_done, gavetas, gavetas_ocultas, assistant_name, display_name')
+    .select('onboarding_done, gavetas, gavetas_ocultas, gavetas_ordem, assistant_name, display_name')
     .eq('user_id', currentUser.id)
     .single();
   if (!data || !data.onboarding_done) {
@@ -2899,6 +2905,20 @@ async function checkOnboarding() {
     // preenche campo de nome do assistente nas configurações
     const nameInput = document.getElementById('assistant-name-input');
     if (nameInput) nameInput.value = data.assistant_name || 'Jarvis';
+    // aplica ordem salva das gavetas
+    const ordem = data.gavetas_ordem || [];
+    if (ordem.length > 0) {
+      const sidebar = document.getElementById('sidebar');
+      ordem.forEach(id => {
+        const el = document.querySelector(`#sidebar [data-folder="${id}"]`);
+        if (el) {
+          // reinsere na ordem salva, antes do #extra-gavetas ou trash
+          const anchor = document.getElementById('extra-gavetas') ||
+                         document.querySelector('#sidebar [data-gaveta-id="trash"]');
+          if (anchor) sidebar.insertBefore(el, anchor);
+        }
+      });
+    }
   }
 }
 
@@ -2914,15 +2934,15 @@ function loadGavetasFromPrefs(gavetas) {
     const el = document.createElement('div');
     el.className = 's-item';
     el.dataset.gavataId = id;
-    el.dataset.label = labels[id] || id;
-    el.draggable = true;
+    el.dataset.folder   = id;
+    el.dataset.label    = labels[id] || id;
     el.innerHTML = `<span class="s-dot" style="background:${color};width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block;"></span>${labels[id]||id} <span class="s-count">0</span><button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'${id}',false)">⋮</button>`;
     el.onclick = function() { selectFolder(id, el); };
     el.onmouseenter = () => el.querySelector('.gb-menu-btn').style.opacity = '1';
     el.onmouseleave = () => el.querySelector('.gb-menu-btn').style.opacity = '0';
     container.appendChild(el);
+    makeDraggable(el, id);
   });
-  bindGavetaDragDrop();
 }
 
 async function hideGaveta(id, el) {
@@ -3138,39 +3158,55 @@ function renameGaveta(id) {
   inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } if (e.key === 'Escape') { el.innerHTML = savedHTML; } };
 }
 
-function bindGavetaDragDrop() {
-  const container = document.getElementById('extra-gavetas');
-  if (!container) return;
-  let dragSrc = null;
-  container.querySelectorAll('.s-item[draggable]').forEach(item => {
-    item.addEventListener('dragstart', e => {
-      dragSrc = item;
-      e.dataTransfer.effectAllowed = 'move';
-      item.style.opacity = '0.5';
+function makeDraggable(el, id) {
+  el.draggable = true;
+  el.style.cursor = 'grab';
+
+  el.addEventListener('dragstart', function(e) {
+    e.dataTransfer.setData('gaveta-id', id);
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => el.style.opacity = '0.5', 0);
+  });
+
+  el.addEventListener('dragend', function() {
+    el.style.opacity = '1';
+    document.querySelectorAll('#sidebar .s-item').forEach(i => {
+      i.style.borderTop = '';
+      i.style.borderBottom = '';
     });
-    item.addEventListener('dragend', () => { item.style.opacity = ''; saveGavetasOrder(); });
-    item.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; item.classList.add('drag-over-gaveta'); });
-    item.addEventListener('dragleave', () => item.classList.remove('drag-over-gaveta'));
-    item.addEventListener('drop', e => {
-      e.preventDefault(); e.stopPropagation();
-      item.classList.remove('drag-over-gaveta');
-      if (dragSrc && dragSrc !== item) {
-        const items = [...container.querySelectorAll('.s-item')];
-        const srcIdx = items.indexOf(dragSrc), tgtIdx = items.indexOf(item);
-        if (srcIdx < tgtIdx) container.insertBefore(dragSrc, item.nextSibling);
-        else container.insertBefore(dragSrc, item);
-      }
-    });
+    saveGavetasOrdem();
+  });
+
+  el.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    el.style.borderTop = '2px solid var(--accent)';
+  });
+
+  el.addEventListener('dragleave', function() {
+    el.style.borderTop = '';
+    el.style.borderBottom = '';
+  });
+
+  el.addEventListener('drop', function(e) {
+    e.preventDefault();
+    el.style.borderTop = '';
+    const draggedId = e.dataTransfer.getData('gaveta-id');
+    if (draggedId === id) return;
+    const draggedEl = document.querySelector(`#sidebar [data-folder="${draggedId}"]`);
+    if (draggedEl) el.parentNode.insertBefore(draggedEl, el);
+    saveGavetasOrdem();
   });
 }
 
-async function saveGavetasOrder() {
-  if (!currentUser || !_supabase) return;
-  const order = [...document.querySelectorAll('#extra-gavetas .s-item')]
-    .map(el => el.dataset.gavataId || el.getAttribute('data-gaveta-id'))
-    .filter(Boolean);
-  await _supabase.from('user_preferences')
-    .upsert({ user_id: currentUser.id, gavetas_ordem: order, updated_at: new Date().toISOString() });
+async function saveGavetasOrdem() {
+  const ordem = [...document.querySelectorAll('#sidebar .s-item[data-folder]')]
+    .map(el => el.dataset.folder)
+    .filter(id => id && id !== 'trash');
+  if (currentUser && _supabase) {
+    await _supabase.from('user_preferences')
+      .upsert({ user_id: currentUser.id, gavetas_ordem: ordem, updated_at: new Date().toISOString() });
+  }
 }
 
 async function saveAssistantName() {
@@ -3237,13 +3273,14 @@ async function finishOnboarding() {
     const el = document.createElement('div');
     el.className = 's-item';
     el.dataset.gavataId = id;
-    el.dataset.label = labels[id] || id;
-    el.draggable = true;
+    el.dataset.folder   = id;
+    el.dataset.label    = labels[id] || id;
     el.innerHTML = `<span class="s-dot" style="background:${color};width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block;"></span>${labels[id]} <span class="s-count">0</span><button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'${id}',false)">⋮</button>`;
     el.onclick = function() { selectFolder(id, el); };
     el.onmouseenter = () => el.querySelector('.gb-menu-btn').style.opacity = '1';
     el.onmouseleave = () => el.querySelector('.gb-menu-btn').style.opacity = '0';
     container.appendChild(el);
+    makeDraggable(el, id);
   });
 
   document.getElementById('onboarding').classList.add('hidden');
