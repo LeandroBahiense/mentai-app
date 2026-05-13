@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Koreo — Seu Segundo Cérebro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#06060f;--bg2:#0d0d1e;--bg3:#14142a;--text:#e8e8f4;--text2:#8080b0;--text3:#404068;--accent:#7c6ef0;--accent2:#a99cf5;--green:#1D9E75;--coral:#D85A30;--gold:#BA7517;--whatsapp:#25D366;--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.10);}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;line-height:1.6;overflow-x:hidden;}
+nav{position:fixed;top:0;left:0;right:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 40px;background:rgba(6,6,15,0.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);z-index:100;}
+.nav-logo{font-family:'Playfair Display',serif;font-size:22px;color:var(--accent2);}
+.nav-logo em{color:var(--accent);font-style:normal;}
+.nav-cta{padding:9px 22px;border-radius:100px;background:var(--accent);color:#fff;font-size:13px;font-weight:500;text-decoration:none;transition:all .2s;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.nav-cta:hover{opacity:.85;transform:translateY(-1px);}
+.btn-primary{padding:14px 32px;border-radius:100px;background:var(--accent);color:#fff;font-size:15px;font-weight:500;text-decoration:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
+.btn-primary:hover{opacity:.85;transform:translateY(-2px);box-shadow:0 12px 32px rgba(124,110,240,.3);}
+.btn-secondary{padding:14px 32px;border-radius:100px;background:transparent;color:var(--text2);font-size:15px;text-decoration:none;border:1px solid var(--border2);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.btn-secondary:hover{border-color:var(--accent);color:var(--text);}
+.btn-whatsapp{padding:14px 32px;border-radius:100px;background:var(--whatsapp);color:#fff;font-size:15px;font-weight:500;text-decoration:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
+.btn-whatsapp:hover{opacity:.9;transform:translateY(-2px);box-shadow:0 12px 32px rgba(37,211,102,.25);}
+.section-label{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:16px;}
+h2{font-family:'Playfair Display',serif;font-size:clamp(32px,4vw,52px);line-height:1.2;color:var(--text);margin-bottom:20px;}
+h2 em{color:var(--accent2);font-style:italic;}
+.section-cta{margin-top:44px;display:flex;gap:12px;flex-wrap:wrap;}
+.section-cta.center{justify-content:center;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+@keyframes wt{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease;}
+.reveal.visible{opacity:1;transform:none;}
+
+#hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:120px 24px 80px;position:relative;overflow:hidden;}
+.hero-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);width:700px;height:700px;background:radial-gradient(circle,rgba(124,110,240,0.12) 0%,rgba(124,110,240,0.04) 45%,transparent 70%);pointer-events:none;}
+.hero-label{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:100px;border:1px solid rgba(124,110,240,.3);background:rgba(124,110,240,.08);font-size:12px;color:var(--accent2);letter-spacing:.5px;margin-bottom:28px;animation:fadeUp .6s ease both;}
+.hero-label span{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s ease-in-out infinite;}
+h1{font-family:'Playfair Display',serif;font-size:clamp(40px,6vw,80px);line-height:1.1;color:var(--text);max-width:820px;margin-bottom:10px;animation:fadeUp .7s .1s ease both;}
+h1 em{font-style:italic;color:var(--accent2);}
+.hero-sub{font-size:clamp(16px,2vw,20px);color:var(--text2);max-width:560px;margin:18px auto 0;font-weight:300;line-height:1.7;animation:fadeUp .7s .2s ease both;}
+.hero-browser-note{display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-size:13px;color:var(--text3);animation:fadeUp .7s .25s ease both;}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:36px;animation:fadeUp .7s .3s ease both;}
+.hero-stats{display:flex;gap:40px;margin-top:56px;padding-top:40px;border-top:1px solid var(--border);animation:fadeUp .7s .4s ease both;flex-wrap:wrap;justify-content:center;}
+.stat{text-align:center;}
+.stat-num{font-family:'Playfair Display',serif;font-size:32px;color:var(--accent2);display:block;}
+.stat-label{font-size:12px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;}
+
+#video-section{padding:60px 24px;display:flex;flex-direction:column;align-items:center;}
+.video-wrap{width:100%;max-width:900px;aspect-ratio:16/9;background:var(--bg2);border:1px solid var(--border2);border-radius:20px;overflow:hidden;position:relative;box-shadow:0 40px 80px rgba(0,0,0,.5);}
+.video-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:linear-gradient(135deg,var(--bg2),var(--bg3));}
+.video-placeholder-icon{width:72px;height:72px;border-radius:50%;background:rgba(124,110,240,.15);border:1px solid rgba(124,110,240,.3);display:flex;align-items:center;justify-content:center;font-size:28px;}
+.video-placeholder-text{font-family:'Playfair Display',serif;font-size:20px;color:var(--text2);text-align:center;max-width:360px;line-height:1.5;}
+.video-placeholder-sub{font-size:12px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;}
+.video-app-preview{position:absolute;inset:0;display:grid;grid-template-columns:180px 1fr;opacity:.12;pointer-events:none;}
+.fake-sidebar{background:rgba(14,14,26,.8);border-right:1px solid rgba(255,255,255,.05);padding:16px;}
+.fake-sidebar-item{height:10px;border-radius:4px;background:rgba(124,110,240,.4);margin-bottom:10px;}
+.fake-main{padding:20px;display:flex;flex-direction:column;gap:12px;}
+.fake-card{height:60px;border-radius:8px;background:rgba(124,110,240,.15);border:1px solid rgba(124,110,240,.2);}
+
+#whatsapp-section{padding:100px 24px;position:relative;overflow:hidden;border-top:1px solid var(--border);}
+.wa-glow{position:absolute;top:50%;left:35%;transform:translate(-50%,-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(37,211,102,0.09) 0%,transparent 70%);pointer-events:none;}
+.wa-inner{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center;}
+.wa-label{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:100px;background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.25);font-size:11px;color:var(--whatsapp);letter-spacing:.5px;text-transform:uppercase;margin-bottom:20px;}
+.wa-title{font-family:'Playfair Display',serif;font-size:clamp(28px,3.5vw,48px);line-height:1.15;color:var(--text);margin-bottom:16px;}
+.wa-title em{font-style:italic;color:#4ade80;}
+.wa-text{font-size:15px;color:var(--text2);line-height:1.8;margin-bottom:20px;}
+.wa-name-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(37,211,102,.07);border:1px solid rgba(37,211,102,.2);border-radius:10px;font-size:13px;color:#4ade80;margin-bottom:24px;line-height:1.5;}
+.wa-features{display:flex;flex-direction:column;gap:14px;margin-bottom:32px;}
+.wa-feature{display:flex;align-items:flex-start;gap:12px;}
+.wa-feature-dot{width:22px;height:22px;border-radius:50%;background:rgba(37,211,102,.15);border:1px solid rgba(37,211,102,.3);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:1px;color:var(--whatsapp);}
+.wa-feature-text{font-size:14px;color:var(--text2);line-height:1.6;}
+.wa-feature-text strong{color:var(--text);}
+.wa-chat-mock{background:var(--bg2);border:1px solid rgba(37,211,102,.2);border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.5);}
+.wa-chat-header{background:#075e54;padding:14px 18px;display:flex;align-items:center;gap:10px;}
+.wa-chat-avatar{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:20px;}
+.wa-chat-name{font-size:14px;font-weight:600;color:#fff;}
+.wa-chat-status{font-size:11px;color:rgba(255,255,255,.7);}
+.wa-chat-body{padding:16px;background:#080814;display:flex;flex-direction:column;gap:10px;min-height:340px;}
+.wa-msg{max-width:82%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;}
+.wa-msg.received{background:#12122a;border:1px solid rgba(37,211,102,.12);color:var(--text);border-bottom-left-radius:3px;align-self:flex-start;}
+.wa-msg.sent{background:#054d44;color:#e8f5e9;border-bottom-right-radius:3px;align-self:flex-end;}
+.wa-msg-time{font-size:10px;opacity:.45;margin-top:4px;text-align:right;}
+.wa-typing{display:flex;gap:4px;align-items:center;padding:9px 13px;background:#12122a;border-radius:12px;border-bottom-left-radius:3px;width:fit-content;align-self:flex-start;border:1px solid rgba(37,211,102,.12);}
+.wa-typing span{width:5px;height:5px;border-radius:50%;background:var(--whatsapp);opacity:.5;}
+.wa-typing span:nth-child(1){animation:wt 1.2s .0s ease-in-out infinite;}
+.wa-typing span:nth-child(2){animation:wt 1.2s .2s ease-in-out infinite;}
+.wa-typing span:nth-child(3){animation:wt 1.2s .4s ease-in-out infinite;}
+
+#pain{padding:100px 24px;max-width:1000px;margin:0 auto;text-align:center;}
+.pain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:52px;}
+.pain-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px 24px;text-align:left;transition:border-color .2s;}
+.pain-card:hover{border-color:var(--border2);}
+.pain-icon{font-size:28px;margin-bottom:14px;display:block;}
+.pain-title{font-size:15px;font-weight:500;color:var(--text);margin-bottom:6px;}
+.pain-text{font-size:13px;color:var(--text2);line-height:1.6;}
+
+#solution{padding:100px 24px;position:relative;overflow:hidden;}
+.solution-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(124,110,240,.08) 0%,transparent 70%);pointer-events:none;}
+.solution-inner{max-width:1000px;margin:0 auto;text-align:center;}
+.solution-text{font-size:clamp(18px,2.5vw,24px);color:var(--text2);font-weight:300;line-height:1.8;max-width:680px;margin:24px auto 0;}
+.solution-text strong{color:var(--text);font-weight:500;}
+
+#browser-section{padding:80px 24px;background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.browser-inner{max-width:960px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;}
+.device-item{display:flex;align-items:center;gap:14px;padding:16px 20px;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;transition:all .2s;margin-bottom:10px;}
+.device-item:hover{border-color:var(--accent);transform:translateX(4px);}
+.device-icon{font-size:24px;flex-shrink:0;}
+.device-title{font-size:14px;font-weight:500;color:var(--text);}
+.device-sub{font-size:12px;color:var(--text2);}
+.browser-highlight{margin-top:24px;padding:16px 20px;background:rgba(124,110,240,.08);border:1px solid rgba(124,110,240,.2);border-radius:12px;font-size:14px;color:var(--accent2);line-height:1.6;}
+
+#features{padding:80px 24px 100px;max-width:1100px;margin:0 auto;}
+.features-header{text-align:center;margin-bottom:60px;}
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;}
+.feature-card{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:32px 28px;transition:all .2s;position:relative;overflow:hidden;}
+.feature-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--fc,var(--accent)),transparent);opacity:0;transition:opacity .2s;}
+.feature-card:hover{border-color:var(--border2);transform:translateY(-3px);box-shadow:0 20px 40px rgba(0,0,0,.3);}
+.feature-card:hover::before{opacity:1;}
+.feature-icon{width:48px;height:48px;border-radius:12px;background:rgba(124,110,240,.1);border:1px solid rgba(124,110,240,.2);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:20px;}
+.feature-title{font-size:17px;font-weight:500;color:var(--text);margin-bottom:8px;}
+.feature-text{font-size:13px;color:var(--text2);line-height:1.7;}
+
+#how{padding:100px 24px;background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.how-inner{max-width:800px;margin:0 auto;text-align:center;}
+.steps{display:flex;flex-direction:column;margin-top:56px;text-align:left;}
+.step{display:flex;gap:28px;align-items:flex-start;padding:28px 0;border-bottom:1px solid var(--border);}
+.step:last-child{border-bottom:none;}
+.step-num{font-family:'Playfair Display',serif;font-size:48px;color:rgba(124,110,240,.2);line-height:1;flex-shrink:0;width:56px;text-align:center;transition:color .2s;}
+.step:hover .step-num{color:rgba(124,110,240,.5);}
+.step-title{font-size:18px;font-weight:500;color:var(--text);margin-bottom:6px;}
+.step-text{font-size:14px;color:var(--text2);line-height:1.7;}
+
+#waitlist{padding:120px 24px;text-align:center;position:relative;overflow:hidden;}
+.waitlist-glow{position:absolute;bottom:-100px;left:50%;transform:translateX(-50%);width:800px;height:400px;background:radial-gradient(ellipse,rgba(124,110,240,.1) 0%,transparent 70%);pointer-events:none;}
+.waitlist-box{max-width:560px;margin:0 auto;background:var(--bg2);border:1px solid var(--border2);border-radius:24px;padding:52px 48px;position:relative;}
+.waitlist-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:100px;background:rgba(29,158,117,.1);border:1px solid rgba(29,158,117,.25);color:#4cba8a;font-size:11px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:20px;}
+.waitlist-box h2{font-size:clamp(26px,3vw,38px);margin-bottom:12px;}
+.waitlist-box p{font-size:14px;color:var(--text2);margin-bottom:32px;line-height:1.7;}
+.waitlist-counter{font-family:'DM Mono',monospace;font-size:13px;color:var(--accent2);margin-bottom:24px;padding:8px 16px;background:rgba(124,110,240,.08);border-radius:8px;display:inline-block;}
+.waitlist-form{display:flex;flex-direction:column;gap:12px;}
+.waitlist-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:14px 18px;font-size:14px;font-family:'DM Sans',sans-serif;color:var(--text);outline:none;transition:border-color .15s;}
+.waitlist-input:focus{border-color:var(--accent);}
+.waitlist-input::placeholder{color:var(--text3);}
+.waitlist-btn{width:100%;padding:15px;border-radius:12px;background:var(--accent);color:#fff;font-size:15px;font-weight:500;font-family:'DM Sans',sans-serif;border:none;cursor:pointer;transition:all .2s;}
+.waitlist-btn:hover{opacity:.85;transform:translateY(-1px);}
+.waitlist-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.waitlist-disclaimer{font-size:11px;color:var(--text3);margin-top:12px;}
+.waitlist-success{display:none;padding:20px;background:rgba(29,158,117,.1);border:1px solid rgba(29,158,117,.25);border-radius:12px;color:#4cba8a;font-size:14px;line-height:1.6;}
+.spots-left{font-size:12px;color:var(--coral);margin-top:10px;font-weight:500;}
+footer{padding:40px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;max-width:1100px;margin:0 auto;}
+.footer-logo{font-family:'Playfair Display',serif;font-size:18px;color:var(--accent2);}
+.footer-logo em{color:var(--accent);font-style:normal;}
+.footer-text{font-size:12px;color:var(--text3);}
+@media(max-width:768px){.browser-inner,.wa-inner{grid-template-columns:1fr;}.wa-chat-mock{display:none;}}
+@media(max-width:640px){nav{padding:0 20px;}.hero-stats{gap:24px;}.waitlist-box{padding:36px 24px;}footer{flex-direction:column;text-align:center;}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Kore<em>o</em></div>
+  <a href="#waitlist" class="nav-cta">Entrar na lista exclusiva</a>
+</nav>
+
+<section id="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-label"><span></span> Seu segundo cérebro</div>
+  <h1>Chega de perder suas<br/><em>ideias na bagunça.</em></h1>
+  <p class="hero-sub">Tudo que você precisa lembrar, em um só lugar — com uma IA que te ajuda a não perder nada.</p>
+  <div class="hero-browser-note">🌐 Acessa pelo navegador, de qualquer dispositivo. Sem baixar nada.</div>
+  <div class="hero-actions">
+    <a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a>
+    <a href="#how" class="btn-secondary">Como funciona?</a>
+  </div>
+  <div class="hero-stats">
+    <div class="stat"><span class="stat-num">20</span><span class="stat-label">vagas exclusivas</span></div>
+    <div class="stat"><span class="stat-num">1</span><span class="stat-label">lugar para tudo</span></div>
+    <div class="stat"><span class="stat-num">∞</span><span class="stat-label">menos esquecimentos</span></div>
+  </div>
+</section>
+
+<section id="video-section">
+  <div class="video-wrap">
+    <div class="video-app-preview">
+      <div class="fake-sidebar">
+        <div class="fake-sidebar-item" style="width:60%;opacity:.6"></div>
+        <div class="fake-sidebar-item" style="width:80%"></div>
+        <div class="fake-sidebar-item" style="width:70%;opacity:.8"></div>
+        <div class="fake-sidebar-item" style="width:90%"></div>
+      </div>
+      <div class="fake-main">
+        <div class="fake-card"></div>
+        <div class="fake-card" style="height:40px;opacity:.6"></div>
+        <div class="fake-card" style="height:80px;opacity:.4"></div>
+      </div>
+    </div>
+    <div class="video-placeholder">
+      <div class="video-placeholder-icon">▶</div>
+      <div class="video-placeholder-text">Em breve — veja como o Koreo, seu segundo cérebro, funciona</div>
+      <div class="video-placeholder-sub">Vídeo disponível em breve</div>
+    </div>
+  </div>
+</section>
+
+<section id="whatsapp-section">
+  <div class="wa-glow"></div>
+  <div class="wa-inner">
+    <div class="wa-content reveal">
+      <div class="wa-label">💬 WhatsApp</div>
+      <div class="wa-title">Sua IA pessoal<br/>mora no seu <em>WhatsApp</em></div>
+      <p class="wa-text">Sem abrir nenhum app. Seu assistente está no WhatsApp — e <strong style="color:var(--text)">você escolhe o nome dele.</strong> Jarvis, Sofia, Max — o que fizer sentido pra você.</p>
+      <div class="wa-name-badge">✦ Você nomeia sua IA. Ela aprende com você. É sua mesmo.</div>
+      <div class="wa-features">
+        <div class="wa-feature">
+          <div class="wa-feature-dot">📅</div>
+          <div class="wa-feature-text"><strong>Lê sua agenda do Google Calendar</strong> — "o que tenho hoje?" e ela responde com todos os compromissos</div>
+        </div>
+        <div class="wa-feature">
+          <div class="wa-feature-dot">➕</div>
+          <div class="wa-feature-text"><strong>Agenda reuniões por mensagem</strong> — manda uma mensagem e o evento já aparece no seu calendário</div>
+        </div>
+        <div class="wa-feature">
+          <div class="wa-feature-dot">🧠</div>
+          <div class="wa-feature-text"><strong>Lê e cria notas no vault</strong> — acessa tudo que você já anotou e salva ideias novas direto pelo chat</div>
+        </div>
+        <div class="wa-feature">
+          <div class="wa-feature-dot">📝</div>
+          <div class="wa-feature-text"><strong>Não perca nada</strong> — manda um áudio ou texto e a nota é criada automaticamente, organizada na gaveta certa</div>
+        </div>
+        <div class="wa-feature">
+          <div class="wa-feature-dot">☀</div>
+          <div class="wa-feature-text"><strong>Briefing matinal</strong> — toda manhã um resumo das suas prioridades e agenda do dia direto no WhatsApp</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <a href="#waitlist" class="btn-whatsapp">💬 Quero minha IA no WhatsApp</a>
+      </div>
+    </div>
+    <div class="wa-chat-mock reveal">
+      <div class="wa-chat-header">
+        <div class="wa-chat-avatar">🧠</div>
+        <div><div class="wa-chat-name">Jarvis — Koreo</div><div class="wa-chat-status">online agora</div></div>
+      </div>
+      <div class="wa-chat-body">
+        <div class="wa-msg sent">O que tenho na agenda hoje?<div class="wa-msg-time">08:07 ✓✓</div></div>
+        <div class="wa-msg received">📅 <strong>Sua agenda de hoje:</strong><br/>09:30 — Reunião equipe de vendas<br/>14:00 — Call com cliente Ana<br/>17:00 — Review semanal<div class="wa-msg-time">08:07</div></div>
+        <div class="wa-msg sent">Agenda reunião amanhã às 10h com João para falar do contrato<div class="wa-msg-time">08:12 ✓✓</div></div>
+        <div class="wa-msg received">✅ Evento criado no calendário:<br/><strong>"Reunião João — Contrato"</strong><br/>Amanhã às 10:00. Confirmado! 📅<div class="wa-msg-time">08:12</div></div>
+        <div class="wa-msg sent">Anota: revisar proposta cliente 4521 até sexta<div class="wa-msg-time">08:15 ✓✓</div></div>
+        <div class="wa-msg received">📝 Nota criada no vault:<br/><strong>"Revisar proposta — cliente 4521"</strong><br/>Prazo: sexta. Marcada como alta prioridade.<div class="wa-msg-time">08:15</div></div>
+        <div class="wa-typing"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="pain">
+  <div class="section-label reveal">O problema</div>
+  <h2 class="reveal">Você anota em <em>todo lugar</em><br/>e não encontra em lugar nenhum</h2>
+  <p style="color:var(--text2);max-width:560px;margin:0 auto;font-size:15px;" class="reveal">Caderno, WhatsApp, bloco de notas, papelzinho na mesa... a informação existe, mas quando você precisa ela sumiu.</p>
+  <div class="pain-grid">
+    <div class="pain-card reveal"><span class="pain-icon">📒</span><div class="pain-title">Anotações espalhadas</div><div class="pain-text">Suas informações estão em dezenas de lugares. Quando precisa, não encontra nenhuma.</div></div>
+    <div class="pain-card reveal"><span class="pain-icon">🔥</span><div class="pain-title">Sempre apagando incêndio</div><div class="pain-text">Sem organização, tudo vira urgência. Você reage em vez de planejar.</div></div>
+    <div class="pain-card reveal"><span class="pain-icon">😓</span><div class="pain-title">"Eu sabia que tinha anotado..."</div><div class="pain-text">A sensação de que a informação existe mas sumiu. E o tempo perdido procurando.</div></div>
+    <div class="pain-card reveal"><span class="pain-icon">🧠</span><div class="pain-title">Tudo na cabeça cansa</div><div class="pain-text">Tentar lembrar de tudo ao mesmo tempo esgota. Sua cabeça não é um HD.</div></div>
+  </div>
+  <div class="section-cta center reveal">
+    <a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a>
+  </div>
+</section>
+
+<section id="solution">
+  <div class="solution-glow"></div>
+  <div class="solution-inner">
+    <div class="section-label reveal">A solução</div>
+    <h2 class="reveal">O Koreo é seu<br/><em>segundo cérebro</em></h2>
+    <p class="solution-text reveal">Um lugar só para <strong>todas as suas anotações, tarefas e ideias</strong> — organizado com inteligência artificial que te ajuda a encontrar, lembrar e agir. Como ter uma <strong>assistente pessoal disponível 24h</strong>, no seu celular ou computador.</p>
+    <div class="section-cta center reveal">
+      <a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a>
+      <a href="#features" class="btn-secondary">Ver o que inclui</a>
+    </div>
+  </div>
+</section>
+
+<section id="browser-section">
+  <div class="browser-inner">
+    <div class="browser-content reveal">
+      <div class="section-label">Em qualquer lugar</div>
+      <h2 style="font-size:clamp(26px,3vw,40px);">Sem baixar <em>nada.</em><br/>Abre no navegador.</h2>
+      <p style="color:var(--text2);font-size:14px;line-height:1.8;margin:16px 0 24px;">Não precisa instalar nenhum aplicativo. O Koreo funciona direto no navegador do seu celular, tablet ou computador. Acessa de qualquer lugar, a qualquer hora.</p>
+      <div class="browser-highlight">🌐 Abra <strong style="color:var(--text)">mykoreo.com.br</strong> em qualquer navegador e seu segundo cérebro está lá — pronto para usar.</div>
+      <div class="section-cta"><a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a></div>
+    </div>
+    <div class="reveal">
+      <div class="device-item"><div class="device-icon">💻</div><div><div class="device-title">Computador</div><div class="device-sub">Chrome, Safari, Edge, Firefox</div></div></div>
+      <div class="device-item"><div class="device-icon">📱</div><div><div class="device-title">Celular</div><div class="device-sub">iPhone, Android — qualquer modelo</div></div></div>
+      <div class="device-item"><div class="device-icon">📟</div><div><div class="device-title">Tablet</div><div class="device-sub">iPad, Samsung — funciona em todos</div></div></div>
+      <div class="device-item"><div class="device-icon">💬</div><div><div class="device-title">WhatsApp</div><div class="device-sub">Manda mensagem e já está salvo</div></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="features-header">
+    <div class="section-label reveal">O que você vai ter</div>
+    <h2 class="reveal">Tudo que você precisa,<br/><em>em um só lugar</em></h2>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card reveal" style="--fc:#7c6ef0"><div class="feature-icon">✎</div><div class="feature-title">Anote qualquer coisa</div><div class="feature-text">Texto, ideia, tarefa, decisão — capture em segundos e encontre depois com um clique.</div></div>
+    <div class="feature-card reveal" style="--fc:#D85A30"><div class="feature-icon">⚡</div><div class="feature-title">Organize por prioridade</div><div class="feature-text">Saiba sempre o que é urgente, o que está em andamento e o que já foi feito.</div></div>
+    <div class="feature-card reveal" style="--fc:#1D9E75"><div class="feature-icon">🎙</div><div class="feature-title">Capture por voz</div><div class="feature-text">Sem tempo para digitar? Fale — a IA transcreve, organiza e salva automaticamente.</div></div>
+    <div class="feature-card reveal" style="--fc:#a99cf5"><div class="feature-icon">◎</div><div class="feature-title">IA que te conhece</div><div class="feature-text">Pergunte qualquer coisa sobre suas notas. "Qual minha prioridade hoje?" — ela responde com contexto real.</div></div>
+    <div class="feature-card reveal" style="--fc:#25D366"><div class="feature-icon" style="background:rgba(37,211,102,.1);border-color:rgba(37,211,102,.2);">💬</div><div class="feature-title">Sua IA no WhatsApp</div><div class="feature-text">Você escolhe o nome. Ela agenda, anota, lê seu vault e te manda briefing toda manhã — tudo pelo WhatsApp.</div></div>
+    <div class="feature-card reveal" style="--fc:#D4537E"><div class="feature-icon">⬡</div><div class="feature-title">Visualize suas conexões</div><div class="feature-text">Veja como suas ideias se conectam em um mapa visual. Descubra padrões que você não sabia que existiam.</div></div>
+  </div>
+  <div class="section-cta center reveal">
+    <a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a>
+  </div>
+</section>
+
+<section id="how">
+  <div class="how-inner">
+    <div class="section-label reveal">Como funciona</div>
+    <h2 class="reveal">Simples como deveria ser</h2>
+    <div class="steps">
+      <div class="step reveal"><div class="step-num">1</div><div><div class="step-title">Crie sua conta em segundos</div><div class="step-text">Só email e senha. Direto no navegador — sem baixar nada. Você já chega numa tela de boas-vindas personalizada.</div></div></div>
+      <div class="step reveal"><div class="step-num">2</div><div><div class="step-title">Escolha o nome da sua IA</div><div class="step-text">Jarvis, Sofia, Max, o que quiser. Ela vai usar esse nome no WhatsApp e no app. É sua, com a sua cara.</div></div></div>
+      <div class="step reveal"><div class="step-num">3</div><div><div class="step-title">Organize do seu jeito</div><div class="step-text">Crie suas gavetas — Trabalho, Pessoal, Projetos. O Koreo se adapta à sua vida, não o contrário.</div></div></div>
+      <div class="step reveal"><div class="step-num">4</div><div><div class="step-title">Capture de onde estiver</div><div class="step-text">No navegador, por voz ou pelo WhatsApp. Sua ideia nunca mais vai se perder.</div></div></div>
+    </div>
+    <div class="section-cta center reveal" style="margin-top:44px;">
+      <a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a>
+    </div>
+  </div>
+</section>
+
+<section id="waitlist">
+  <div class="waitlist-glow"></div>
+  <div class="waitlist-box reveal">
+    <div class="waitlist-badge">✦ Acesso exclusivo</div>
+    <h2>Resolva sua bagunça agora</h2>
+    <p>Estamos abrindo apenas <strong style="color:var(--text)">20 vagas</strong> para os primeiros usuários. Quem entrar primeiro vai moldar o produto e ter acesso ao período de testes.</p>
+    <div class="waitlist-counter" id="counter-display">⏳ Vagas restantes: carregando...</div>
+    <div id="waitlist-form-wrap">
+      <div class="waitlist-form">
+        <input class="waitlist-input" id="wl-name" type="text" placeholder="Seu nome" autocomplete="name"/>
+        <input class="waitlist-input" id="wl-email" type="email" placeholder="Seu melhor email" autocomplete="email"/>
+        <button class="waitlist-btn" id="wl-btn" onclick="submitWaitlist()">✦ Entrar na lista exclusiva</button>
+      </div>
+      <p class="waitlist-disclaimer">Sem spam. Você só receberá o link quando sua vaga for confirmada.</p>
+      <p class="spots-left" id="spots-msg"></p>
+    </div>
+    <div class="waitlist-success" id="wl-success">🎉 <strong>Você está na lista!</strong><br/>Entraremos em contato assim que sua vaga for liberada. Fique de olho no seu email!</div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">Kore<em>o</em></div>
+  <div class="footer-text">© 2026 Koreo — Seu segundo cérebro</div>
+  <div class="footer-text">mykoreo.com.br</div>
+</footer>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+const SUPABASE_URL = 'https://qmsuykfqtiqaauinehfu.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtc3V5a2ZxdGlxYWF1aW5laGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDYyMDMsImV4cCI6MjA5MzY4MjIwM30.fTiJ4pmmYMaDRWooDqClGWPpQM5-pta4zSd0Z5gQ6lM';
+const MAX_SPOTS = 20;
+
+async function getCount() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?select=id`, { headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY } });
+  const data = await res.json();
+  return Array.isArray(data) ? data.length : 0;
+}
+
+async function loadCounter() {
+  try {
+    const count = await getCount();
+    const remaining = Math.max(0, MAX_SPOTS - count);
+    const el = document.getElementById('counter-display');
+    const msg = document.getElementById('spots-msg');
+    if (remaining === 0) {
+      el.textContent = '🔴 Todas as vagas foram preenchidas';
+      el.style.background = 'rgba(216,90,48,.1)'; el.style.color = 'var(--coral)';
+      document.getElementById('wl-btn').disabled = true;
+      document.getElementById('wl-btn').textContent = 'Lista encerrada';
+    } else {
+      el.textContent = `⏳ ${remaining} vaga${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}`;
+      if (remaining <= 5) msg.textContent = `⚠️ Apenas ${remaining} vaga${remaining > 1 ? 's' : ''} disponível${remaining > 1 ? 'is' : ''}!`;
+    }
+  } catch(e) { document.getElementById('counter-display').textContent = '⏳ Vagas limitadas — garanta a sua'; }
+}
+
+async function submitWaitlist() {
+  const name = document.getElementById('wl-name').value.trim();
+  const email = document.getElementById('wl-email').value.trim();
+  const btn = document.getElementById('wl-btn');
+  if (!name) { document.getElementById('wl-name').focus(); return; }
+  if (!email || !email.includes('@')) { document.getElementById('wl-email').focus(); return; }
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    const count = await getCount();
+    if (count >= MAX_SPOTS) { btn.textContent = 'Lista encerrada'; loadCounter(); return; }
+    const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?email=eq.${encodeURIComponent(email)}&select=id`, { headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY } });
+    const existing = await checkRes.json();
+    if (existing && existing.length > 0) {
+      document.getElementById('wl-success').style.display = 'block';
+      document.getElementById('wl-success').innerHTML = '✅ <strong>Você já está na lista!</strong><br/>Fique de olho no seu email.';
+      document.getElementById('waitlist-form-wrap').style.display = 'none';
+      return;
+    }
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+      method: 'POST',
+      headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ name, email, created_at: new Date().toISOString() })
+    });
+    if (res.ok || res.status === 201) {
+      document.getElementById('waitlist-form-wrap').style.display = 'none';
+      document.getElementById('wl-success').style.display = 'block';
+      loadCounter();
+    } else { throw new Error('Erro ' + res.status); }
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '✦ Entrar na lista exclusiva';
+    alert('Ops! Algo deu errado. Tente novamente.');
+  }
+}
+
+document.getElementById('wl-email').addEventListener('keydown', e => { if (e.key === 'Enter') submitWaitlist(); });
+document.getElementById('wl-name').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('wl-email').focus(); });
+loadCounter();
+</script>
+</body>
+</html>
