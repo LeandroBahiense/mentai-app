@@ -553,6 +553,11 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
     <div class="s-item">📎 Com anexos</div>
     <div id="notes-list-sidebar" style="flex:1;overflow-y:auto;padding:4px 0;scrollbar-width:thin;"></div>
     <button id="new-note-btn" onclick="newNote()">+ Nova nota</button>
+    <div style="border-top:1px solid var(--border);padding:8px 10px;">
+      <button onclick="navigate('settings')" style="width:100%;display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-size:12px;font-family:'Sora',sans-serif;cursor:pointer;transition:all .15s;" onmouseover="this.style.background='rgba(107,127,232,.08)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+        ⚙️ Configurações
+      </button>
+    </div>
   </div>
 
   <!-- MAIN AREA -->
@@ -755,6 +760,7 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
       <div style="max-width:640px;width:100%">
         <h2>Configurações</h2>
         <p>Conecte o Supabase para salvar suas notas na nuvem e a API Anthropic para ativar a IA.</p>
+        <div id="admin-settings" style="display:none">
         <div class="settings-section">
           <div class="ss-title">🗄 Supabase — banco de dados</div>
           <div class="ss-row"><span class="ss-label">URL do projeto</span><input class="ss-input" id="sb-url" placeholder="https://xxxx.supabase.co"/></div>
@@ -792,6 +798,7 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
           <div style="font-size:11px;color:var(--text3);margin-top:6px">Dica: o ícone 🗑 na barra do editor apaga a nota atual.</div>
           <div id="manage-status" style="font-size:11px;color:var(--green);margin-top:4px"></div>
         </div>
+        </div><!-- /admin-settings -->
         <div class="settings-section">
           <div class="ss-title">🤖 Assistente pessoal</div>
           <div class="ss-row">
@@ -2846,8 +2853,11 @@ async function checkOnboarding() {
     localStorage.setItem('koreo-display-name', data.display_name || '');
     // aplica gavetas ocultas
     (data.gavetas_ocultas || []).forEach(id => {
-      const el = document.querySelector(`[data-gaveta-id="${id}"]`);
-      if (el) el.style.display = 'none';
+      document.querySelectorAll('#sidebar .s-item').forEach(el => {
+        if (el.getAttribute('onclick')?.includes(`'${id}'`)) {
+          el.style.display = 'none';
+        }
+      });
     });
     // preenche campo de nome do assistente nas configurações
     const nameInput = document.getElementById('assistant-name-input');
@@ -2979,6 +2989,10 @@ function injectTopbarButtons() {
       _supabase.auth.signOut();
     }
   };
+  const badge = document.getElementById('db-badge');
+  if (badge) badge.style.display = isAdmin() ? 'flex' : 'none';
+  const adminSettings = document.getElementById('admin-settings');
+  if (adminSettings) adminSettings.style.display = isAdmin() ? 'block' : 'none';
 }
 function showForgotPassword() {
   document.getElementById('login-fields').style.display    = 'none';
@@ -3059,6 +3073,9 @@ async function authAction() {
     btn.textContent = _authMode === 'signup' ? 'Criar conta' : 'Entrar';
   }
 }
+const ADMIN_USER_ID = '68768231-551e-45b2-8f03-db5848f00fd6';
+function isAdmin() { return currentUser?.id === ADMIN_USER_ID; }
+
 function initSupabaseAuth() {
   const SUPABASE_URL = 'https://qmsuykfqtiqaauinehfu.supabase.co';
   const ANON_KEY     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtc3V5a2ZxdGlxYWF1aW5laGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDYyMDMsImV4cCI6MjA5MzY4MjIwM30.fTiJ4pmmYMaDRWooDqClGWPpQM5-pta4zSd0Z5gQ6lM';
