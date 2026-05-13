@@ -1480,7 +1480,7 @@ function toggleTheme() {
 }
 
 // ── Nova gaveta ───────────────────────────────────────────────────────────────
-function newGaveta() {
+async function newGaveta() {
   const name = prompt('Nome da nova gaveta:');
   if (!name || !name.trim()) return;
   const id = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -1500,6 +1500,15 @@ function newGaveta() {
   el.onmouseleave = () => el.querySelector('.gb-menu-btn').style.opacity = '0';
   container.appendChild(el);
   makeDraggable(el, id);
+  // persiste no Supabase
+  if (currentUser && _supabase) {
+    const { data } = await _supabase.from('user_preferences')
+      .select('gavetas').eq('user_id', currentUser.id).single();
+    const gavetas = [...(data?.gavetas || [])];
+    if (!gavetas.includes(id)) gavetas.push(id);
+    await _supabase.from('user_preferences')
+      .upsert({ user_id: currentUser.id, gavetas, updated_at: new Date().toISOString() });
+  }
 }
 
 function navigate(view) {
@@ -2888,6 +2897,23 @@ async function checkOnboarding() {
     .select('onboarding_done, gavetas, gavetas_ocultas, gavetas_ordem, assistant_name, display_name')
     .eq('user_id', currentUser.id)
     .single();
+  // garante que Inbox nunca foi removida do DOM
+  if (!document.querySelector('#sidebar [data-gaveta-id="inbox"]')) {
+    const sidebar = document.getElementById('sidebar');
+    const extraGavetas = document.getElementById('extra-gavetas');
+    const inbox = document.createElement('div');
+    inbox.className = 's-item';
+    inbox.setAttribute('data-gaveta-id', 'inbox');
+    inbox.setAttribute('data-folder', 'inbox');
+    inbox.setAttribute('data-label', '📥 Inbox');
+    inbox.setAttribute('onmouseenter', "this.querySelector('.gb-menu-btn').style.opacity='1'");
+    inbox.setAttribute('onmouseleave', "this.querySelector('.gb-menu-btn').style.opacity='0'");
+    inbox.innerHTML = `<span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0;display:inline-block;"></span>📥 Inbox <span class="s-count" id="cnt-inbox">0</span><button class="gb-menu-btn" onclick="event.stopPropagation();showGavetaMenu(event,'inbox',true)">⋮</button>`;
+    inbox.onclick = function() { selectFolder('inbox', inbox); };
+    sidebar.insertBefore(inbox, extraGavetas);
+    makeDraggable(inbox, 'inbox');
+  }
+
   if (!data || !data.onboarding_done) {
     document.getElementById('onboarding').classList.remove('hidden');
   } else {
