@@ -1,9 +1,9 @@
 {
-  "rewrites": [
-    { "source": "/app", "destination": "/index.html" },
-    { "source": "/app/(.*)", "destination": "/index.html" },
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/", "destination": "/landing.html" }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/app", "dest": "/index.html" },
+    { "src": "/app/(.*)", "dest": "/index.html" },
+    { "src": "/", "dest": "/landing.html" }
   ],
   "crons": [
     { "path": "/api/cron/briefing", "schedule": "0 11 * * *" }
