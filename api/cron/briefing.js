@@ -57,6 +57,25 @@ async function getUserPrefs(userId) {
   return Array.isArray(data) && data.length > 0 ? data[0] : null;
 }
 
+async function getPrefsForHour(horaAtual) {
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/user_preferences?briefing_hora=eq.' + encodeURIComponent(horaAtual) +
+    '&select=user_id,display_name,assistant_name,briefing_hora',
+    { headers: svcHeaders() }
+  );
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+async function getPhoneByUserId(userId) {
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/google_tokens?user_id=eq.' + userId + '&select=phone&limit=1',
+    { headers: svcHeaders() }
+  );
+  const data = await res.json();
+  return Array.isArray(data) && data.length > 0 ? data[0].phone : null;
+}
+
 // ─── Google Calendar ──────────────────────────────────────────────────────────
 
 async function refreshGoogleToken(phone, refreshToken) {
@@ -234,18 +253,40 @@ export default async function handler(req, res) {
 
   console.log('BRIEFING CRON: start', new Date().toISOString());
 
-  const phones = await getDistinctPhones();
-  console.log('BRIEFING: phones:', phones.length, phones);
+  // hora atual em Brasília no formato "HH:MM"
+  const now = new Date();
+  const horaAtual = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    hour:     '2-digit',
+    minute:   '2-digit',
+    hour12:   false,
+  }).format(now).substring(0, 5);
 
-  if (phones.length === 0) {
-    return res.json({ ok: true, sent: 0, message: 'Sem usuários.' });
+  console.log('BRIEFING: hora Brasília:', horaAtual);
+
+  // usuários cujo briefing_hora bate com a hora atual
+  const prefs = await getPrefsForHour(horaAtual);
+  console.log('BRIEFING: usuários nesta hora:', prefs.length);
+
+  if (prefs.length === 0) {
+    return res.status(200).json({ ok: true, sent: 0, msg: 'Nenhum briefing nesta hora.' });
   }
 
   const results = [];
 
-  for (const phone of phones) {
+  for (const pref of prefs) {
+    const { user_id: userId, display_name: displayName, assistant_name: assistantName } = pref;
+
     try {
-      console.log('BRIEFING: processando', phone);
+      console.log('BRIEFING: processando user_id', userId);
+
+      // phone do usuário via google_tokens
+      const phone = await getPhoneByUserId(userId);
+      if (!phone) {
+        console.warn('BRIEFING: sem phone para user_id', userId);
+        results.push({ userId, ok: false, reason: 'sem_phone' });
+        continue;
+      }
 
       // Google Calendar
       let calendarEvents = [];
@@ -257,15 +298,9 @@ export default async function handler(req, res) {
             : tokenRow.access_token;
           calendarEvents = await getCalendarEventsToday(accessToken);
         } catch (err) {
-          console.error('GOOGLE ERR:', phone, err.message);
+          console.error('GOOGLE ERR:', userId, err.message);
         }
       }
-
-      // Prefs do usuário (usa user_id do tokenRow se disponível)
-      const userId = tokenRow?.user_id || null;
-      const prefs  = await getUserPrefs(userId);
-      const displayName   = prefs?.display_name   || null;
-      const assistantName = prefs?.assistant_name || 'Jarvis';
 
       // Notas urgentes
       const urgentNotes = await getUrgentNotes(userId);
@@ -275,20 +310,24 @@ export default async function handler(req, res) {
       const urgentText = formatUrgentNotes(urgentNotes);
 
       // Frase do Jarvis via Claude
-      const jarvisLine = await generateJarvisLine(displayName, assistantName, eventsText, urgentText);
+      const jarvisLine = await generateJarvisLine(
+        displayName, assistantName || 'Jarvis', eventsText, urgentText
+      );
 
       // Monta e envia
-      const message = buildMessage(displayName, assistantName, eventsText, urgentText, jarvisLine);
+      const message = buildMessage(
+        displayName, assistantName || 'Jarvis', eventsText, urgentText, jarvisLine
+      );
       const sent = await sendWhatsApp(phone, message);
-      results.push({ phone, ok: sent });
+      results.push({ userId, phone, ok: sent });
 
     } catch (err) {
-      console.error('BRIEFING ERR:', phone, err.message);
-      results.push({ phone, ok: false, reason: err.message });
+      console.error('BRIEFING ERR:', userId, err.message);
+      results.push({ userId, ok: false, reason: err.message });
     }
   }
 
   const sent = results.filter(r => r.ok).length;
-  console.log('BRIEFING CRON: done. Enviados:', sent, '/', phones.length);
-  return res.json({ ok: true, sent, total: phones.length, results });
+  console.log('BRIEFING CRON: done. Enviados:', sent, '/', prefs.length);
+  return res.json({ ok: true, sent, total: prefs.length, results });
 }
