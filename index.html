@@ -2294,34 +2294,34 @@ async function loadFromSupabase(){
   }
 }
 
-async function pushAllToSupabase(){
-  if(!APP.supabaseConnected) return;
-  let ok=0;
-  for(const note of APP.notes){
-    try{
-      const now = note.updated_at || new Date().toISOString();
-      note.updated_at = now; // garante que o objeto local tem updated_at
-      await fetch(sbUrl('notes'), {
-        method:'POST',
-        headers:await sbHeaders(),
+async function pushAllToSupabase() {
+  if (!APP.supabaseConnected || !currentUser) return;
+  const headers = await sbHeaders();
+  let ok = 0;
+  for (const note of APP.notes) {
+    try {
+      note.user_id    = currentUser.id;
+      note.updated_at = note.updated_at || new Date().toISOString();
+      const res = await fetch(sbUrl('notes'), {
+        method: 'POST',
+        headers,
         body: JSON.stringify({
-          id: note.id,
-          title: note.title,
-          content: note.content||'',
-          folder: note.folder||'inbox',
-          cluster: note.cluster||'produto',
-          tags: note.tags||[],
-          date: note.date||'agora',
-          updated_at: now,
+          id:         note.id,
+          title:      note.title,
+          content:    note.content  || '',
+          folder:     note.folder   || 'inbox',
+          cluster:    note.cluster  || 'produto',
+          tags:       note.tags     || [],
+          date:       note.date     || 'agora',
+          status:     note.status   || 'inbox',
+          user_id:    currentUser.id,
+          updated_at: note.updated_at,
         }),
       });
-      ok++;
-    }catch(e){ console.warn('push error',note.id,e); }
+      if (res.ok) ok++;
+    } catch(e) { console.warn('push error', note.id, e); }
   }
-  localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
-  showSBStatus(ok+' notas enviadas ao Supabase ✓','ok');
-  document.getElementById('save-indicator').textContent='✓ salvo no Supabase';
-  document.getElementById('save-indicator').style.color='var(--green)';
+  showSBStatus(ok + ' notas enviadas ✓', 'ok');
 }
 
 async function deleteFromSupabase(id){
