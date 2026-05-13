@@ -1,57 +1,67 @@
-const SUPABASE_URL      = process.env.SUPABASE_URL;
-const SUPABASE_KEY      = process.env.SUPABASE_ANON_KEY;
-const SUPABASE_SVC_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ANTHROPIC_KEY     = process.env.ANTHROPIC_API_KEY;
-const TWILIO_SID        = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_TOKEN      = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_FROM       = process.env.TWILIO_WHATSAPP_FROM; // ex: whatsapp:+14155238886
+const SUPABASE_URL     = process.env.SUPABASE_URL;
+const SUPABASE_KEY     = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_SVC_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ANTHROPIC_KEY    = process.env.ANTHROPIC_API_KEY;
+const TWILIO_SID       = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_TOKEN     = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_FROM      = process.env.TWILIO_WHATSAPP_FROM;
 
-function sbHeaders() {
+function anonHeaders() {
   return {
-    'Content-Type': 'application/json',
-    'apikey': SUPABASE_KEY,
+    'Content-Type':  'application/json',
+    'apikey':        SUPABASE_KEY,
     'Authorization': 'Bearer ' + SUPABASE_KEY,
   };
 }
 
-function googleSbHeaders() {
+function svcHeaders() {
   return {
-    'Content-Type': 'application/json',
-    'apikey': SUPABASE_SVC_KEY,
+    'Content-Type':  'application/json',
+    'apikey':        SUPABASE_SVC_KEY,
     'Authorization': 'Bearer ' + SUPABASE_SVC_KEY,
   };
 }
 
-// ─── Supabase ─────────────────────────────────────────────────────────────────
+// ─── Supabase: usuários ───────────────────────────────────────────────────────
 
 async function getDistinctPhones() {
   const res = await fetch(
     SUPABASE_URL + '/rest/v1/whatsapp_messages?select=phone&order=phone',
-    { headers: sbHeaders() }
+    { headers: anonHeaders() }
   );
   const rows = await res.json();
   if (!Array.isArray(rows)) return [];
-  // deduplica
   const seen = new Set();
-  return rows.map(function(r) { return r.phone; }).filter(function(p) {
+  return rows.map(r => r.phone).filter(p => {
     if (!p || seen.has(p)) return false;
-    seen.add(p);
-    return true;
+    seen.add(p); return true;
   });
 }
 
 async function getGoogleTokens(phone) {
   const res = await fetch(
     SUPABASE_URL + '/rest/v1/google_tokens?phone=eq.' + encodeURIComponent(phone) + '&limit=1',
-    { headers: googleSbHeaders() }
+    { headers: svcHeaders() }
   );
   const data = await res.json();
   return Array.isArray(data) && data.length > 0 ? data[0] : null;
 }
 
+async function getUserPrefs(userId) {
+  if (!userId) return null;
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/user_preferences?user_id=eq.' + userId + '&limit=1',
+    { headers: svcHeaders() }
+  );
+  const data = await res.json();
+  return Array.isArray(data) && data.length > 0 ? data[0] : null;
+}
+
+// ─── Google Calendar ──────────────────────────────────────────────────────────
+
 async function refreshGoogleToken(phone, refreshToken) {
   const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
+    method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       client_id:     process.env.GOOGLE_CLIENT_ID,
@@ -62,12 +72,11 @@ async function refreshGoogleToken(phone, refreshToken) {
   });
   const tokens = await res.json();
   if (tokens.error) throw new Error('Refresh falhou: ' + tokens.error);
-
   await fetch(
     SUPABASE_URL + '/rest/v1/google_tokens?phone=eq.' + encodeURIComponent(phone),
     {
-      method: 'PATCH',
-      headers: googleSbHeaders(),
+      method:  'PATCH',
+      headers: svcHeaders(),
       body: JSON.stringify({
         access_token: tokens.access_token,
         expiry_date:  Date.now() + tokens.expires_in * 1000,
@@ -86,7 +95,7 @@ async function getCalendarEventsToday(accessToken) {
     timeMax:      end.toISOString(),
     singleEvents: 'true',
     orderBy:      'startTime',
-    maxResults:   '10',
+    maxResults:   '8',
   });
   const res = await fetch(
     'https://www.googleapis.com/calendar/v3/calendars/primary/events?' + params,
@@ -97,152 +106,139 @@ async function getCalendarEventsToday(accessToken) {
   return data.items || [];
 }
 
-async function getUserIdByPhone(phone) {
-  const res = await fetch(
-    SUPABASE_URL + '/rest/v1/phone_users?phone=eq.' + encodeURIComponent(phone) + '&limit=1&select=user_id',
-    { headers: googleSbHeaders() }
-  );
-  const data = await res.json();
-  return Array.isArray(data) && data.length > 0 ? data[0].user_id : null;
-}
+// ─── Vault: notas urgentes ────────────────────────────────────────────────────
 
-async function getRecentNotes(userId) {
+async function getUrgentNotes(userId) {
   if (!userId) return [];
-  // Busca as 10 notas mais recentes do usuário — inclui todas as pastas
   const res = await fetch(
-    SUPABASE_URL + '/rest/v1/notes?user_id=eq.' + encodeURIComponent(userId) + '&select=title,content,cluster,folder,tags&order=updated_at.desc&limit=10',
-    { headers: googleSbHeaders() }
+    SUPABASE_URL + '/rest/v1/notes?user_id=eq.' + userId +
+    '&status=eq.urgente&in_trash=is.false&select=title,folder&order=updated_at.desc&limit=8',
+    { headers: svcHeaders() }
   );
   const data = await res.json();
   return Array.isArray(data) ? data : [];
 }
 
-async function getPersonalNotes(userId) {
-  if (!userId) return [];
-  // Busca especificamente notas pessoais e inbox com tarefas pendentes
-  const res = await fetch(
-    SUPABASE_URL + '/rest/v1/notes?user_id=eq.' + encodeURIComponent(userId) + '&folder=in.(pessoal,inbox)&select=title,content,folder&order=updated_at.desc&limit=5',
-    { headers: googleSbHeaders() }
-  );
-  const data = await res.json();
-  return Array.isArray(data) ? data : [];
-}
-
-// ─── Google Calendar: formata eventos ────────────────────────────────────────
+// ─── Formatação ───────────────────────────────────────────────────────────────
 
 function formatEvents(events) {
-  if (!events || events.length === 0) return 'Nenhum evento agendado para hoje.';
-  return events.map(function(e) {
+  if (!events || events.length === 0) return 'Nenhum evento hoje';
+  return events.map(e => {
     const time = e.start && e.start.dateTime
       ? new Date(e.start.dateTime).toLocaleTimeString('pt-BR', {
-          hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'
+          hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
         })
       : 'dia todo';
     return '• ' + time + ' — ' + (e.summary || 'Sem título');
   }).join('\n');
 }
 
-function formatNotes(notes) {
-  if (!notes || notes.length === 0) return 'Nenhuma nota recente.';
-  return notes.map(function(n) {
-    const folder = n.folder ? '[' + n.folder + '] ' : '';
-    return '• ' + folder + n.title + (n.content ? ': ' + n.content.substring(0, 120) : '');
-  }).join('\n');
+function formatUrgentNotes(notes) {
+  if (!notes || notes.length === 0) return 'Nenhuma urgência — bom dia tranquilo!';
+  return notes.map(n => '• ' + n.title).join('\n');
 }
 
-function formatPersonalNotes(notes) {
-  if (!notes || notes.length === 0) return 'Nenhum lembrete ou tarefa pessoal.';
-  return notes.map(function(n) {
-    return '• ' + n.title + (n.content ? '\n  ' + n.content.substring(0, 200) : '');
-  }).join('\n');
-}
+// ─── Claude: gera frase do Jarvis ─────────────────────────────────────────────
 
-// ─── Claude ───────────────────────────────────────────────────────────────────
-
-async function generateBriefing(eventsText, notesText, personalText) {
+async function generateJarvisLine(displayName, assistantName, eventsText, urgentText) {
   const date = new Date().toLocaleDateString('pt-BR', {
-    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo'
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo',
   });
 
-  const system = 'Você é o Jarvis, assistente pessoal. Gere um briefing matinal em português, curto e motivador (máximo 200 palavras). Seja direto e prático.';
+  const system =
+    'Você é ' + (assistantName || 'Jarvis') + ', assistente pessoal de ' + (displayName || 'seu usuário') + '. ' +
+    'Responda APENAS com uma única frase curta (máx 20 palavras), motivadora e direta, ' +
+    'baseada no contexto da agenda e urgências do dia. Sem saudação, sem introdução, só a frase.';
 
   const prompt =
-    'Hoje é ' + date + '.\n\n' +
-    'AGENDA DE HOJE:\n' + eventsText + '\n\n' +
-    'LEMBRETES E TAREFAS PESSOAIS:\n' + (personalText || 'Nenhum lembrete pessoal.') + '\n\n' +
-    'NOTAS RECENTES DO VAULT:\n' + notesText + '\n\n' +
-    'Gere um briefing matinal personalizado em português. Inclua:\n' +
-    '1. Cumprimento com o dia e data\n' +
-    '2. Agenda do dia (eventos do calendário)\n' +
-    '3. Lembretes e tarefas pessoais pendentes — SEMPRE inclua se existirem\n' +
-    '4. Destaques relevantes do vault\n' +
-    '5. Foco sugerido para o dia\n' +
-    'Seja direto e prático. Máximo 300 palavras.';
+    'Hoje é ' + date + '.\n' +
+    'Agenda: ' + eventsText + '\n' +
+    'Urgentes: ' + urgentText + '\n\n' +
+    'Gere a frase do dia para ' + (displayName || 'o usuário') + '.';
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'Content-Type':    'application/json',
-      'x-api-key':       ANTHROPIC_KEY,
+      'Content-Type':      'application/json',
+      'x-api-key':         ANTHROPIC_KEY,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model:      'claude-haiku-4-5',  // haiku = mais barato para cron
-      max_tokens: 400,
-      system:     system,
+      model:      'claude-haiku-4-5',
+      max_tokens: 80,
+      system,
       messages:   [{ role: 'user', content: prompt }],
     }),
   });
   const data = await res.json();
-  if (data.content && data.content[0]) return data.content[0].text;
-  console.error('CLAUDE BRIEFING ERR:', JSON.stringify(data));
+  if (data.content && data.content[0]) return data.content[0].text.trim();
+  console.error('CLAUDE ERR:', JSON.stringify(data));
   return null;
 }
 
-// ─── Twilio: envia WhatsApp ───────────────────────────────────────────────────
+// ─── Monta mensagem final ─────────────────────────────────────────────────────
+
+function buildMessage(displayName, assistantName, eventsText, urgentText, jarvisLine) {
+  const hour = new Date().toLocaleString('pt-BR', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+  });
+
+  const name  = displayName   || 'você';
+  const lines = [];
+
+  lines.push('☀️ *Bom dia, ' + name + '!*');
+  lines.push('');
+  lines.push('📅 *Agenda de hoje*');
+  lines.push(eventsText);
+  lines.push('');
+  lines.push('⚡ *Urgentes*');
+  lines.push(urgentText);
+
+  if (jarvisLine) {
+    lines.push('');
+    lines.push('✦ _' + jarvisLine + '_');
+  }
+
+  return lines.join('\n');
+}
+
+// ─── Twilio ───────────────────────────────────────────────────────────────────
 
 async function sendWhatsApp(to, body) {
-  // "to" vem do Supabase como "+554797443333", precisa do prefixo whatsapp:
   const toFormatted = to.startsWith('whatsapp:') ? to : 'whatsapp:' + to;
-
   const auth = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');
   const res = await fetch(
     'https://api.twilio.com/2010-04-01/Accounts/' + TWILIO_SID + '/Messages.json',
     {
-      method: 'POST',
+      method:  'POST',
       headers: {
         'Authorization': 'Basic ' + auth,
         'Content-Type':  'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        From: TWILIO_FROM,
-        To:   toFormatted,
-        Body: body,
-      }),
+      body: new URLSearchParams({ From: TWILIO_FROM, To: toFormatted, Body: body }),
     }
   );
   const data = await res.json();
-  console.log('TWILIO SEND:', res.status, '| TO:', toFormatted, '| SID:', data.sid || data.code);
+  console.log('TWILIO:', res.status, '| TO:', toFormatted, '| SID:', data.sid || data.code);
   return res.status === 201;
 }
 
-// ─── Handler principal ────────────────────────────────────────────────────────
+// ─── Handler ──────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
-  // Vercel envia o header Authorization com o CRON_SECRET em produção
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.authorization !== 'Bearer ' + secret) {
-    console.warn('BRIEFING: unauthorized request');
+    console.warn('BRIEFING: unauthorized');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  console.log('BRIEFING CRON: iniciando', new Date().toISOString());
+  console.log('BRIEFING CRON: start', new Date().toISOString());
 
   const phones = await getDistinctPhones();
-  console.log('BRIEFING: phones encontrados:', phones.length, phones);
+  console.log('BRIEFING: phones:', phones.length, phones);
 
   if (phones.length === 0) {
-    return res.json({ ok: true, sent: 0, message: 'Nenhum usuário cadastrado.' });
+    return res.json({ ok: true, sent: 0, message: 'Sem usuários.' });
   }
 
   const results = [];
@@ -251,46 +247,39 @@ export default async function handler(req, res) {
     try {
       console.log('BRIEFING: processando', phone);
 
-      // Google tokens
-      let accessToken    = null;
+      // Google Calendar
       let calendarEvents = [];
-
       const tokenRow = await getGoogleTokens(phone);
       if (tokenRow) {
         try {
-          accessToken = Date.now() >= tokenRow.expiry_date - 60000
+          const accessToken = Date.now() >= tokenRow.expiry_date - 60000
             ? await refreshGoogleToken(phone, tokenRow.refresh_token)
             : tokenRow.access_token;
           calendarEvents = await getCalendarEventsToday(accessToken);
-          console.log('BRIEFING: eventos', phone, calendarEvents.length);
         } catch (err) {
-          console.error('BRIEFING GOOGLE ERR:', phone, err.message);
+          console.error('GOOGLE ERR:', phone, err.message);
         }
       }
 
-      // Busca user_id pelo telefone
-      const userId = await getUserIdByPhone(phone);
-      console.log('BRIEFING USER ID:', phone, userId);
+      // Prefs do usuário (usa user_id do tokenRow se disponível)
+      const userId = tokenRow?.user_id || null;
+      const prefs  = await getUserPrefs(userId);
+      const displayName   = prefs?.display_name   || null;
+      const assistantName = prefs?.assistant_name || 'Jarvis';
 
-      // Notas recentes e pessoais
-      const notes         = await getRecentNotes(userId);
-      const personalNotes = await getPersonalNotes(userId);
-      console.log('BRIEFING NOTES:', notes.length, '| PERSONAL:', personalNotes.length);
+      // Notas urgentes
+      const urgentNotes = await getUrgentNotes(userId);
 
-      // Gera briefing
-      const eventsText   = formatEvents(calendarEvents);
-      const notesText    = formatNotes(notes);
-      const personalText = formatPersonalNotes(personalNotes);
-      const briefing     = await generateBriefing(eventsText, notesText, personalText);
+      // Formata
+      const eventsText = formatEvents(calendarEvents);
+      const urgentText = formatUrgentNotes(urgentNotes);
 
-      if (!briefing) {
-        console.error('BRIEFING: Claude retornou null para', phone);
-        results.push({ phone, ok: false, reason: 'claude_null' });
-        continue;
-      }
+      // Frase do Jarvis via Claude
+      const jarvisLine = await generateJarvisLine(displayName, assistantName, eventsText, urgentText);
 
-      // Envia WhatsApp
-      const sent = await sendWhatsApp(phone, briefing);
+      // Monta e envia
+      const message = buildMessage(displayName, assistantName, eventsText, urgentText, jarvisLine);
+      const sent = await sendWhatsApp(phone, message);
       results.push({ phone, ok: sent });
 
     } catch (err) {
@@ -299,7 +288,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const sent = results.filter(function(r) { return r.ok; }).length;
-  console.log('BRIEFING CRON: finalizado. Enviados:', sent, '/', phones.length);
+  const sent = results.filter(r => r.ok).length;
+  console.log('BRIEFING CRON: done. Enviados:', sent, '/', phones.length);
   return res.json({ ok: true, sent, total: phones.length, results });
 }
