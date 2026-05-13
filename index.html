@@ -1102,14 +1102,14 @@ function newNoteInCol(status) {
 // ── Note Panel ───────────────────────────────────────────────────────────────
 let _npSaveTimer = null;
 
-function openNotePanel(noteId) {
+async function openNotePanel(noteId) {
   const note = APP.notes.find(n => n.id === noteId);
   if (!note) return;
   APP.currentNoteId = noteId;
 
   document.getElementById('np-title').value   = note.title || '';
   document.getElementById('np-content').innerHTML = renderMD(note.content || '');
-  populateNpFolderSelect(note.folder || 'inbox');
+  await populateNpFolderSelect(note.folder || 'inbox');
   _npUpdateWC();
   _npSetSaved();
 
@@ -1127,7 +1127,7 @@ function closeNotePanel() {
   renderSidebar();
 }
 
-function populateNpFolderSelect(currentFolder) {
+async function populateNpFolderSelect(currentFolder) {
   const sel = document.getElementById('np-folder-select');
   if (!sel) return;
   const folders = [
@@ -1136,13 +1136,22 @@ function populateNpFolderSelect(currentFolder) {
     { id:'decisoes', label:'⚡ Decisões' },
     { id:'reunioes', label:'👥 Reuniões' },
   ];
-  // adiciona gavetas extras do usuário
-  document.querySelectorAll('#extra-gavetas .s-item').forEach(el => {
-    const text = el.textContent.trim().replace(/\d+$/, '').trim();
-    const match = el.onclick && el.onclick.toString().match(/'([^']+)'/);
-    const id = match?.[1];
-    if (id) folders.push({ id, label: text });
-  });
+  // busca gavetas personalizadas do usuário
+  if (currentUser && _supabase) {
+    const { data } = await _supabase.from('user_preferences')
+      .select('gavetas').eq('user_id', currentUser.id).single();
+    const labels = {
+      trabalho:'💼 Trabalho', pessoal:'🏠 Pessoal',
+      projetos:'🚀 Projetos', viagem:'✈️ Viagem',
+      estudos:'📚 Estudos', financeiro:'💰 Financeiro'
+    };
+    const defaultIds = ['inbox','projetos','decisoes','reunioes'];
+    (data?.gavetas || []).forEach(id => {
+      if (!defaultIds.includes(id)) {
+        folders.push({ id, label: labels[id] || id });
+      }
+    });
+  }
   sel.innerHTML = folders.map(f =>
     `<option value="${f.id}" ${f.id === currentFolder ? 'selected' : ''}>${f.label}</option>`
   ).join('');
