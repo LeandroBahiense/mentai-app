@@ -524,21 +524,25 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;display:inline-block;"></span>
       ☰ Todas <span class="s-count" id="cnt-all">0</span>
     </div>
-    <div class="s-item" onclick="selectFolder('inbox',this)">
+    <div class="s-item" data-gaveta-id="inbox" onclick="selectFolder('inbox',this)" onmouseenter="this.querySelector('.s-hide-btn').style.opacity='1'" onmouseleave="this.querySelector('.s-hide-btn').style.opacity='0'">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0;display:inline-block;"></span>
       📥 Inbox <span class="s-count" id="cnt-inbox">0</span>
+      <span class="s-hide-btn" onclick="event.stopPropagation();hideGaveta('inbox',this.parentElement)" style="margin-left:auto;opacity:0;font-size:10px;color:var(--text3);cursor:pointer;padding:0 2px;line-height:1;">✕</span>
     </div>
-    <div class="s-item" onclick="selectFolder('projetos',this)">
+    <div class="s-item" data-gaveta-id="projetos" onclick="selectFolder('projetos',this)" onmouseenter="this.querySelector('.s-hide-btn').style.opacity='1'" onmouseleave="this.querySelector('.s-hide-btn').style.opacity='0'">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;display:inline-block;"></span>
       🚀 Projetos <span class="s-count" id="cnt-proj">0</span>
+      <span class="s-hide-btn" onclick="event.stopPropagation();hideGaveta('projetos',this.parentElement)" style="margin-left:auto;opacity:0;font-size:10px;color:var(--text3);cursor:pointer;padding:0 2px;line-height:1;">✕</span>
     </div>
-    <div class="s-item" onclick="selectFolder('decisoes',this)">
+    <div class="s-item" data-gaveta-id="decisoes" onclick="selectFolder('decisoes',this)" onmouseenter="this.querySelector('.s-hide-btn').style.opacity='1'" onmouseleave="this.querySelector('.s-hide-btn').style.opacity='0'">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--coral);flex-shrink:0;display:inline-block;"></span>
       ⚡ Decisões <span class="s-count" id="cnt-dec">0</span>
+      <span class="s-hide-btn" onclick="event.stopPropagation();hideGaveta('decisoes',this.parentElement)" style="margin-left:auto;opacity:0;font-size:10px;color:var(--text3);cursor:pointer;padding:0 2px;line-height:1;">✕</span>
     </div>
-    <div class="s-item" onclick="selectFolder('reunioes',this)">
+    <div class="s-item" data-gaveta-id="reunioes" onclick="selectFolder('reunioes',this)" onmouseenter="this.querySelector('.s-hide-btn').style.opacity='1'" onmouseleave="this.querySelector('.s-hide-btn').style.opacity='0'">
       <span class="s-dot" style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;display:inline-block;"></span>
       👥 Reuniões <span class="s-count" id="cnt-reu">0</span>
+      <span class="s-hide-btn" onclick="event.stopPropagation();hideGaveta('reunioes',this.parentElement)" style="margin-left:auto;opacity:0;font-size:10px;color:var(--text3);cursor:pointer;padding:0 2px;line-height:1;">✕</span>
     </div>
     <div id="extra-gavetas"></div>
     <div style="padding:10px 14px 4px;margin-top:8px;">
@@ -787,6 +791,17 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
           </div>
           <div style="font-size:11px;color:var(--text3);margin-top:6px">Dica: o ícone 🗑 na barra do editor apaga a nota atual.</div>
           <div id="manage-status" style="font-size:11px;color:var(--green);margin-top:4px"></div>
+        </div>
+        <div class="settings-section">
+          <div class="ss-title">🤖 Assistente pessoal</div>
+          <div class="ss-row">
+            <span class="ss-label">Nome do assistente</span>
+            <input class="ss-input" id="assistant-name-input" placeholder="Ex: Jarvis, Sofia, Max..." maxlength="20"/>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="ss-btn primary" onclick="saveAssistantName()">Salvar nome</button>
+            <span id="assistant-name-status" class="ss-status" style="display:none"></span>
+          </div>
         </div>
         <div class="settings-section">
           <div class="ss-title">📊 Status do sistema</div>
@@ -2820,7 +2835,7 @@ async function checkOnboarding() {
     return;
   }
   const { data } = await _supabase.from('user_preferences')
-    .select('onboarding_done, gavetas, assistant_name, display_name')
+    .select('onboarding_done, gavetas, gavetas_ocultas, assistant_name, display_name')
     .eq('user_id', currentUser.id)
     .single();
   if (!data || !data.onboarding_done) {
@@ -2829,6 +2844,14 @@ async function checkOnboarding() {
     loadGavetasFromPrefs(data.gavetas || []);
     localStorage.setItem('koreo-assistant-name', data.assistant_name || 'Jarvis');
     localStorage.setItem('koreo-display-name', data.display_name || '');
+    // aplica gavetas ocultas
+    (data.gavetas_ocultas || []).forEach(id => {
+      const el = document.querySelector(`[data-gaveta-id="${id}"]`);
+      if (el) el.style.display = 'none';
+    });
+    // preenche campo de nome do assistente nas configurações
+    const nameInput = document.getElementById('assistant-name-input');
+    if (nameInput) nameInput.value = data.assistant_name || 'Jarvis';
   }
 }
 
@@ -2856,11 +2879,25 @@ async function hideGaveta(id, el) {
   el.remove();
   if (currentUser && _supabase) {
     const { data } = await _supabase.from('user_preferences')
-      .select('gavetas').eq('user_id', currentUser.id).single();
-    const gavetas = (data?.gavetas || []).filter(g => g !== id);
+      .select('gavetas_ocultas').eq('user_id', currentUser.id).single();
+    const ocultas = [...(data?.gavetas_ocultas || [])];
+    if (!ocultas.includes(id)) ocultas.push(id);
     await _supabase.from('user_preferences')
-      .upsert({ user_id: currentUser.id, gavetas, updated_at: new Date().toISOString() });
+      .upsert({ user_id: currentUser.id, gavetas_ocultas: ocultas, updated_at: new Date().toISOString() });
   }
+}
+
+async function saveAssistantName() {
+  const name = document.getElementById('assistant-name-input').value.trim();
+  if (!name) return;
+  localStorage.setItem('koreo-assistant-name', name);
+  if (currentUser && _supabase) {
+    await _supabase.from('user_preferences')
+      .upsert({ user_id: currentUser.id, assistant_name: name, updated_at: new Date().toISOString() });
+  }
+  const el = document.getElementById('assistant-name-status');
+  el.style.display = 'block'; el.textContent = 'Nome salvo ✓'; el.className = 'ss-status ok';
+  setTimeout(() => { el.style.display = 'none'; }, 2000);
 }
 
 function obNext(step) {
