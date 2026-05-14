@@ -916,6 +916,10 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 <div id="note-panel">
   <div id="np-header">
     <input id="np-title" type="text" placeholder="Título da nota..." oninput="npOnTitleChange(this.value)"/>
+    <button onclick="openNoteEditor(APP.currentNoteId);closeNotePanel();"
+      style="padding:6px 14px;border-radius:8px;background:var(--accent);color:#fff;border:none;font-size:12px;font-family:'Sora',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+      ✎ Editar
+    </button>
     <button id="np-close" onclick="closeNotePanel()" title="Fechar">✕</button>
   </div>
   <div style="padding:0 14px 8px;border-bottom:1px solid var(--border2);">
@@ -924,23 +928,24 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
       padding:4px 8px;font-size:11px;color:var(--text2);font-family:'Sora',sans-serif;cursor:pointer;width:100%;">
     </select>
   </div>
-  <div id="np-toolbar">
-    <button class="tool" onclick="npFmt('bold')"  title="Negrito"><b>B</b></button>
-    <button class="tool" onclick="npFmt('italic')" title="Itálico"><i>I</i></button>
-    <div class="tool-sep"></div>
-    <button class="tool" onclick="npIns('## ')"  title="H2">H2</button>
-    <button class="tool" onclick="npIns('> ')"   title="Citação">❝</button>
-    <button class="tool" onclick="npIns('- ')"   title="Lista">≡</button>
-    <div style="flex:1"></div>
-    <span style="font-size:10px;color:var(--text3)" id="np-wc">0 palavras</span>
-  </div>
   <div id="np-scroll">
-    <div id="np-content" contenteditable="true" spellcheck="false"
-         oninput="npOnInput()" onkeydown="npOnKeyDown(event)"></div>
+    <div id="np-content" contenteditable="false" spellcheck="false"></div>
   </div>
   <div id="np-footer">
     <span id="np-save-indicator" style="color:var(--text3)">◌</span>
-    <span id="np-save-label">auto-save</span>
+    <span id="np-save-label">leitura</span>
+  </div>
+</div>
+
+<div id="new-note-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:420px;display:flex;flex-direction:column;gap:14px;">
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Nova nota</div>
+    <input id="new-note-title-input" class="auth-input" placeholder="Título da nota..." maxlength="80"/>
+    <select id="new-note-folder-select" class="auth-input" style="cursor:pointer;"></select>
+    <div style="display:flex;gap:8px;">
+      <button onclick="confirmNewNote()" class="ss-btn primary" style="flex:1;">Criar nota</button>
+      <button onclick="closeNewNoteModal()" class="ss-btn" style="flex:1;">Cancelar</button>
+    </div>
   </div>
 </div>
 
@@ -1842,41 +1847,64 @@ function renderNoteMeta(note) {
 }
 
 function newNote() {
-  const id = 'note-' + Date.now();
-  const note = { id, title:'Nova nota', folder:'inbox', cluster:'produto', tags:['nova'], date:'agora', content:'## Nova nota\n\nComece a escrever...\n' };
+  const sel = document.getElementById('new-note-folder-select');
+  // Monta opções: gavetas padrão + gavetas do usuário no DOM
+  const domFolders = [...document.querySelectorAll('#sidebar .s-item[data-folder]')]
+    .map(el => ({ id: el.dataset.folder, label: el.dataset.label || el.dataset.folder }))
+    .filter(f => f.id && f.id !== 'trash' && f.id !== 'all');
+  const fallback = [
+    { id:'inbox',    label:'📥 Inbox' },
+    { id:'projetos', label:'🚀 Projetos' },
+    { id:'decisoes', label:'⚡ Decisões' },
+    { id:'reunioes', label:'👥 Reuniões' },
+  ];
+  const folders = domFolders.length > 0 ? domFolders : fallback;
+  const active  = (currentFolder !== 'all' && currentFolder !== 'trash') ? currentFolder : 'inbox';
+  sel.innerHTML = folders.map(f =>
+    `<option value="${f.id}" ${f.id === active ? 'selected' : ''}>${f.label}</option>`
+  ).join('');
+  document.getElementById('new-note-title-input').value = '';
+  document.getElementById('new-note-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('new-note-title-input').focus(), 100);
+}
+
+function closeNewNoteModal() {
+  document.getElementById('new-note-modal').style.display = 'none';
+}
+
+function confirmNewNote() {
+  const title  = document.getElementById('new-note-title-input').value.trim();
+  const folder = document.getElementById('new-note-folder-select').value;
+  if (!title) { document.getElementById('new-note-title-input').focus(); return; }
+  closeNewNoteModal();
+  const id   = 'note-' + Date.now();
+  const note = { id, title, folder, cluster:'produto', tags:[], date:'agora', content:'', status:'inbox' };
   APP.notes.unshift(note);
   APP.currentNoteId = id;
   saveNotes();
+  renderSidebar();
+  openNoteEditor(id);
+}
 
-  // se estiver no kanban, abre o painel lateral em vez de trocar de view
-  if (APP.currentView === 'kanban') {
-    renderKanban();
-    openNotePanel(id);
-    return;
-  }
-
-  // update editor directly — sem navigate para nao interferir no render
-  const titleEl = document.getElementById('note-title');
+function openNoteEditor(id) {
+  const note = APP.notes.find(n => n.id === id);
+  if (!note) return;
+  APP.currentNoteId = id;
+  const titleEl   = document.getElementById('note-title');
   const contentEl = document.getElementById('editor-content');
-  if (titleEl) titleEl.value = note.title;
-  if (contentEl) contentEl.innerHTML = renderMD(note.content);
+  if (titleEl)   titleEl.value     = note.title || '';
+  if (contentEl) contentEl.innerHTML = renderMD(note.content || '');
   renderNoteMeta(note);
   renderBacklinks();
   renderOutlinks();
   updateWordCount();
-
-  renderSidebar();
-
-  // garante que a view do editor esta visivel
-  document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display='none'; });
+  loadNoteAttachments(id);
+  document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
   const ev = document.getElementById('view-editor');
-  if (ev) { ev.classList.add('active'); ev.style.display='flex'; }
+  if (ev) { ev.classList.add('active'); ev.style.display = 'flex'; }
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  const nb = document.getElementById('nav-editor');
-  if (nb) nb.classList.add('active');
   APP.currentView = 'editor';
-
-  if (titleEl) { titleEl.focus(); titleEl.select(); }
+  setTimeout(() => document.getElementById('note-title')?.focus(), 100);
 }
 
 function addTag() {
@@ -3750,6 +3778,14 @@ function initSupabaseAuth() {
 // INIT
 initSupabaseAuth();
 initApp();
+// ── Modal nova nota ──────────────────────────────────────────────
+document.getElementById('new-note-title-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter')  confirmNewNote();
+  if (e.key === 'Escape') closeNewNoteModal();
+});
+document.getElementById('new-note-modal')?.addEventListener('click', function(e) {
+  if (e.target === this) closeNewNoteModal();
+});
 </script>
 </body>
 </html>
