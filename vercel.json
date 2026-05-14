@@ -3,6 +3,8 @@
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "src": "/app", "dest": "/index.html" },
     { "src": "/app/(.*)", "dest": "/index.html" },
+    { "src": "/privacidade", "dest": "/privacidade.html" },
+    { "src": "/termos", "dest": "/termos.html" },
     { "src": "/", "dest": "/landing.html" }
   ]
 }
