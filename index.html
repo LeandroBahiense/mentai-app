@@ -503,6 +503,7 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
   <button class="nav-btn"        id="nav-graph"   onclick="navigate('graph')">⬡ Graph</button>
   <button class="nav-btn"        id="nav-chat"    onclick="navigate('chat')">◎ Chat IA</button>
   <button class="nav-btn"        id="nav-voice"   onclick="navigate('voice')">🎙 Voz</button>
+  <button class="nav-btn"        id="nav-planos"  onclick="navigate('planos')">⭐ Planos</button>
   <div class="nav-sep"></div>
   <div id="topbar-right">
     <button id="theme-toggle" onclick="toggleTheme()" title="Alternar tema">🌙</button>
@@ -759,6 +760,24 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
           <input class="ss-input" id="voice-api-key" type="password" placeholder="sk-ant-api03-..." style="width:100%;margin-bottom:6px;font-size:11px;"/>
           <button class="ss-btn" id="voice-conn-btn" onclick="connectVoiceAPI()" style="width:100%;font-size:11px;">Conectar IA</button>
         </div>
+      </div>
+    </div>
+
+    <!-- PLANOS -->
+    <div class="view" id="view-planos">
+      <div style="max-width:900px;width:100%;margin:0 auto;padding:40px 24px;overflow-y:auto;">
+        <h2 style="font-family:'DM Serif Display',serif;font-size:28px;font-weight:400;margin-bottom:8px;">Escolha seu plano</h2>
+        <p style="color:var(--text2);font-size:14px;margin-bottom:12px;">7 dias grátis em qualquer plano. Cancele quando quiser.</p>
+
+        <!-- Toggle mensal/semestral/anual -->
+        <div style="display:flex;gap:6px;margin-bottom:32px;">
+          <button onclick="setCiclo('mensal',this)" id="ciclo-mensal" style="padding:6px 16px;border-radius:100px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:12px;font-family:'Sora',sans-serif;cursor:pointer;">Mensal</button>
+          <button onclick="setCiclo('semestral',this)" id="ciclo-semestral" style="padding:6px 16px;border-radius:100px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-family:'Sora',sans-serif;cursor:pointer;">Semestral <span style="color:var(--green);font-size:10px;">-10%</span></button>
+          <button onclick="setCiclo('anual',this)" id="ciclo-anual" style="padding:6px 16px;border-radius:100px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-family:'Sora',sans-serif;cursor:pointer;">Anual <span style="color:var(--green);font-size:10px;">-20%</span></button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;" id="planos-grid"></div>
+        <p style="font-size:11px;color:var(--text3);text-align:center;margin-top:24px;">Pagamento via Pix, Boleto ou Cartão de crédito</p>
       </div>
     </div>
 
@@ -1518,6 +1537,134 @@ async function newGaveta() {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════
+// PLANOS
+// ══════════════════════════════════════════════════════════════════
+
+let _cicloAtual = 'mensal';
+
+const PLANOS = [
+  {
+    id: 'essencial',
+    nome: 'Essencial',
+    cor: '#7c3aed',
+    precos: { mensal: 49, semestral: 44, anual: 39 },
+    recursos: [
+      '10 mensagens IA por dia',
+      '5 mensagens WhatsApp por dia',
+      '5 capturas de voz por dia',
+      'Vault ilimitado de notas',
+      'Graph view',
+      'Kanban e organização',
+    ],
+  },
+  {
+    id: 'pro',
+    nome: 'Pro',
+    cor: '#34d399',
+    destaque: true,
+    precos: { mensal: 89, semestral: 80, anual: 71 },
+    recursos: [
+      '50 mensagens IA por dia',
+      '20 mensagens WhatsApp por dia',
+      'Captura de voz ilimitada',
+      'Google Calendar integrado',
+      'Briefing matinal',
+      'Upload de arquivos até 1GB',
+      'Tudo do Essencial',
+    ],
+  },
+  {
+    id: 'business',
+    nome: 'Business',
+    cor: '#fb923c',
+    precos: { mensal: 149, semestral: 134, anual: 119 },
+    recursos: [
+      'IA ilimitada',
+      'WhatsApp ilimitado',
+      'Voz ilimitada',
+      'Storage até 5GB',
+      'Suporte prioritário',
+      'Tudo do Pro',
+    ],
+  },
+];
+
+function setCiclo(ciclo, btn) {
+  _cicloAtual = ciclo;
+  document.querySelectorAll('#view-planos button[id^="ciclo"]').forEach(b => {
+    b.style.background = 'transparent';
+    b.style.color = 'var(--text2)';
+    b.style.borderColor = 'var(--border2)';
+  });
+  btn.style.background = 'var(--accent)';
+  btn.style.color = '#fff';
+  btn.style.borderColor = 'var(--accent)';
+  renderPlanos();
+}
+
+function renderPlanos() {
+  const grid = document.getElementById('planos-grid');
+  if (!grid) return;
+  grid.innerHTML = PLANOS.map(p => {
+    const preco = p.precos[_cicloAtual];
+    const totalLabel = _cicloAtual === 'semestral'
+      ? `R$${(preco * 6).toFixed(0)}/semestre`
+      : _cicloAtual === 'anual'
+      ? `R$${(preco * 12).toFixed(0)}/ano`
+      : '';
+    return `
+      <div style="background:var(--bg2);border:${p.destaque ? '2px solid ' + p.cor : '1px solid var(--border)'};border-radius:16px;padding:28px 24px;position:relative;transition:all .2s;">
+        ${p.destaque ? `<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);padding:4px 14px;border-radius:100px;background:${p.cor};color:#fff;font-size:11px;font-weight:500;white-space:nowrap;">Mais popular</div>` : ''}
+        <div style="width:10px;height:10px;border-radius:50%;background:${p.cor};margin-bottom:12px;"></div>
+        <div style="font-size:18px;font-weight:500;color:var(--text);margin-bottom:16px;">${p.nome}</div>
+        <div style="margin-bottom:4px;">
+          <span style="font-family:'DM Serif Display',serif;font-size:36px;color:var(--text);">R$${preco}</span>
+          <span style="font-size:13px;color:var(--text2);">/mês</span>
+        </div>
+        ${totalLabel ? `<div style="font-size:11px;color:var(--text3);margin-bottom:20px;">${totalLabel}</div>` : '<div style="margin-bottom:20px;"></div>'}
+        <button onclick="iniciarCheckout('${p.id}', event)" style="width:100%;padding:12px;border-radius:10px;background:${p.cor};color:#fff;border:none;font-size:14px;font-weight:500;font-family:'Sora',sans-serif;cursor:pointer;margin-bottom:20px;transition:opacity .2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          Começar 7 dias grátis
+        </button>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${p.recursos.map(r => `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);"><span style="color:${p.cor};font-size:14px;">✓</span>${r}</div>`).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function iniciarCheckout(planoId, ev) {
+  if (!currentUser) return;
+  const btn = ev?.target || event?.target;
+  const originalText = btn?.textContent;
+  if (btn) { btn.textContent = 'Aguarde...'; btn.disabled = true; }
+  try {
+    const res = await fetch('/api/asaas/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId:  currentUser.id,
+        plano:   planoId,
+        ciclo:   _cicloAtual,
+        email:   currentUser.email,
+        name:    localStorage.getItem('koreo-display-name') || currentUser.email,
+      }),
+    });
+    const data = await res.json();
+    if (data.invoiceUrl) {
+      window.open(data.invoiceUrl, '_blank');
+    } else {
+      alert('Erro ao gerar link de pagamento. Tente novamente.');
+      console.error('CHECKOUT ERR:', data);
+    }
+  } catch (e) {
+    alert('Erro: ' + e.message);
+  } finally {
+    if (btn) { btn.textContent = originalText; btn.disabled = false; }
+  }
+}
+
 function navigate(view) {
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -1530,6 +1677,9 @@ function navigate(view) {
   }
   if (view === 'kanban') {
     renderKanban();
+  }
+  if (view === 'planos') {
+    renderPlanos();
   }
   if (view === 'graph') {
     setTimeout(() => {
@@ -1559,6 +1709,7 @@ function navigate(view) {
     chat:     'Enter para enviar · Shift+Enter nova linha',
     voice:    'Chrome/Edge para reconhecimento de voz real',
     settings: 'Configure Supabase e API para ativar todas as funções',
+    planos:   '7 dias grátis em qualquer plano · Cancele quando quiser',
   }[view] || '';
 }
 
