@@ -641,6 +641,18 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
           <input id="note-title" placeholder="Título da nota..." oninput="onTitleChange(this.value)"/>
           <div id="note-meta"></div>
         </div>
+        <div id="editor-save-bar" style="display:flex;align-items:center;gap:12px;padding:4px 32px 8px;flex-shrink:0;">
+          <span id="editor-save-status" style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;">◌ rascunho</span>
+          <div style="flex:1;"></div>
+          <button onclick="forceSaveNote()" id="btn-save-note"
+            style="display:none;padding:5px 14px;border-radius:8px;background:var(--accent);color:#fff;border:none;font-size:11px;font-family:'Sora',sans-serif;cursor:pointer;transition:all .2s;">
+            ✓ Salvar
+          </button>
+          <button onclick="deleteCurrentNote()"
+            style="padding:5px 14px;border-radius:8px;background:transparent;color:var(--coral);border:1px solid rgba(216,90,48,.3);font-size:11px;font-family:'Sora',sans-serif;cursor:pointer;transition:all .2s;">
+            🗑 Mover para lixeira
+          </button>
+        </div>
         <div id="editor-toolbar">
           <!-- Fonte -->
           <select class="tool-select" title="Fonte" onchange="document.execCommand('fontName',false,this.value);document.getElementById('editor-content').focus();">
@@ -680,7 +692,6 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
           <div style="flex:1"></div>
           <span style="font-size:10px;color:var(--text3)" id="wc">0 palavras</span>
           <button class="tool" onclick="triggerFileUpload()" title="Anexar arquivo" style="color:var(--accent2);margin-left:4px">📎</button>
-          <button class="tool" onclick="deleteCurrentNote()" title="Apagar nota" style="color:var(--coral);margin-left:2px">🗑</button>
           <input type="file" id="file-upload-input" style="display:none"
             accept=".pdf,.jpg,.jpeg,.png,.mp3,.ogg,.docx,image/*,audio/*"
             onchange="handleFileUpload(event)"/>
@@ -1890,6 +1901,10 @@ function openNoteEditor(id) {
   const note = APP.notes.find(n => n.id === id);
   if (!note) return;
   APP.currentNoteId = id;
+  const statusEl = document.getElementById('editor-save-status');
+  const btnSave  = document.getElementById('btn-save-note');
+  if (statusEl) { statusEl.textContent = '✓ salvo'; statusEl.style.color = 'var(--green)'; }
+  if (btnSave)  { btnSave.style.display = 'none'; }
   const titleEl   = document.getElementById('note-title');
   const contentEl = document.getElementById('editor-content');
   if (titleEl)   titleEl.value     = note.title || '';
@@ -1996,18 +2011,29 @@ function onTitleChange(v) {
 }
 function triggerSave() {
   clearTimeout(APP.saveTimer);
-  document.getElementById('save-indicator').textContent='◌ salvando...';
-  document.getElementById('save-indicator').style.color='var(--text3)';
-  APP.saveTimer=setTimeout(async ()=>{
+  const statusEl = document.getElementById('editor-save-status');
+  const btnSave  = document.getElementById('btn-save-note');
+  if (statusEl) { statusEl.textContent = '◌ alterações não salvas'; statusEl.style.color = 'var(--gold)'; }
+  if (btnSave)  { btnSave.style.display = 'block'; }
+  APP.saveTimer = setTimeout(async () => {
     saveNotes();
     renderSidebar();
     if (APP.supabaseConnected) {
       await syncSupabase();
-    } else {
-      document.getElementById('save-indicator').textContent='✓ salvo localmente';
-      document.getElementById('save-indicator').style.color='var(--green)';
     }
-  },900);
+    if (statusEl) { statusEl.textContent = '✓ salvo automaticamente'; statusEl.style.color = 'var(--green)'; }
+    if (btnSave)  { btnSave.style.display = 'none'; }
+  }, 900);
+}
+
+function forceSaveNote() {
+  clearTimeout(APP.saveTimer);
+  saveNotes();
+  if (APP.supabaseConnected) syncSupabase();
+  const statusEl = document.getElementById('editor-save-status');
+  const btnSave  = document.getElementById('btn-save-note');
+  if (statusEl) { statusEl.textContent = '✓ salvo'; statusEl.style.color = 'var(--green)'; }
+  if (btnSave)  { btnSave.style.display = 'none'; }
 }
 function saveNotes() {
   localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
@@ -2057,21 +2083,44 @@ function clearTestNotes() {
 
 function deleteCurrentNote() {
   if (!APP.currentNoteId) return;
-  const note = APP.notes.find(n=>n.id===APP.currentNoteId);
+  const note = APP.notes.find(n => n.id === APP.currentNoteId);
   if (!note) return;
-  if (!confirm('Apagar a nota "' + note.title + '"?')) return;
-  const deletedId = APP.currentNoteId;
-  APP.notes = APP.notes.filter(n=>n.id!==deletedId);
-  deleteFromSupabase(deletedId);
+  if (!confirm('Mover a nota "' + note.title + '" para a lixeira?')) return;
+  const now = new Date().toISOString();
+  note.in_trash   = true;
+  note.deleted_at = now;
+  note.updated_at = now;
+  saveNotes();
+  if (APP.supabaseConnected && currentUser) {
+    sbHeaders().then(headers => {
+      fetch(sbUrl('notes'), {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          id:         note.id,
+          title:      note.title,
+          content:    note.content || '',
+          folder:     note.folder  || 'inbox',
+          cluster:    note.cluster || 'produto',
+          tags:       note.tags    || [],
+          date:       note.date    || 'agora',
+          status:     note.status  || 'inbox',
+          user_id:    currentUser.id,
+          updated_at: now,
+          in_trash:   true,
+          deleted_at: now,
+        }),
+      });
+    });
+  }
   APP.currentNoteId = null;
-  saveNotes(); refreshUI();
-  if (APP.notes.length > 0) openNote(APP.notes[0].id);
+  renderSidebar();
+  renderKanban();
+  const liveNotes = APP.notes.filter(n => !n.in_trash);
+  if (liveNotes.length > 0) openNoteEditor(liveNotes[0].id);
   else {
     document.getElementById('note-title').value = '';
     document.getElementById('editor-content').innerHTML = '';
     document.getElementById('note-meta').innerHTML = '';
-    document.getElementById('bl-list').innerHTML = '';
-    document.getElementById('ol-list').innerHTML = '';
   }
 }
 
