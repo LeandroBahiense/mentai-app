@@ -892,6 +892,19 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
             <span id="assistant-name-status" class="ss-status" style="display:none"></span>
           </div>
         </div>
+        <div class="settings-section" id="section-emails">
+          <div class="ss-title">📧 Meus emails</div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
+            Adicione emails alternativos que compartilham o mesmo vault. O login é sempre feito pelo email principal.
+          </p>
+          <div id="emails-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input class="ss-input" id="new-email-input" type="email" placeholder="novo@email.com" style="flex:1;"/>
+            <input class="ss-input" id="new-email-label" type="text" placeholder="Ex: Trabalho, Pessoal..." style="max-width:140px;"/>
+            <button class="ss-btn primary" onclick="addUserEmail()">+ Adicionar</button>
+          </div>
+          <span id="email-status" class="ss-status" style="display:none;margin-top:8px;"></span>
+        </div>
         <div class="settings-section">
           <div class="ss-title">📊 Status do sistema</div>
           <div id="system-status" style="font-size:12px;color:var(--text2);line-height:2"></div>
@@ -1719,6 +1732,122 @@ async function iniciarCheckout(planoId, ev) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════
+// EMAILS ALTERNATIVOS
+// ══════════════════════════════════════════════════════════════════
+
+async function loadUserEmails() {
+  if (!currentUser || !_supabase) return;
+  const { data } = await _supabase
+    .from('user_emails')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: true });
+
+  const list = document.getElementById('emails-list');
+  if (!list) return;
+
+  const primaryHtml = `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;">
+      <div style="flex:1;">
+        <div style="font-size:13px;color:var(--text);font-weight:500;">${currentUser.email}</div>
+        <div style="font-size:11px;color:var(--text3);">Email principal</div>
+      </div>
+      <span style="padding:3px 10px;border-radius:100px;background:rgba(124,58,237,.15);color:var(--accent2);font-size:11px;border:1px solid rgba(124,58,237,.2);">Principal</span>
+    </div>`;
+
+  const emailsHtml = (data || []).map(e => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;transition:border-color .15s;"
+      onmouseover="this.style.borderColor='var(--border2)'"
+      onmouseout="this.style.borderColor='var(--border)'">
+      <div style="flex:1;">
+        <div style="font-size:13px;color:var(--text);">${e.email}</div>
+        <div style="font-size:11px;color:var(--text3);">${e.label || 'Sem etiqueta'}</div>
+      </div>
+      <button onclick="removeUserEmail('${e.id}')"
+        style="padding:4px 10px;border-radius:6px;border:1px solid rgba(216,90,48,.3);background:transparent;color:var(--coral);font-size:11px;cursor:pointer;transition:all .15s;"
+        onmouseover="this.style.background='rgba(216,90,48,.1)'"
+        onmouseout="this.style.background='transparent'">
+        Remover
+      </button>
+    </div>`).join('');
+
+  list.innerHTML = primaryHtml + emailsHtml;
+
+  if (!data || data.length === 0) {
+    list.innerHTML += `<div style="font-size:12px;color:var(--text3);padding:8px 0;">Nenhum email alternativo cadastrado.</div>`;
+  }
+}
+
+async function addUserEmail() {
+  const emailInput = document.getElementById('new-email-input');
+  const labelInput = document.getElementById('new-email-label');
+  const statusEl   = document.getElementById('email-status');
+  const email = emailInput.value.trim();
+  const label = labelInput.value.trim();
+
+  statusEl.style.display = 'none';
+
+  if (!email || !email.includes('@')) {
+    emailInput.focus();
+    return;
+  }
+
+  if (email === currentUser.email) {
+    statusEl.style.display = 'block';
+    statusEl.className = 'ss-status err';
+    statusEl.textContent = 'Este é seu email principal.';
+    return;
+  }
+
+  const { data: existing } = await _supabase
+    .from('user_emails')
+    .select('id')
+    .eq('user_id', currentUser.id)
+    .eq('email', email)
+    .single();
+
+  if (existing) {
+    statusEl.style.display = 'block';
+    statusEl.className = 'ss-status err';
+    statusEl.textContent = 'Este email já está cadastrado.';
+    return;
+  }
+
+  const { error } = await _supabase.from('user_emails').insert({
+    user_id:    currentUser.id,
+    email,
+    label:      label || null,
+    is_primary: false,
+    created_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    statusEl.style.display = 'block';
+    statusEl.className = 'ss-status err';
+    statusEl.textContent = 'Erro ao adicionar: ' + error.message;
+    return;
+  }
+
+  emailInput.value = '';
+  labelInput.value = '';
+  statusEl.style.display = 'block';
+  statusEl.className = 'ss-status ok';
+  statusEl.textContent = 'Email adicionado ✓';
+  setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
+  loadUserEmails();
+}
+
+async function removeUserEmail(id) {
+  if (!confirm('Remover este email da conta?')) return;
+  const { error } = await _supabase
+    .from('user_emails')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', currentUser.id);
+  if (!error) loadUserEmails();
+}
+
 function navigate(view) {
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -1734,6 +1863,10 @@ function navigate(view) {
   }
   if (view === 'planos') {
     renderPlanos();
+  }
+  if (view === 'settings') {
+    loadUserEmails();
+    updateSystemStatus();
   }
   if (view === 'graph') {
     setTimeout(() => {
@@ -3648,6 +3781,7 @@ function injectTopbarButtons() {
     const settingsDesc = document.querySelector('#view-settings > div > p');
     if (settingsDesc) settingsDesc.textContent = 'Personalize sua experiência no Koreo.';
   }
+  loadUserEmails();
 }
 function showForgotPassword() {
   document.getElementById('login-fields').style.display    = 'none';
