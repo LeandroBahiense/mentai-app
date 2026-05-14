@@ -110,18 +110,22 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 .tool{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:transparent;border:none;color:var(--text2);font-size:12px;cursor:pointer;transition:all .1s;font-family:'DM Mono',monospace;}
 .tool:hover{background:rgba(107,127,232,.12);color:var(--text);}
 .tool-sep{width:1px;height:18px;background:var(--border);margin:0 3px;}
+.tool-select{height:26px;padding:0 6px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--text2);font-size:11px;font-family:'Sora',sans-serif;cursor:pointer;outline:none;transition:all .1s;}
+.tool-select:hover{border-color:var(--border2);color:var(--text);}
+.tool-select option{background:var(--bg2);color:var(--text);}
 #wiki-tip{margin:8px 32px;padding:7px 12px;background:rgba(107,127,232,.06);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text2);display:flex;align-items:center;gap:8px;}
 #wiki-tip code{font-family:'DM Mono',monospace;background:rgba(107,127,232,.15);padding:1px 5px;border-radius:4px;color:var(--accent2);font-size:11px;}
 #editor-scroll{flex:1;overflow-y:auto;padding:14px 32px 40px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
-#editor-content{min-height:280px;outline:none;font-size:15px;line-height:1.85;color:var(--text);caret-color:var(--accent);white-space:pre-wrap;word-break:break-word;}
+#editor-content{min-height:280px;outline:none;font-family:Inter,system-ui,sans-serif;font-size:14px;line-height:1.85;color:var(--text);caret-color:var(--accent);white-space:pre-wrap;word-break:break-word;}
 #editor-content .wikilink{color:#8b9ff5;background:rgba(107,127,232,.12);border-radius:4px;padding:1px 4px;cursor:pointer;border-bottom:1px solid rgba(107,127,232,.3);}
 #editor-content .wikilink.broken{color:var(--coral);background:rgba(216,90,48,.1);border-bottom-color:rgba(216,90,48,.3);}
-#editor-content h1{font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);margin:18px 0 6px;}
-#editor-content h2{font-family:'DM Serif Display',serif;font-size:18px;color:var(--text);margin:14px 0 5px;}
-#editor-content h3{font-size:14px;font-weight:600;color:var(--accent2);margin:10px 0 4px;letter-spacing:.4px;}
-#editor-content strong{color:var(--accent2);font-weight:600;}
-#editor-content em{color:var(--text2);font-style:italic;}
-#editor-content code{font-family:'DM Mono',monospace;font-size:12px;background:var(--bg3);padding:1px 5px;border-radius:4px;color:var(--green);border:1px solid var(--border);}
+#editor-content h1,#editor-content h2,#editor-content h3{font-family:Inter,system-ui,sans-serif;color:var(--text2);font-weight:600;}
+#editor-content h1{font-size:22px;margin:18px 0 6px;}
+#editor-content h2{font-size:18px;margin:14px 0 5px;}
+#editor-content h3{font-size:14px;margin:10px 0 4px;letter-spacing:.4px;}
+#editor-content strong{color:var(--text);font-weight:700;}
+#editor-content em{color:var(--text);font-style:italic;}
+#editor-content code{font-family:'DM Mono',monospace;font-size:12px;background:var(--bg3);padding:1px 5px;border-radius:4px;color:var(--text);border:1px solid var(--border);}
 #editor-content blockquote{border-left:3px solid var(--accent);padding-left:12px;color:var(--text2);font-style:italic;margin:6px 0;}
 #editor-content hr{border:none;border-top:1px solid var(--border);margin:14px 0;}
 #backlinks-pane{width:230px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
@@ -355,10 +359,11 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
 #np-close:hover{background:rgba(216,90,48,.1);border-color:rgba(216,90,48,.3);color:var(--coral);}
 #np-toolbar{display:flex;align-items:center;gap:2px;padding:5px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
 #np-scroll{flex:1;overflow-y:auto;padding:14px 20px 24px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
-#np-content{min-height:200px;outline:none;font-size:14px;line-height:1.85;color:var(--text);caret-color:var(--accent);white-space:pre-wrap;word-break:break-word;}
-#np-content h1,#np-content h2{font-family:'DM Serif Display',serif;color:var(--text);}
-#np-content strong{color:var(--accent2);}
-#np-content code{font-family:'DM Mono',monospace;font-size:12px;background:var(--bg3);padding:1px 5px;border-radius:4px;color:var(--green);}
+#np-content{min-height:200px;outline:none;font-family:Inter,system-ui,sans-serif;font-size:14px;line-height:1.85;color:var(--text);caret-color:var(--accent);white-space:pre-wrap;word-break:break-word;}
+#np-content h1,#np-content h2,#np-content h3{font-family:Inter,system-ui,sans-serif;color:var(--text2);font-weight:600;}
+#np-content strong{color:var(--text);font-weight:700;}
+#np-content em{color:var(--text);font-style:italic;}
+#np-content code{font-family:'DM Mono',monospace;font-size:12px;background:var(--bg3);padding:1px 5px;border-radius:4px;color:var(--text);border:1px solid var(--border);}
 #np-content blockquote{border-left:3px solid var(--accent);padding-left:12px;color:var(--text2);font-style:italic;margin:6px 0;}
 #np-footer{padding:6px 16px;border-top:1px solid var(--border);font-size:10px;color:var(--text3);flex-shrink:0;display:flex;align-items:center;gap:6px;}
 #np-save-indicator{transition:color .2s;}
@@ -457,6 +462,7 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
       <div class="ob-dot active"></div>
       <div class="ob-dot"></div>
       <div class="ob-dot"></div>
+      <div class="ob-dot"></div>
     </div>
     <div class="ob-step" id="ob-step-1" style="display:flex;flex-direction:column;gap:16px;">
       <div class="ob-logo">Kore<em>o</em></div>
@@ -491,7 +497,15 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
         <div class="ob-drawer-opt" onclick="toggleDrawer(this,'estudos')">📚 Estudos</div>
         <div class="ob-drawer-opt" onclick="toggleDrawer(this,'financeiro')">💰 Financeiro</div>
       </div>
+      <button onclick="obNext(4)">Continuar →</button>
+    </div>
+    <div class="ob-step" id="ob-step-4" style="display:none;flex-direction:column;gap:16px;">
+      <h2>Conecte seu WhatsApp</h2>
+      <p>Seu assistente pessoal vai te enviar briefings e responder mensagens direto no WhatsApp.</p>
+      <input type="tel" id="ob-whatsapp" placeholder="(47) 99999-9999" maxlength="15"/>
+      <p style="font-size:12px;color:var(--text3);line-height:1.6;">Você receberá uma mensagem de boas-vindas assim que confirmar.</p>
       <button onclick="finishOnboarding()">Entrar no Koreo →</button>
+      <span onclick="finishOnboarding()" class="ob-skip">Pular por agora</span>
     </div>
   </div>
 </div>
@@ -628,17 +642,41 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
           <div id="note-meta"></div>
         </div>
         <div id="editor-toolbar">
+          <!-- Fonte -->
+          <select class="tool-select" title="Fonte" onchange="document.execCommand('fontName',false,this.value);document.getElementById('editor-content').focus();">
+            <option value="Inter, system-ui, sans-serif">Inter</option>
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="'Times New Roman', serif">Times New Roman</option>
+            <option value="'Courier New', monospace">Courier New</option>
+          </select>
+          <!-- Tamanho -->
+          <select class="tool-select" title="Tamanho" style="width:52px;" onchange="document.execCommand('fontSize',false,this.value);document.getElementById('editor-content').focus();">
+            <option value="1">10</option>
+            <option value="2">11</option>
+            <option value="3" selected>12</option>
+            <option value="4">14</option>
+            <option value="5">18</option>
+            <option value="6">24</option>
+            <option value="7">36</option>
+          </select>
+          <div class="tool-sep"></div>
+          <!-- Formatação -->
           <button class="tool" onclick="fmt('bold')" title="Negrito"><b>B</b></button>
           <button class="tool" onclick="fmt('italic')" title="Itálico"><i>I</i></button>
-          <button class="tool" onclick="insH(2)" title="H2">H2</button>
-          <button class="tool" onclick="insH(3)" title="H3">H3</button>
+          <button class="tool" onclick="fmt('underline')" title="Sublinhado"><u>U</u></button>
           <div class="tool-sep"></div>
-          <button class="tool" onclick="ins('> ')" title="Citação">❝</button>
-          <button class="tool" onclick="ins('- ')" title="Lista">≡</button>
-          <button class="tool" onclick="insCode()" title="Código">&lt;/&gt;</button>
+          <!-- Alinhamento -->
+          <button class="tool" onclick="document.execCommand('justifyLeft');document.getElementById('editor-content').focus();" title="Alinhar à esquerda">⬅</button>
+          <button class="tool" onclick="document.execCommand('justifyCenter');document.getElementById('editor-content').focus();" title="Centralizar">☰</button>
+          <button class="tool" onclick="document.execCommand('justifyRight');document.getElementById('editor-content').focus();" title="Alinhar à direita">➡</button>
+          <button class="tool" onclick="document.execCommand('justifyFull');document.getElementById('editor-content').focus();" title="Justificar">▤</button>
           <div class="tool-sep"></div>
-          <button class="tool" onclick="insWiki()" title="Wikilink" style="color:var(--accent)">[[]]</button>
-          <button class="tool" onclick="ins('\n---\n')" title="Separador">—</button>
+          <!-- Listas -->
+          <button class="tool" onclick="document.execCommand('insertUnorderedList');document.getElementById('editor-content').focus();" title="Lista com marcadores">• ≡</button>
+          <button class="tool" onclick="document.execCommand('insertOrderedList');document.getElementById('editor-content').focus();" title="Lista numerada">1. ≡</button>
+          <div class="tool-sep"></div>
+          <!-- Wikilink -->
+          <button class="tool" onclick="insWiki()" title="Wikilink" style="color:var(--accent);font-size:11px;">[[]]</button>
           <div style="flex:1"></div>
           <span style="font-size:10px;color:var(--text3)" id="wc">0 palavras</span>
           <button class="tool" onclick="triggerFileUpload()" title="Anexar arquivo" style="color:var(--accent2);margin-left:4px">📎</button>
@@ -3453,22 +3491,35 @@ function toggleDrawer(el, id) {
 }
 
 async function finishOnboarding() {
-  const assistantName = (document.getElementById('ob-assistant-name').value || '').trim() || 'Jarvis';
-  const displayName   = (document.getElementById('ob-display-name').value || '').trim() || (currentUser?.email?.split('@')[0] || '');
+  const assistantName  = (document.getElementById('ob-assistant-name').value || '').trim() || 'Jarvis';
+  const displayName    = (document.getElementById('ob-display-name').value || '').trim() || (currentUser?.email?.split('@')[0] || '');
+  const whatsappRaw    = (document.getElementById('ob-whatsapp')?.value || '').replace(/\D/g, '');
+  const fullPhone      = whatsappRaw ? '55' + whatsappRaw : null;
   localStorage.setItem('koreo-assistant-name', assistantName);
   localStorage.setItem('koreo-display-name', displayName);
   localStorage.setItem('koreo-onboarding-done-' + (currentUser?.id || 'anon'), '1');
   if (_supabase && currentUser) {
     try {
-      await _supabase.from('user_preferences').upsert({
+      const upsertData = {
         user_id:         currentUser.id,
         assistant_name:  assistantName,
         display_name:    displayName,
         gavetas:         _obDrawers,
         onboarding_done: true,
         updated_at:      new Date().toISOString(),
-      });
+      };
+      if (fullPhone) upsertData.whatsapp_phone = fullPhone;
+      await _supabase.from('user_preferences').upsert(upsertData);
     } catch(e) { console.warn('prefs upsert error:', e); }
+  }
+  if (fullPhone) {
+    try {
+      await fetch('/api/whatsapp-welcome', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fullPhone, assistantName, displayName }),
+      });
+    } catch(e) { console.warn('whatsapp-welcome error:', e); }
   }
 
   const container = document.getElementById('extra-gavetas');
