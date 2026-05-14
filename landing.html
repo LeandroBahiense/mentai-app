@@ -161,6 +161,7 @@ footer{padding:40px 24px;border-top:1px solid var(--border);display:flex;align-i
 
 <nav>
   <div class="nav-logo">Kore<em>o</em></div>
+  <a href="#precos" style="font-size:13px;color:var(--text2);text-decoration:none;transition:color .2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text2)'">Preços</a>
   <a href="/app?mode=login" style="font-size:13px;color:rgba(255,255,255,0.4);text-decoration:none;transition:color .2s;" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">Já tenho acesso →</a>
   <a href="#waitlist" class="nav-cta">Entrar na lista exclusiva</a>
 </nav>
@@ -171,6 +172,7 @@ footer{padding:40px 24px;border-top:1px solid var(--border);display:flex;align-i
   <h1>Chega de perder suas<br/><em>ideias na bagunça.</em></h1>
   <p class="hero-sub">Tudo que você precisa lembrar, em um só lugar — com uma IA que te ajuda a não perder nada.</p>
   <div class="hero-browser-note">🌐 Acessa pelo navegador, de qualquer dispositivo. Sem baixar nada.</div>
+  <div style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:13px;color:#34d399;animation:fadeUp .7s .28s ease both;">✦ 7 dias grátis em qualquer plano. Sem cartão de crédito.</div>
   <div class="hero-actions">
     <a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a>
     <a href="#how" class="btn-secondary">Como funciona?</a>
@@ -337,6 +339,34 @@ footer{padding:40px 24px;border-top:1px solid var(--border);display:flex;align-i
   </div>
 </section>
 
+<section id="precos" style="padding:100px 24px;background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+  <div style="max-width:1000px;margin:0 auto;text-align:center;">
+    <div class="section-label reveal">Planos e preços</div>
+    <h2 class="reveal">Simples e <em>transparente</em></h2>
+    <p class="reveal" style="color:var(--text2);font-size:15px;max-width:500px;margin:0 auto 16px;">7 dias grátis em qualquer plano. Cancele quando quiser. Sem surpresas.</p>
+
+    <!-- Toggle ciclo -->
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:40px;" class="reveal">
+      <button onclick="setLpCiclo('mensal',this)" id="lp-ciclo-mensal"
+        style="padding:7px 18px;border-radius:100px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;">
+        Mensal
+      </button>
+      <button onclick="setLpCiclo('semestral',this)" id="lp-ciclo-semestral"
+        style="padding:7px 18px;border-radius:100px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;">
+        Semestral <span style="color:#34d399;font-size:10px;">-10%</span>
+      </button>
+      <button onclick="setLpCiclo('anual',this)" id="lp-ciclo-anual"
+        style="padding:7px 18px;border-radius:100px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;">
+        Anual <span style="color:#34d399;font-size:10px;">-20%</span>
+      </button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:860px;margin:0 auto;" id="lp-planos-grid"></div>
+
+    <p style="font-size:11px;color:var(--text3);margin-top:24px;">Pagamento via Pix, Boleto ou Cartão de crédito</p>
+  </div>
+</section>
+
 <section id="waitlist">
   <div class="waitlist-glow"></div>
   <div class="waitlist-box reveal">
@@ -434,6 +464,104 @@ async function submitWaitlist() {
 document.getElementById('wl-email').addEventListener('keydown', e => { if (e.key === 'Enter') submitWaitlist(); });
 document.getElementById('wl-name').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('wl-email').focus(); });
 loadCounter();
+
+// ── Pricing section ───────────────────────────────────────────────
+let _lpCiclo = 'mensal';
+
+const LP_PLANOS = [
+  {
+    id: 'essencial',
+    nome: 'Essencial',
+    cor: '#7c3aed',
+    precos: { mensal: 49, semestral: 44, anual: 39 },
+    recursos: [
+      '10 mensagens IA por dia',
+      '5 mensagens WhatsApp por dia',
+      '5 capturas de voz por dia',
+      'Vault ilimitado de notas',
+      'Graph view',
+      'Kanban e organização',
+    ],
+  },
+  {
+    id: 'pro',
+    nome: 'Pro',
+    cor: '#34d399',
+    destaque: true,
+    precos: { mensal: 89, semestral: 80, anual: 71 },
+    recursos: [
+      '50 mensagens IA por dia',
+      '20 mensagens WhatsApp por dia',
+      'Captura de voz ilimitada',
+      'Google Calendar integrado',
+      'Briefing matinal',
+      'Upload de arquivos até 1GB',
+      'Tudo do Essencial',
+    ],
+  },
+  {
+    id: 'business',
+    nome: 'Business',
+    cor: '#fb923c',
+    precos: { mensal: 149, semestral: 134, anual: 119 },
+    recursos: [
+      'IA ilimitada',
+      'WhatsApp ilimitado',
+      'Voz ilimitada',
+      'Storage até 5GB',
+      'Suporte prioritário',
+      'Tudo do Pro',
+    ],
+  },
+];
+
+function setLpCiclo(ciclo, btn) {
+  _lpCiclo = ciclo;
+  document.querySelectorAll('#precos button[id^="lp-ciclo"]').forEach(b => {
+    b.style.background   = 'transparent';
+    b.style.color        = 'var(--text2)';
+    b.style.borderColor  = 'var(--border2)';
+  });
+  btn.style.background  = 'var(--accent)';
+  btn.style.color       = '#fff';
+  btn.style.borderColor = 'var(--accent)';
+  renderLpPlanos();
+}
+
+function renderLpPlanos() {
+  const grid = document.getElementById('lp-planos-grid');
+  if (!grid) return;
+  grid.innerHTML = LP_PLANOS.map(p => {
+    const preco = p.precos[_lpCiclo];
+    const totalLabel = _lpCiclo === 'semestral'
+      ? `R$${(preco * 6).toFixed(0)}/semestre`
+      : _lpCiclo === 'anual'
+      ? `R$${(preco * 12).toFixed(0)}/ano`
+      : '';
+    return `
+      <div style="background:var(--bg);border:${p.destaque ? '2px solid ' + p.cor : '1px solid var(--border2)'};border-radius:16px;padding:28px 24px;position:relative;transition:all .2s;text-align:left;">
+        ${p.destaque ? `<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);padding:4px 14px;border-radius:100px;background:${p.cor};color:#fff;font-size:11px;font-weight:500;white-space:nowrap;">Mais popular</div>` : ''}
+        <div style="width:10px;height:10px;border-radius:50%;background:${p.cor};margin-bottom:12px;"></div>
+        <div style="font-size:18px;font-weight:500;color:var(--text);margin-bottom:16px;">${p.nome}</div>
+        <div style="margin-bottom:4px;">
+          <span style="font-family:'Playfair Display',serif;font-size:40px;color:var(--text);">R$${preco}</span>
+          <span style="font-size:13px;color:var(--text2);">/mês</span>
+        </div>
+        ${totalLabel ? `<div style="font-size:11px;color:var(--text3);margin-bottom:20px;">${totalLabel}</div>` : '<div style="margin-bottom:20px;"></div>'}
+        <a href="#waitlist" style="display:block;text-align:center;padding:12px;border-radius:10px;background:${p.cor};color:#fff;text-decoration:none;font-size:14px;font-weight:500;font-family:'DM Sans',sans-serif;margin-bottom:20px;transition:opacity .2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          Começar 7 dias grátis
+        </a>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${p.recursos.map(r => `
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);">
+              <span style="color:${p.cor};font-size:14px;flex-shrink:0;">✓</span>${r}
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+renderLpPlanos();
 </script>
 </body>
 </html>
