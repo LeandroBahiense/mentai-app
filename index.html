@@ -3972,7 +3972,7 @@ function initSupabaseAuth() {
       // salva tokens do Google se disponíveis
       if (session.provider_token && session.user.id) {
         try {
-          await _supabase.from('google_tokens').upsert({
+          const { error: tokenError } = await _supabase.from('google_tokens').upsert({
             user_id: session.user.id,
             email: session.user.email,
             access_token: session.provider_token,
@@ -3980,7 +3980,11 @@ function initSupabaseAuth() {
             expiry_date: Date.now() + 3600 * 1000,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'user_id' });
-          console.log('Google tokens saved for:', session.user.email);
+          if (tokenError) {
+            console.error('TOKEN SAVE ERROR:', JSON.stringify(tokenError));
+          } else {
+            console.log('Google tokens saved for:', session.user.email);
+          }
         } catch(e) {
           console.warn('Token save error:', e.message);
         }
