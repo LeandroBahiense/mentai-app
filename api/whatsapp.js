@@ -39,7 +39,16 @@ async function sendWhatsApp(to, body) {
     }
   );
   const sendData = await sendRes.json();
-  console.log('TWILIO SEND STATUS:', sendRes.status, '| SID:', sendData.sid, '| ERROR:', sendData.message || 'none');
+  console.log(
+    'TWILIO SEND STATUS:', sendRes.status,
+    '| SID:', sendData.sid || 'none',
+    '| STATUS:', sendData.status || 'none',
+    '| ERROR_CODE:', sendData.error_code || 'none',
+    '| ERROR:', sendData.message || 'none'
+  );
+  if (sendRes.status !== 201) {
+    console.error('TWILIO SEND FAILED — FULL RESPONSE:', JSON.stringify(sendData));
+  }
 }
 
 // Extrai JSON de uma tag no reply do Claude
@@ -600,7 +609,7 @@ async function askClaude(system, messages) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model:      'claude-sonnet-4-6',
+      model:      'claude-sonnet-4-5',
       max_tokens: 1500,
       system:     system,
       messages:   messages,
@@ -701,7 +710,7 @@ export default async function handler(req, res) {
         console.log('GMAIL MESSAGES:', gmailMessages.length);
       }
     } else if (needsGoogle) {
-      const authLink = 'https://mentai-app.vercel.app/api/auth/google?phone=' + encodeURIComponent(phone);
+      const authLink = 'https://mykoreo.com.br/api/auth/google?phone=' + encodeURIComponent(phone);
       await sendWhatsApp(phone, 'Para acessar sua agenda e emails, conecte o Google primeiro: ' + authLink);
       return res.status(200).send('OK');
     }
@@ -890,7 +899,8 @@ export default async function handler(req, res) {
     await saveMessage(phone, 'user', userMessage);
     await saveMessage(phone, 'assistant', finalReply);
 
-    await sendWhatsApp(phone, finalReply);
+    const msgToSend = finalReply || '✅ Feito!';
+    await sendWhatsApp(phone, msgToSend);
     return res.status(200).send('OK');
 
   } catch (err) {
