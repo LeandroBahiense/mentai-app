@@ -501,15 +501,9 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
       <button onclick="obNext(4)">Continuar →</button>
     </div>
     <div class="ob-step" id="ob-step-4" style="display:none;flex-direction:column;gap:16px;">
-      <h2>Conecte seu Google</h2>
-      <p>Para o seu assistente ler sua agenda e emails, precisamos de permissão. Clique abaixo para autorizar.</p>
-      <button onclick="connectGoogleOAuth()" id="ob-google-btn"
-        style="display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;border-radius:10px;background:#fff;border:1px solid #ddd;color:#333;font-size:14px;font-family:'Sora',sans-serif;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.08);">
-        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-21 0-1.3-.2-2.7-.5-4z"/></svg>
-        Conectar com Google
-      </button>
-      <div id="ob-google-status" style="font-size:12px;color:#4cba8a;display:none;text-align:center;">✓ Google conectado com sucesso!</div>
-      <button onclick="obNext(5)" class="ob-skip" style="background:transparent;border:none;cursor:pointer;">Pular por agora</button>
+      <h2>Quase lá! 🎉</h2>
+      <p>Seu segundo cérebro está pronto. Após entrar, você pode conectar o Google Calendar e Gmail nas <strong>Configurações</strong> para ativar o Jarvis completo.</p>
+      <button onclick="obNext(5)">Entrar no Koreo →</button>
     </div>
     <div class="ob-step" id="ob-step-5" style="display:none;flex-direction:column;gap:16px;">
       <h2>Conecte seu WhatsApp</h2>
@@ -3700,29 +3694,6 @@ async function saveBriefingHora() {
   }
 }
 
-async function connectGoogleOAuth() {
-  const btn    = document.getElementById('ob-google-btn');
-  const status = document.getElementById('ob-google-status');
-  btn.textContent = 'Aguarde...';
-  btn.disabled = true;
-  try {
-    localStorage.setItem('koreo-oauth-onboarding', 'true');
-    const { error } = await _supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        scopes: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.readonly',
-        redirectTo: window.location.origin + '/app',
-        queryParams: { access_type: 'offline', prompt: 'consent' },
-      }
-    });
-    if (error) throw error;
-  } catch(e) {
-    localStorage.removeItem('koreo-oauth-onboarding');
-    btn.disabled = false;
-    btn.textContent = 'Conectar com Google';
-    alert('Erro ao conectar: ' + e.message);
-  }
-}
 
 function obNext(step) {
   document.querySelectorAll('.ob-step').forEach(s => s.style.display = 'none');
@@ -3990,21 +3961,7 @@ function initSupabaseAuth() {
         }
       }
 
-      const oauthOnboarding = localStorage.getItem('koreo-oauth-onboarding');
-      if (oauthOnboarding) {
-        localStorage.removeItem('koreo-oauth-onboarding');
-        window.history.replaceState({}, document.title, '/app');
-        // volta para o onboarding no passo 5 (WhatsApp)
-        document.getElementById('onboarding').classList.remove('hidden');
-        document.querySelectorAll('.ob-step').forEach(s => s.style.display = 'none');
-        const step5 = document.getElementById('ob-step-5');
-        if (step5) step5.style.display = 'flex';
-        // mostra confirmação de Google conectado
-        const googleStatus = document.getElementById('ob-google-status');
-        if (googleStatus) googleStatus.style.display = 'block';
-      } else {
-        await checkOnboarding();
-      }
+      await checkOnboarding();
 
       if (!APP.supabaseConnected) {
         APP.supabaseUrl = SUPABASE_URL;
@@ -4017,7 +3974,7 @@ function initSupabaseAuth() {
         await loadFromSupabase();
       }
 
-      if (!oauthOnboarding) navigate('home');
+      navigate('home');
       setupRealtime(session.user.id);
 
     } else {
