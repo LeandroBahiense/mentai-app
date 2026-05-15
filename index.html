@@ -2607,8 +2607,18 @@ function fmtChat(t){
   return t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\[\[([^\]]+)\]\]/g,'<span class="wikilink">$1</span>').replace(/`(.+?)`/g,'<code>$1</code>').replace(/^- (.+)$/gm,'<div style="padding:2px 0 2px 10px;color:var(--text2)">· $1</div>').replace(/\n/g,'<br/>');
 }
 function buildSysPrompt(){
-  const notes=APP.notes.filter(n=>APP.activeNotes.has(n.id));
-  return `Você é o assistente pessoal Koreo — segundo cérebro digital do usuário.\nResponda em português brasileiro. Seja conciso e prático.\nUse **negrito** para pontos importantes. Use [[NomeDaNota]] ao referenciar notas.\n\nVAULT (${notes.length} notas):\n${notes.map(n=>`### ${n.title}\nTags: ${n.tags?.join(', ')||''}\n${n.content||''}`).join('\n---\n')}`;
+  const notes = APP.notes.filter(n => APP.activeNotes.has(n.id));
+  const assistantName = localStorage.getItem('koreo-assistant-name') || 'Jarvis';
+  const displayName = localStorage.getItem('koreo-display-name') || 'você';
+  return `Você é ${assistantName}, assistente pessoal de ${displayName} no Koreo — segundo cérebro digital.
+Responda em português brasileiro. Seja conciso e direto.
+Use **negrito** para pontos importantes.
+Use [[NomeDaNota]] ao referenciar notas do vault.
+Você tem acesso ao vault de notas do usuário mas NÃO tem acesso direto ao Google Calendar ou Gmail pelo chat — esses dados estão disponíveis apenas pelo WhatsApp.
+Se perguntado sobre agenda, explique que pelo chat só acessa o vault de notas, e que pelo WhatsApp o assistente tem acesso completo ao Google Calendar.
+
+VAULT (${notes.length} notas):
+${notes.map(n => `### ${n.title}\nGaveta: ${n.folder}\nStatus: ${n.status||'inbox'}\n${n.content||''}`).join('\n---\n')}`;
 }
 async function sendChat(){
   const input=document.getElementById('chat-input');
