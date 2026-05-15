@@ -1332,7 +1332,7 @@ async function populateNpFolderSelect(currentFolder) {
   // busca gavetas personalizadas do usuário
   if (currentUser && _supabase) {
     const { data } = await _supabase.from('user_preferences')
-      .select('gavetas').eq('user_id', currentUser.id).single();
+      .select('gavetas').eq('user_id', currentUser.id).maybeSingle();
     const labels = {
       trabalho:'💼 Trabalho', pessoal:'🏠 Pessoal',
       projetos:'🚀 Projetos', viagem:'✈️ Viagem',
@@ -1608,7 +1608,7 @@ async function newGaveta() {
   // persiste no Supabase
   if (currentUser && _supabase) {
     const { data } = await _supabase.from('user_preferences')
-      .select('gavetas').eq('user_id', currentUser.id).single();
+      .select('gavetas').eq('user_id', currentUser.id).maybeSingle();
     const gavetas = [...(data?.gavetas || [])];
     if (!gavetas.includes(id)) gavetas.push(id);
     await _supabase.from('user_preferences')
@@ -1817,7 +1817,7 @@ async function addUserEmail() {
     .select('id')
     .eq('user_id', currentUser.id)
     .eq('email', email)
-    .single();
+    .maybeSingle();
 
   if (existing) {
     statusEl.style.display = 'block';
@@ -3318,7 +3318,7 @@ async function checkOnboarding() {
   const { data } = await _supabase.from('user_preferences')
     .select('onboarding_done, gavetas, gavetas_ocultas, gavetas_ordem, assistant_name, display_name')
     .eq('user_id', currentUser.id)
-    .single();
+    .maybeSingle();
   // garante que Inbox nunca foi removida do DOM
   if (!document.querySelector('#sidebar [data-gaveta-id="inbox"]')) {
     const sidebar = document.getElementById('sidebar');
@@ -3403,7 +3403,7 @@ async function hideGaveta(id, el) {
   closeGavetasMenus();
   if (currentUser && _supabase) {
     const { data } = await _supabase.from('user_preferences')
-      .select('gavetas_ocultas').eq('user_id', currentUser.id).single();
+      .select('gavetas_ocultas').eq('user_id', currentUser.id).maybeSingle();
     const ocultas = [...(data?.gavetas_ocultas || [])];
     if (!ocultas.includes(id)) ocultas.push(id);
     await _supabase.from('user_preferences')
@@ -3601,7 +3601,7 @@ function renameGaveta(id) {
     // update notes with old folder id → new name won't change folder id, only label
     if (currentUser && _supabase) {
       const { data } = await _supabase.from('user_preferences')
-        .select('gavetas').eq('user_id', currentUser.id).single();
+        .select('gavetas').eq('user_id', currentUser.id).maybeSingle();
       // persist updated label (stored as the gaveta id for now, label is display only)
       await _supabase.from('user_preferences')
         .upsert({ user_id: currentUser.id, gavetas: data?.gavetas || [], updated_at: new Date().toISOString() });
