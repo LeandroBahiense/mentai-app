@@ -7,33 +7,44 @@ export default async function handler(req, res) {
   if (!code) return res.redirect('https://mykoreo.com.br/app');
 
   try {
-    // troca o code por sessão via REST
-    const tokenRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SERVICE_KEY,
-        'Authorization': `Bearer ${SERVICE_KEY}`,
-      },
-      body: JSON.stringify({ auth_code: code }),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+        grant_type: 'authorization_code',
+      }).toString(),
     });
 
     const tokenData = await tokenRes.json();
-    console.log('TOKEN RESPONSE:', tokenRes.status, JSON.stringify(tokenData).substring(0, 200));
+    console.log('GOOGLE TOKEN STATUS:', tokenRes.status, '| has_access_token:', !!tokenData.access_token);
 
     if (!tokenData.access_token) {
-      console.error('No access token returned');
+      console.error('Google token error:', JSON.stringify(tokenData));
       return res.redirect('https://mykoreo.com.br/app');
     }
 
-    const userId = tokenData.user?.id;
-    const email = tokenData.user?.email;
-    const providerToken = tokenData.provider_token;
-    const providerRefresh = tokenData.provider_refresh_token;
+    const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const userInfo = await userRes.json();
+    const email = userInfo.email;
+    console.log('USER EMAIL:', email, '| PHONE:', phone);
 
-    console.log('User:', email, '| phone:', phone, '| has_provider_token:', !!providerToken);
+    const authRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+      headers: {
+        'apikey': SERVICE_KEY,
+        'Authorization': `Bearer ${SERVICE_KEY}`,
+      },
+    });
+    const authData = await authRes.json();
+    const userId = authData?.users?.[0]?.id;
+    console.log('USER ID:', userId);
 
-    if (providerToken && userId) {
+    if (userId && tokenData.access_token) {
       const upsertRes = await fetch(`${SUPABASE_URL}/rest/v1/google_tokens`, {
         method: 'POST',
         headers: {
@@ -46,13 +57,13 @@ export default async function handler(req, res) {
           user_id: userId,
           email: email,
           phone: phone || null,
-          access_token: providerToken,
-          refresh_token: providerRefresh || null,
-          expiry_date: Date.now() + 3600 * 1000,
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token || null,
+          expiry_date: Date.now() + (tokenData.expires_in || 3600) * 1000,
           updated_at: new Date().toISOString(),
         }),
       });
-      console.log('Token upsert status:', upsertRes.status);
+      console.log('TOKEN UPSERT STATUS:', upsertRes.status);
     }
 
     return res.redirect('https://mykoreo.com.br/app');
