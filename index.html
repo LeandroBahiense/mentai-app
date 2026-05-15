@@ -3916,12 +3916,15 @@ function initSupabaseAuth() {
   }
 
   // ── Realtime: canal único com reconexão automática ──────────────────────
-  let _realtimeChannel = null;
+  let _realtimeChannel    = null;
+  let _realtimeConfigured = false;
 
   function setupRealtime(userId) {
+    if (_realtimeConfigured) return;
+    _realtimeConfigured = true;
+
     console.log('REALTIME: configurando para user', userId);
 
-    // Remove canal anterior se existir
     if (_realtimeChannel) {
       _supabase.removeChannel(_realtimeChannel);
       _realtimeChannel = null;
@@ -3947,6 +3950,9 @@ function initSupabaseAuth() {
       )
       .subscribe(function(status) {
         console.log('REALTIME STATUS:', status);
+        if (status === 'CLOSED') {
+          _realtimeConfigured = false;
+        }
       });
   }
 
@@ -3984,6 +3990,7 @@ function initSupabaseAuth() {
 
     } else {
       currentUser = null;
+      _realtimeConfigured = false;
       showAuthScreen();
 
       // Cancela o canal Realtime ao sair
