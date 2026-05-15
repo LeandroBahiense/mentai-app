@@ -3956,36 +3956,40 @@ function initSupabaseAuth() {
         APP.notes = [];
       }
       localStorage.setItem('koreo-user-id', session.user.id);
-
       currentUser = session.user;
       hideAuthScreen();
       injectTopbarButtons();
-      checkOnboarding();
 
-      // Auto-conecta o Supabase se não estiver conectado
+      // detecta retorno do OAuth Google
+      const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+      const isOAuthReturn = hashParams.get('access_token') ||
+                            window.location.search.includes('code=');
+      if (isOAuthReturn) {
+        // limpa a URL sem recarregar
+        window.history.replaceState({}, document.title, '/app');
+      }
+
+      // sempre checa onboarding
+      await checkOnboarding();
+
       if (!APP.supabaseConnected) {
-        const anonKey = ANON_KEY;
         APP.supabaseUrl = SUPABASE_URL;
-        APP.supabaseKey = anonKey;
+        APP.supabaseKey = ANON_KEY;
         localStorage.setItem('mentai-sb-url', APP.supabaseUrl);
-        localStorage.setItem('mentai-sb-key', anonKey);
+        localStorage.setItem('mentai-sb-key', APP.supabaseKey);
         APP.supabaseConnected = true;
         document.getElementById('db-dot').classList.add('on');
         document.getElementById('db-label').textContent = 'IA + Supabase';
-        loadFromSupabase().then(() => navigate('home'));
-      } else {
-        navigate('home');
+        await loadFromSupabase();
       }
 
-      // Inicia assinatura Realtime
+      navigate('home');
       setupRealtime(session.user.id);
 
     } else {
       currentUser = null;
       _realtimeConfigured = false;
       showAuthScreen();
-
-      // Cancela o canal Realtime ao sair
       if (_realtimeChannel) {
         _supabase.removeChannel(_realtimeChannel);
         _realtimeChannel = null;
