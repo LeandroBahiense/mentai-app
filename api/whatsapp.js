@@ -5,6 +5,7 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_FROM = process.env.TWILIO_WHATSAPP_FROM;
 
 function sbHeaders() {
   return {
@@ -22,8 +23,20 @@ function googleSbHeaders() {
   };
 }
 
-function twiml(msg) {
-  return '<?xml version="1.0" encoding="UTF-8"?><Response><Message>' + msg + '</Message></Response>';
+async function sendWhatsApp(to, body) {
+  const toFormatted = to.startsWith('whatsapp:') ? to : 'whatsapp:' + to;
+  const auth = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');
+  await fetch(
+    'https://api.twilio.com/2010-04-01/Accounts/' + TWILIO_SID + '/Messages.json',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + auth,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ From: TWILIO_FROM, To: toFormatted, Body: body }).toString(),
+    }
+  );
 }
 
 // Extrai JSON de uma tag no reply do Claude
@@ -600,8 +613,7 @@ async function askClaude(system, messages) {
 // ─── Handler Principal ───────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
-  res.setHeader('Content-Type', 'text/xml');
-  if (req.method !== 'POST') return res.status(405).send(twiml('Método não permitido.'));
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' });
 
   const body      = req.body || {};
   const phone     = (body.From || '').replace('whatsapp:', '');
@@ -622,15 +634,20 @@ export default async function handler(req, res) {
         userMessage = transcription;
         console.log('TRANSCRIPTION:', userMessage);
       } else {
-        return res.send(twiml('Não consegui transcrever o áudio. Tente enviar uma mensagem de texto.'));
+        await sendWhatsApp(phone, 'Não consegui transcrever o áudio. Tente enviar uma mensagem de texto.');
+        return res.status(200).send('OK');
       }
     } catch (err) {
       console.error('TRANSCRIBE ERR:', err.message);
-      return res.send(twiml('Erro ao processar áudio: ' + err.message));
+      await sendWhatsApp(phone, 'Erro ao processar áudio: ' + err.message);
+      return res.status(200).send('OK');
     }
   }
 
-  if (!userMessage && !hasMedia) return res.send(twiml('Envie uma mensagem de texto, áudio, imagem ou documento.'));
+  if (!userMessage && !hasMedia) {
+    await sendWhatsApp(phone, 'Envie uma mensagem de texto, áudio, imagem ou documento.');
+    return res.status(200).send('OK');
+  }
 
   // ── Detecta intenções ─────────────────────────────────────────────────────
   const needsCalendar = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
@@ -682,7 +699,8 @@ export default async function handler(req, res) {
       }
     } else if (needsGoogle) {
       const authLink = 'https://mentai-app.vercel.app/api/auth/google?phone=' + encodeURIComponent(phone);
-      return res.send(twiml('Para acessar sua agenda e emails, conecte o Google primeiro: ' + authLink));
+      await sendWhatsApp(phone, 'Para acessar sua agenda e emails, conecte o Google primeiro: ' + authLink);
+      return res.status(200).send('OK');
     }
   } catch (err) {
     console.error('GOOGLE ERR:', err.message);
@@ -711,7 +729,8 @@ export default async function handler(req, res) {
         ].join('\n');
         await saveMessage(phone, 'user', '[transcrição de reunião — ' + userMessage.length + ' chars]');
         await saveMessage(phone, 'assistant', confirmMsg);
-        return res.send(twiml(confirmMsg));
+        await sendWhatsApp(phone, confirmMsg);
+        return res.status(200).send('OK');
       } catch (transcriptErr) {
         console.error('TRANSCRIPT ERR:', transcriptErr.message, '— continuando fluxo normal');
         // Se a extração falhar, continua para o fluxo normal do Claude
@@ -782,7 +801,10 @@ export default async function handler(req, res) {
     const reply = await askClaude(system, msgs);
     console.log('REPLY:', (reply || '').substring(0, 200));
 
-    if (!reply) return res.send(twiml('Não consegui processar. Tente novamente.'));
+    if (!reply) {
+      await sendWhatsApp(phone, 'Não consegui processar. Tente novamente.');
+      return res.status(200).send('OK');
+    }
 
     // ── Executa ações a partir das tags ──────────────────────────────────
     let finalReply = stripActionTags(reply);
@@ -865,10 +887,12 @@ export default async function handler(req, res) {
     await saveMessage(phone, 'user', userMessage);
     await saveMessage(phone, 'assistant', finalReply);
 
-    return res.send(twiml(finalReply));
+    await sendWhatsApp(phone, finalReply);
+    return res.status(200).send('OK');
 
   } catch (err) {
     console.error('ERR:', err.message);
-    return res.send(twiml('Erro: ' + err.message));
+    await sendWhatsApp(phone, 'Erro: ' + err.message);
+    return res.status(200).send('OK');
   }
 }
