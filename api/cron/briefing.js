@@ -47,6 +47,15 @@ async function getGoogleTokens(phone) {
   return Array.isArray(data) && data.length > 0 ? data[0] : null;
 }
 
+async function getGoogleTokensByUserId(userId) {
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/google_tokens?user_id=eq.' + userId + '&limit=1',
+    { headers: svcHeaders() }
+  );
+  const data = await res.json();
+  return Array.isArray(data) && data.length > 0 ? data[0] : null;
+}
+
 async function getUserPrefs(userId) {
   if (!userId) return null;
   const res = await fetch(
@@ -288,12 +297,12 @@ export default async function handler(req, res) {
         continue;
       }
 
-      // Google Calendar
+      // Google Calendar — busca tokens por user_id (OAuth flow)
       let calendarEvents = [];
-      const tokenRow = await getGoogleTokens(phone);
+      const tokenRow = await getGoogleTokensByUserId(userId);
       if (tokenRow) {
         try {
-          const accessToken = Date.now() >= tokenRow.expiry_date - 60000
+          const accessToken = Date.now() >= (tokenRow.expiry_date - 60000)
             ? await refreshGoogleToken(phone, tokenRow.refresh_token)
             : tokenRow.access_token;
           calendarEvents = await getCalendarEventsToday(accessToken);
