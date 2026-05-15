@@ -26,7 +26,8 @@ function googleSbHeaders() {
 async function sendWhatsApp(to, body) {
   const toFormatted = to.startsWith('whatsapp:') ? to : 'whatsapp:' + to;
   const auth = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');
-  await fetch(
+  console.log('ENVIANDO RESPOSTA | TO:', toFormatted, '| FROM:', TWILIO_FROM);
+  const sendRes = await fetch(
     'https://api.twilio.com/2010-04-01/Accounts/' + TWILIO_SID + '/Messages.json',
     {
       method: 'POST',
@@ -37,6 +38,8 @@ async function sendWhatsApp(to, body) {
       body: new URLSearchParams({ From: TWILIO_FROM, To: toFormatted, Body: body }).toString(),
     }
   );
+  const sendData = await sendRes.json();
+  console.log('TWILIO SEND STATUS:', sendRes.status, '| SID:', sendData.sid, '| ERROR:', sendData.message || 'none');
 }
 
 // Extrai JSON de uma tag no reply do Claude
