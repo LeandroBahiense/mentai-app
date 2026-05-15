@@ -3933,16 +3933,8 @@ function initSupabaseAuth() {
     _realtimeChannel = _supabase
       .channel('db-changes')
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'notes' },
-        function(payload) {
-          console.log('REALTIME notes:', payload.eventType);
-          loadFromSupabase();
-        }
-      )
-      .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'files' },
         function(payload) {
-          console.log('REALTIME files INSERT:', JSON.stringify(payload.new));
           if (APP.currentNoteId) {
             loadNoteAttachments(APP.currentNoteId);
           }
