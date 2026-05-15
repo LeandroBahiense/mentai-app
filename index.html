@@ -3693,24 +3693,23 @@ async function saveBriefingHora() {
 async function connectGoogleOAuth() {
   const btn    = document.getElementById('ob-google-btn');
   const status = document.getElementById('ob-google-status');
-  const origHTML = btn.innerHTML;
   btn.textContent = 'Aguarde...';
   btn.disabled = true;
   try {
+    localStorage.setItem('koreo-oauth-onboarding', 'true');
     const { error } = await _supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         scopes: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.readonly',
-        redirectTo: window.location.href,
+        redirectTo: window.location.origin + '/app',
         queryParams: { access_type: 'offline', prompt: 'consent' },
       }
     });
     if (error) throw error;
-    // O redirect acontece — se por algum motivo voltar sem redirecionar:
-    status.style.display = 'block';
   } catch(e) {
+    localStorage.removeItem('koreo-oauth-onboarding');
     btn.disabled = false;
-    btn.innerHTML = origHTML;
+    btn.textContent = 'Conectar com Google';
     alert('Erro ao conectar: ' + e.message);
   }
 }
@@ -3960,17 +3959,21 @@ function initSupabaseAuth() {
       hideAuthScreen();
       injectTopbarButtons();
 
-      // detecta retorno do OAuth Google
-      const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-      const isOAuthReturn = hashParams.get('access_token') ||
-                            window.location.search.includes('code=');
-      if (isOAuthReturn) {
-        // limpa a URL sem recarregar
+      const oauthOnboarding = localStorage.getItem('koreo-oauth-onboarding');
+      if (oauthOnboarding) {
+        localStorage.removeItem('koreo-oauth-onboarding');
         window.history.replaceState({}, document.title, '/app');
+        // volta para o onboarding no passo 5 (WhatsApp)
+        document.getElementById('onboarding').classList.remove('hidden');
+        document.querySelectorAll('.ob-step').forEach(s => s.style.display = 'none');
+        const step5 = document.getElementById('ob-step-5');
+        if (step5) step5.style.display = 'flex';
+        // mostra confirmação de Google conectado
+        const googleStatus = document.getElementById('ob-google-status');
+        if (googleStatus) googleStatus.style.display = 'block';
+      } else {
+        await checkOnboarding();
       }
-
-      // sempre checa onboarding
-      await checkOnboarding();
 
       if (!APP.supabaseConnected) {
         APP.supabaseUrl = SUPABASE_URL;
@@ -3983,7 +3986,7 @@ function initSupabaseAuth() {
         await loadFromSupabase();
       }
 
-      navigate('home');
+      if (!oauthOnboarding) navigate('home');
       setupRealtime(session.user.id);
 
     } else {
