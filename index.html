@@ -791,7 +791,7 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-s
           </div>
           <div style="font-size:10px;color:var(--text3);margin-top:5px;display:flex;justify-content:space-between">
             <span>Enter para enviar · Shift+Enter nova linha</span>
-            <span id="chat-model">claude-sonnet-4-6</span>
+            <span id="chat-model">claude-sonnet-4-5</span>
           </div>
         </div>
       </div>
@@ -2622,7 +2622,7 @@ async function sendChat(){
   try{
     let reply;
     if(APP.apiConnected&&APP.apiKey){
-      const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system:buildSysPrompt(),messages:APP.chatHistory.slice(-10)})});
+      const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,system:buildSysPrompt(),messages:APP.chatHistory.slice(-10)})});
       if(!res.ok) throw new Error('API '+res.status);
       const data=await res.json();
       reply=data.content[0]?.text||'';
@@ -2740,7 +2740,7 @@ async function processVoice(){
   document.getElementById('va-proc').disabled=false;
 }
 async function processVoiceWithAPI(text){
-  const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:800,messages:[{role:'user',content:`Transcrição de voz: "${text}"\n\nNotas existentes: ${APP.notes.map(n=>n.title).join(', ')}\n\nResponda APENAS com JSON:\n{"title":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."],"content":"...markdown com [[wikilinks]]...","connections":["..."]}`}]})});
+  const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:800,messages:[{role:'user',content:`Transcrição de voz: "${text}"\n\nNotas existentes: ${APP.notes.map(n=>n.title).join(', ')}\n\nResponda APENAS com JSON:\n{"title":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."],"content":"...markdown com [[wikilinks]]...","connections":["..."]}`}]})});
   if(!res.ok) throw new Error('API '+res.status);
   const d=await res.json();
   return JSON.parse((d.content[0]?.text||'{}').replace(/```json|```/g,'').trim());
@@ -3025,7 +3025,7 @@ function updateSystemStatus(){
     <div>🤖 API Anthropic: <strong style="color:${APP.apiConnected?'var(--green)':'var(--coral)'}">${APP.apiConnected?'Conectada':'Não configurada'}</strong></div>
     <div>🗄 Supabase: <strong style="color:${APP.supabaseConnected?'var(--green)':'var(--coral)'}">${APP.supabaseConnected?'Conectado':'Não configurado — dados em localStorage'}</strong></div>
     <div>📝 Notas: <strong style="color:var(--accent2)">${APP.notes.length} notas · ${APP.notes.reduce((a,n)=>a+((n.content||'').match(/\[\[/g)||[]).length,0)} conexões</strong></div>
-    <div>🧠 Modelo: <strong style="color:var(--accent2)">claude-sonnet-4-6</strong></div>
+    <div>🧠 Modelo: <strong style="color:var(--accent2)">claude-sonnet-4-5</strong></div>
   `;
 }
 function updateStatusBar(){
