@@ -32,7 +32,22 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:.9rem 2rem;display:f
 .hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8rem 2rem 5rem;position:relative;overflow:hidden;background:var(--void)}
 .hero-grid{position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:.3;pointer-events:none}
 .hero-glow{position:absolute;top:-20%;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,#7c3aed22 0%,transparent 70%);pointer-events:none}
-.symbol{width:120px;height:120px;margin-bottom:2rem;animation:float 6s ease-in-out infinite}
+.symbol{
+  width:380px;
+  max-width:80vw;
+  aspect-ratio:1/1;
+  margin-bottom:1.5rem;
+  animation:float 6s ease-in-out infinite;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.symbol img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  display:block;
+}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 .hero-badge{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--lilac);margin-bottom:1.25rem;opacity:0;animation:fadeUp .8s .2s forwards}
 .hero h1{font-family:'DM Serif Display',serif;font-size:clamp(3rem,7vw,5.5rem);text-align:center;line-height:1.06;margin-bottom:1.5rem;opacity:0;animation:fadeUp .9s .35s forwards}
@@ -57,13 +72,98 @@ section{padding:5.5rem 2rem}
 .divider{height:1px;background:var(--border);margin:0 2rem}
 
 .science{background:var(--abyss)}
-.science-grid{display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;margin-top:3.5rem}
-.layers{display:flex;flex-direction:column;gap:1rem}
-.layer-card{display:flex;align-items:flex-start;gap:.875rem;padding:1.1rem 1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:10px;transition:border-color .2s}
-.layer-card:hover{border-color:var(--violet)}
-.layer-dot-lg{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:3px}
-.layer-name{font-size:14px;font-weight:500;color:var(--text1);margin-bottom:.2rem}
-.layer-desc{font-size:12px;color:var(--text2);line-height:1.6}
+.brain-stage{
+  position:relative;
+  width:100%;
+  max-width:760px;
+  margin:3rem auto 0;
+  aspect-ratio:1.4/1;
+}
+.brain-wrap{
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:48%;
+  aspect-ratio:1/1;
+  transform:translate(-50%,-50%);
+  animation:float 6s ease-in-out infinite;
+  z-index:2;
+}
+.brain-wrap img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  display:block;
+}
+.brain-glow{
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:55%;
+  height:78%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,rgba(124,58,237,0.18) 0%,transparent 60%);
+  pointer-events:none;
+  z-index:1;
+}
+.callouts{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  z-index:3;
+}
+.cl{
+  position:absolute;
+  font-family:'DM Sans',sans-serif;
+  max-width:180px;
+  z-index:4;
+}
+.cl-name{
+  font-family:'DM Serif Display',serif;
+  font-size:1.1rem;
+  margin-bottom:.15rem;
+  letter-spacing:.01em;
+}
+.cl-tag{
+  font-family:'DM Mono',monospace;
+  font-size:10px;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  margin-bottom:.35rem;
+  opacity:.7;
+}
+.cl-desc{
+  font-size:12px;
+  color:var(--text2);
+  line-height:1.5;
+}
+.cl-paleo{top:5%;left:0;text-align:left;}
+.cl-paleo .cl-name,.cl-paleo .cl-tag{color:#EF4444;}
+.cl-archi{top:5%;right:0;text-align:right;}
+.cl-archi .cl-name,.cl-archi .cl-tag{color:#34d399;}
+.cl-archi .cl-desc{margin-left:auto;}
+.cl-neo{bottom:8%;right:0;text-align:right;}
+.cl-neo .cl-name,.cl-neo .cl-tag{color:#a99cf5;}
+.cl-neo .cl-desc{margin-left:auto;}
+.cl-core{bottom:8%;left:0;text-align:left;}
+.cl-core .cl-name,.cl-core .cl-tag{color:#7c3aed;}
+@media(max-width:768px){
+  .brain-stage{aspect-ratio:1/1.6;max-width:380px;}
+  .brain-wrap{width:70%;}
+  .cl{max-width:140px;}
+  .cl-desc{font-size:11px;}
+  .callouts{display:none;}
+  .cl-paleo,.cl-archi{top:auto;}
+  .cl-neo,.cl-core{bottom:auto;}
+  .cl-paleo{position:relative;left:auto;margin-bottom:1rem;}
+  .cl-archi{position:relative;right:auto;text-align:left;margin-bottom:1rem;}
+  .cl-archi .cl-desc{margin-left:0;}
+  .cl-neo{position:relative;right:auto;text-align:left;margin-top:1rem;}
+  .cl-neo .cl-desc{margin-left:0;}
+  .cl-core{position:relative;left:auto;margin-top:1rem;}
+}
 
 .products{background:var(--void)}
 .products-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;margin-top:3rem}
@@ -211,13 +311,11 @@ footer a:hover{color:var(--lilac)}
   <div class="hero-grid"></div>
   <div class="hero-glow"></div>
   <div class="symbol">
-    <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
-      <circle cx="60" cy="60" r="50" stroke="#EF4444" stroke-width="2" opacity=".6"/>
-      <circle cx="60" cy="60" r="36" stroke="#34d399" stroke-width="2" opacity=".7"/>
-      <circle cx="60" cy="60" r="22" stroke="#a99cf5" stroke-width="2" opacity=".9"/>
-      <circle cx="60" cy="60" r="6" fill="#7c3aed"/>
-      <circle cx="60" cy="60" r="12" fill="#7c3aed" opacity=".18"/>
-    </svg>
+    <picture>
+      <source media="(max-width: 768px)" srcset="assets/brain-hero-md.webp">
+      <img src="assets/brain-hero.webp" alt="Cérebro neural Pallyum com três camadas"
+           loading="eager" fetchpriority="high" decoding="async">
+    </picture>
   </div>
   <p class="hero-badge">INTELLIGENCE LAYER</p>
   <h1>O manto que envolve<br><em>a sua inteligência</em></h1>
@@ -240,25 +338,57 @@ footer a:hover{color:var(--lilac)}
     <p class="sec-label">A CIÊNCIA POR TRÁS</p>
     <h2 class="sec-title">Inspirado na estrutura<br>do cérebro humano</h2>
     <p class="sec-sub">O Pallium é o manto que envolve o cérebro de todos os vertebrados. O Pallyum adota a mesma arquitetura tripartite — sentidos, memória e decisão.</p>
-    <div class="science-grid">
-      <div style="display:flex;justify-content:center">
-        <svg width="280" height="280" viewBox="0 0 280 280" fill="none">
-          <circle cx="140" cy="140" r="110" stroke="#EF4444" stroke-width="2.5" opacity=".55"/>
-          <circle cx="140" cy="140" r="80" stroke="#34d399" stroke-width="2.5" opacity=".65"/>
-          <circle cx="140" cy="140" r="52" stroke="#a99cf5" stroke-width="2.5" opacity=".85"/>
-          <circle cx="140" cy="140" r="12" fill="#7c3aed"/>
-          <circle cx="140" cy="140" r="24" fill="#7c3aed" opacity=".15"/>
-          <text x="140" y="20" fill="#EF4444" font-size="11" font-family="DM Mono,monospace" text-anchor="middle" opacity=".8">Paleopallium</text>
-          <text x="140" y="52" fill="#34d399" font-size="11" font-family="DM Mono,monospace" text-anchor="middle" opacity=".8">Archipallium</text>
-          <text x="140" y="84" fill="#a99cf5" font-size="11" font-family="DM Mono,monospace" text-anchor="middle" opacity=".9">Neopallium</text>
-        </svg>
-      </div>
-      <div class="layers">
-        <div class="layer-card"><div class="layer-dot-lg" style="background:#a99cf5"></div><div><div class="layer-name">Neopallium — Decisão</div><div class="layer-desc">O córtex moderno. Motor de IA avançado, raciocínio complexo e tomada de decisão em tempo real.</div></div></div>
-        <div class="layer-card"><div class="layer-dot-lg" style="background:#34d399"></div><div><div class="layer-name">Archipallium — Memória</div><div class="layer-desc">O hipocampo digital. Vault semântico, histórico profundo, conexões entre ideias que você nem percebeu.</div></div></div>
-        <div class="layer-card"><div class="layer-dot-lg" style="background:#EF4444"></div><div><div class="layer-name">Paleopallium — Sentidos</div><div class="layer-desc">Voz, WhatsApp, APIs, integrações. O Pallyum ouvindo e agindo no mundo ao seu redor.</div></div></div>
-      </div>
-    </div>
+
+   <div class="brain-stage">
+     <svg class="callouts" viewBox="0 0 1000 720" preserveAspectRatio="none">
+       <line x1="190" y1="80"  x2="395" y2="220" stroke="#EF4444" stroke-width="1" opacity="0.7"/>
+       <circle cx="395" cy="220" r="4" fill="#EF4444"/>
+       <circle cx="395" cy="220" r="8" fill="#EF4444" opacity="0.3"/>
+
+       <line x1="810" y1="80"  x2="630" y2="290" stroke="#34d399" stroke-width="1" opacity="0.7"/>
+       <circle cx="630" cy="290" r="4" fill="#34d399"/>
+       <circle cx="630" cy="290" r="8" fill="#34d399" opacity="0.3"/>
+
+       <line x1="810" y1="620" x2="555" y2="395" stroke="#a99cf5" stroke-width="1" opacity="0.7"/>
+       <circle cx="555" cy="395" r="4" fill="#a99cf5"/>
+       <circle cx="555" cy="395" r="8" fill="#a99cf5" opacity="0.3"/>
+
+       <line x1="190" y1="620" x2="500" y2="370" stroke="#7c3aed" stroke-width="1" opacity="0.7"/>
+       <circle cx="500" cy="370" r="5" fill="#7c3aed"/>
+       <circle cx="500" cy="370" r="10" fill="#7c3aed" opacity="0.4"/>
+     </svg>
+
+     <div class="brain-glow"></div>
+
+     <div class="brain-wrap">
+       <picture>
+         <source media="(max-width: 768px)" srcset="assets/brain-hero-md.webp">
+         <img src="assets/brain-hero.webp" alt="Cérebro Pallyum com três camadas neurais"
+              loading="lazy" decoding="async">
+       </picture>
+     </div>
+
+     <div class="cl cl-paleo">
+       <div class="cl-tag">Camada externa</div>
+       <div class="cl-name">Paleopallium</div>
+       <div class="cl-desc">Os sentidos. Voz, WhatsApp, APIs — o Pallyum ouvindo o mundo.</div>
+     </div>
+     <div class="cl cl-archi">
+       <div class="cl-tag">Camada média</div>
+       <div class="cl-name">Archipallium</div>
+       <div class="cl-desc">A memória. Vault semântico, histórico profundo, conexões entre ideias.</div>
+     </div>
+     <div class="cl cl-neo">
+       <div class="cl-tag">Camada interna</div>
+       <div class="cl-name">Neopallium</div>
+       <div class="cl-desc">A decisão. Motor de IA, raciocínio complexo, ação em tempo real.</div>
+     </div>
+     <div class="cl cl-core">
+       <div class="cl-tag">Núcleo</div>
+       <div class="cl-name">Pallyum</div>
+       <div class="cl-desc">Onde as três camadas convergem em inteligência.</div>
+     </div>
+   </div>
   </div>
 </section>
 
