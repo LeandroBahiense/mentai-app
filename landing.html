@@ -1,464 +1,564 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pallyum — Intelligence Layer</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@400&display=swap" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0D1117;--bg2:#0D1B2A;--bg3:#161B22;
-  --bg-light:#f8f7ff;--bg-light2:#faf9ff;
-  --text:#F8F9FA;--text-dark:#1a1040;
-  --text2:#8B949E;--text2-dark:#6b6890;
-  --text3:#30363D;
-  --accent:#7c3aed;--accent2:#a99cf5;
+  --void:#0D1117;--abyss:#0D1B2A;--surface:#161B22;
   --violet:#7c3aed;--lilac:#a99cf5;--connective:#6D597A;
-  --cyan:#00F5D4;--amber:#FF9F1C;
-  --green:#34d399;--coral:#EF4444;--red:#EF4444;--gold:#FF9F1C;--whatsapp:#25D366;
-  --border:#21262D;--border2:rgba(255,255,255,0.10);
-  --border-light:#e8e4f4;--border-light2:#d0cce8;
+  --cyan:#00F5D4;--amber:#FF9F1C;--red:#EF4444;--green:#34d399;
+  --text1:#F8F9FA;--text2:#8B949E;--text3:#30363D;
+  --border:#21262D;
 }
-html{scroll-behavior:smooth;}
-body{background:var(--bg-light);color:var(--text-dark);font-family:'DM Sans',sans-serif;font-size:16px;line-height:1.6;overflow-x:hidden;}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--void);color:var(--text1);overflow-x:hidden}
 
-/* ── Nav ── */
-nav{position:fixed;top:0;left:0;right:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 40px;background:rgba(248,247,255,0.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border-light);box-shadow:0 1px 20px rgba(124,58,237,0.06);z-index:100;}
-.nav-logo{font-family:'DM Serif Display',serif;font-size:22px;color:var(--accent);}
-.nav-logo em{color:var(--text-dark);font-style:normal;}
-.nav-cta{padding:9px 22px;border-radius:100px;background:linear-gradient(135deg,var(--accent),#059669);color:#fff;font-size:13px;font-weight:500;text-decoration:none;transition:all .2s;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;}
-.nav-cta:hover{opacity:.85;transform:translateY(-1px);}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:.9rem 2rem;display:flex;align-items:center;justify-content:space-between;background:#0D111799;backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.nav-logo{font-family:'DM Serif Display',serif;font-size:20px;color:var(--text1);text-decoration:none;letter-spacing:.01em}
+.nav-links{display:flex;gap:1.75rem;list-style:none}
+.nav-links a{color:var(--text2);font-size:13px;text-decoration:none;transition:color .15s}
+.nav-links a:hover{color:var(--lilac)}
+.nav-actions{display:flex;gap:.75rem;align-items:center}
+.nav-app{color:var(--text2);font-size:13px;text-decoration:none;transition:color .15s}
+.nav-app:hover{color:var(--lilac)}
+.nav-cta{background:var(--violet);color:#fff;font-size:13px;font-weight:500;padding:.45rem 1.1rem;border-radius:6px;text-decoration:none;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
 
-/* ── Buttons ── */
-.btn-primary{padding:14px 32px;border-radius:100px;background:linear-gradient(135deg,var(--accent),#059669);color:#fff;font-size:15px;font-weight:500;text-decoration:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
-.btn-primary:hover{opacity:.85;transform:translateY(-2px);box-shadow:0 12px 32px rgba(124,58,237,.3);}
-.btn-secondary{padding:14px 32px;border-radius:100px;background:transparent;color:var(--text2-dark);font-size:15px;text-decoration:none;border:1px solid var(--border-light2);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
-.btn-secondary:hover{border-color:var(--accent);color:var(--text-dark);}
-.btn-whatsapp{padding:14px 32px;border-radius:100px;background:var(--whatsapp);color:#fff;font-size:15px;font-weight:500;text-decoration:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
-.btn-whatsapp:hover{opacity:.9;transform:translateY(-2px);box-shadow:0 12px 32px rgba(37,211,102,.25);}
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8rem 2rem 5rem;position:relative;overflow:hidden;background:var(--void)}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:.3;pointer-events:none}
+.hero-glow{position:absolute;top:-20%;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,#7c3aed22 0%,transparent 70%);pointer-events:none}
+.symbol{width:120px;height:120px;margin-bottom:2rem;animation:float 6s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.hero-badge{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--lilac);margin-bottom:1.25rem;opacity:0;animation:fadeUp .8s .2s forwards}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(3rem,7vw,5.5rem);text-align:center;line-height:1.06;margin-bottom:1.5rem;opacity:0;animation:fadeUp .9s .35s forwards}
+.hero h1 em{font-style:italic;color:var(--lilac)}
+.hero-sub{font-size:clamp(.95rem,1.8vw,1.15rem);color:var(--text2);text-align:center;max-width:540px;line-height:1.75;margin-bottom:2.75rem;opacity:0;animation:fadeUp .9s .5s forwards}
+.hero-ctas{display:flex;gap:.875rem;flex-wrap:wrap;justify-content:center;opacity:0;animation:fadeUp .9s .65s forwards}
+.hero-stats{display:flex;gap:2.5rem;margin-top:4rem;opacity:0;animation:fadeUp .9s .8s forwards}
+.hero-stat-num{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--cyan)}
+.hero-stat-label{font-size:12px;color:var(--text2);margin-top:2px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.btn-p{background:var(--violet);color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;padding:.8rem 1.75rem;border:none;border-radius:7px;cursor:pointer;text-decoration:none;transition:transform .15s,box-shadow .15s}
+.btn-p:hover{transform:translateY(-2px);box-shadow:0 8px 24px #7c3aed33}
+.btn-g{background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:14px;padding:.8rem 1.75rem;border:1px solid var(--border);border-radius:7px;cursor:pointer;text-decoration:none;transition:border-color .15s,color .15s}
+.btn-g:hover{border-color:var(--lilac);color:var(--lilac)}
 
-/* ── Typography ── */
-.section-label{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:16px;}
-h2{font-family:'DM Serif Display',serif;font-size:clamp(32px,4vw,52px);line-height:1.2;color:var(--text);margin-bottom:20px;}
-h2 em{color:var(--accent2);font-style:italic;}
-.section-cta{margin-top:44px;display:flex;gap:12px;flex-wrap:wrap;}
-.section-cta.center{justify-content:center;}
-@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
-@keyframes wt{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
-.reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease;}
-.reveal.visible{opacity:1;transform:none;}
+section{padding:5.5rem 2rem}
+.container{max-width:1060px;margin:0 auto}
+.sec-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.15em;color:var(--violet);margin-bottom:.875rem}
+.sec-title{font-family:'DM Serif Display',serif;font-size:clamp(1.9rem,3.5vw,2.8rem);line-height:1.15;margin-bottom:1.1rem}
+.sec-sub{font-size:1rem;color:var(--text2);max-width:560px;line-height:1.7}
 
-/* ── Dual-tone sections ── */
-.section-dark{background:var(--bg2);color:var(--text);position:relative;}
-.section-dark::before{content:'';position:absolute;top:-80px;left:0;right:0;height:80px;background:linear-gradient(to bottom,var(--bg-light),var(--bg2));pointer-events:none;z-index:1;}
-.section-dark::after{content:'';position:absolute;bottom:-80px;left:0;right:0;height:80px;background:linear-gradient(to bottom,var(--bg2),var(--bg-light));pointer-events:none;z-index:1;}
-.section-light{background:var(--bg-light);color:var(--text-dark);position:relative;}
-.section-light h2{color:var(--text-dark);}
-.section-light h2 em{color:var(--accent);}
-.section-light .section-label{color:var(--accent);}
-.section-light p{color:var(--text2-dark);}
-.section-light .pain-card{background:#fff;border-color:var(--border-light);}
-.section-light .pain-title{color:var(--text-dark);}
-.section-light .pain-text{color:var(--text2-dark);}
-.section-light .device-item{background:#fff;border-color:var(--border-light);}
-.section-light .device-title{color:var(--text-dark);}
-.section-light .device-sub{color:var(--text2-dark);}
-.section-light .step-title{color:var(--text-dark);}
-.section-light .step-text{color:var(--text2-dark);}
-.section-light .step-num{color:rgba(124,58,237,0.2);}
-.section-light .step:hover .step-num{color:rgba(124,58,237,0.5);}
+.divider{height:1px;background:var(--border);margin:0 2rem}
 
-/* ── Hero ── */
-#hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:120px 24px 80px;position:relative;overflow:hidden;background:var(--bg-light);color:var(--text-dark);}
-#hero h1{color:var(--text-dark);}
-#hero h1 em{color:var(--accent);}
-#hero .hero-sub{color:var(--text2-dark);}
-#hero .hero-browser-note{color:#9990c0;}
-#hero .hero-label{background:rgba(124,58,237,0.08);border-color:rgba(124,58,237,0.2);color:var(--accent);}
-#hero .hero-stats{border-top-color:#e0daf4;}
-#hero .stat-num{color:var(--accent);}
-#hero .stat-label{color:var(--text2-dark);}
-.hero-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);width:700px;height:700px;background:radial-gradient(circle,rgba(124,58,237,0.10) 0%,rgba(124,58,237,0.03) 45%,transparent 70%);pointer-events:none;}
-.hero-label{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:100px;border:1px solid rgba(124,58,237,.2);background:rgba(124,58,237,.08);font-size:12px;color:var(--accent);letter-spacing:.5px;margin-bottom:28px;animation:fadeUp .6s ease both;}
-.hero-label span{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s ease-in-out infinite;}
-h1{font-family:'DM Serif Display',serif;font-size:clamp(40px,6vw,80px);line-height:1.1;color:var(--text-dark);max-width:820px;margin-bottom:10px;animation:fadeUp .7s .1s ease both;}
-h1 em{font-style:italic;color:var(--accent);}
-.hero-sub{font-size:clamp(16px,2vw,20px);color:var(--text2-dark);max-width:560px;margin:18px auto 0;font-weight:300;line-height:1.7;animation:fadeUp .7s .2s ease both;}
-.hero-browser-note{display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-size:13px;color:#9990c0;animation:fadeUp .7s .25s ease both;}
-.hero-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:36px;animation:fadeUp .7s .3s ease both;}
-.hero-stats{display:flex;gap:40px;margin-top:56px;padding-top:40px;border-top:1px solid #e0daf4;animation:fadeUp .7s .4s ease both;flex-wrap:wrap;justify-content:center;}
-.stat{text-align:center;}
-.stat-num{font-family:'DM Serif Display',serif;font-size:32px;color:var(--accent);display:block;}
-.stat-label{font-size:12px;color:var(--text2-dark);letter-spacing:.5px;text-transform:uppercase;}
+.science{background:var(--abyss)}
+.science-grid{display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;margin-top:3.5rem}
+.layers{display:flex;flex-direction:column;gap:1rem}
+.layer-card{display:flex;align-items:flex-start;gap:.875rem;padding:1.1rem 1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:10px;transition:border-color .2s}
+.layer-card:hover{border-color:var(--violet)}
+.layer-dot-lg{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.layer-name{font-size:14px;font-weight:500;color:var(--text1);margin-bottom:.2rem}
+.layer-desc{font-size:12px;color:var(--text2);line-height:1.6}
 
-/* ── Video section ── */
-#video-section{padding:60px 24px;display:flex;flex-direction:column;align-items:center;}
-.video-wrap{width:100%;max-width:900px;aspect-ratio:16/9;background:var(--bg2);border:1px solid var(--border2);border-radius:20px;overflow:hidden;position:relative;box-shadow:0 40px 80px rgba(124,58,237,.12);}
-.video-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:linear-gradient(135deg,var(--bg2),var(--bg3));}
-.video-placeholder-icon{width:72px;height:72px;border-radius:50%;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);display:flex;align-items:center;justify-content:center;font-size:28px;}
-.video-placeholder-text{font-family:'DM Serif Display',serif;font-size:20px;color:var(--text2);text-align:center;max-width:360px;line-height:1.5;}
-.video-placeholder-sub{font-size:12px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;}
-.video-app-preview{position:absolute;inset:0;display:grid;grid-template-columns:180px 1fr;opacity:.12;pointer-events:none;}
-.fake-sidebar{background:rgba(14,14,26,.8);border-right:1px solid rgba(255,255,255,.05);padding:16px;}
-.fake-sidebar-item{height:10px;border-radius:4px;background:rgba(124,58,237,.4);margin-bottom:10px;}
-.fake-main{padding:20px;display:flex;flex-direction:column;gap:12px;}
-.fake-card{height:60px;border-radius:8px;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.2);}
+.products{background:var(--void)}
+.products-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;margin-top:3rem}
+.prod-card{background:var(--abyss);border:1px solid var(--border);border-radius:14px;padding:1.75rem;position:relative;overflow:hidden;transition:border-color .2s,transform .2s}
+.prod-card:hover{border-color:var(--violet);transform:translateY(-4px)}
+.prod-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.prod-card.c1::before{background:var(--violet)}
+.prod-card.c2::before{background:var(--cyan)}
+.prod-card.c3::before{background:var(--amber)}
+.prod-icon{font-size:1.75rem;margin-bottom:.875rem}
+.prod-title{font-family:'DM Serif Display',serif;font-size:1.4rem;margin-bottom:.25rem;color:var(--text1)}
+.prod-sub{font-size:12px;color:var(--text2);margin-bottom:1rem;font-style:italic}
+.prod-divider{height:1px;background:var(--border);margin-bottom:1rem}
+.prod-features{list-style:none;display:flex;flex-direction:column;gap:.5rem}
+.prod-features li{font-size:12px;color:var(--text2);display:flex;gap:.4rem;align-items:flex-start;line-height:1.5}
 
-/* ── WhatsApp section ── */
-#whatsapp-section{padding:100px 24px;position:relative;overflow:hidden;}
-.wa-glow{position:absolute;top:50%;left:35%;transform:translate(-50%,-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(37,211,102,0.09) 0%,transparent 70%);pointer-events:none;}
-.wa-inner{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center;}
-.wa-label{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:100px;background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.25);font-size:11px;color:var(--whatsapp);letter-spacing:.5px;text-transform:uppercase;margin-bottom:20px;}
-.wa-title{font-family:'DM Serif Display',serif;font-size:clamp(28px,3.5vw,48px);line-height:1.15;color:var(--text);margin-bottom:16px;}
-.wa-title em{font-style:italic;color:#4ade80;}
-.wa-text{font-size:15px;color:var(--text2);line-height:1.8;margin-bottom:20px;}
-.wa-name-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(37,211,102,.07);border:1px solid rgba(37,211,102,.2);border-radius:10px;font-size:13px;color:#4ade80;margin-bottom:24px;line-height:1.5;}
-.wa-features{display:flex;flex-direction:column;gap:14px;margin-bottom:32px;}
-.wa-feature{display:flex;align-items:flex-start;gap:12px;}
-.wa-feature-dot{width:22px;height:22px;border-radius:50%;background:rgba(37,211,102,.15);border:1px solid rgba(37,211,102,.3);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:1px;color:var(--whatsapp);}
-.wa-feature-text{font-size:14px;color:var(--text2);line-height:1.6;}
-.wa-feature-text strong{color:var(--text);}
-.wa-chat-mock{background:var(--bg2);border:1px solid rgba(37,211,102,.2);border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.4);}
-.wa-chat-header{background:#075e54;padding:14px 18px;display:flex;align-items:center;gap:10px;}
-.wa-chat-avatar{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:20px;}
-.wa-chat-name{font-size:14px;font-weight:600;color:#fff;}
-.wa-chat-status{font-size:11px;color:rgba(255,255,255,.7);}
-.wa-chat-body{padding:16px;background:#080814;display:flex;flex-direction:column;gap:10px;min-height:340px;}
-.wa-msg{max-width:82%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;}
-.wa-msg.received{background:#12122a;border:1px solid rgba(37,211,102,.12);color:var(--text);border-bottom-left-radius:3px;align-self:flex-start;}
-.wa-msg.sent{background:#054d44;color:#e8f5e9;border-bottom-right-radius:3px;align-self:flex-end;}
-.wa-msg-time{font-size:10px;opacity:.45;margin-top:4px;text-align:right;}
-.wa-typing{display:flex;gap:4px;align-items:center;padding:9px 13px;background:#12122a;border-radius:12px;border-bottom-left-radius:3px;width:fit-content;align-self:flex-start;border:1px solid rgba(37,211,102,.12);}
-.wa-typing span{width:5px;height:5px;border-radius:50%;background:var(--whatsapp);opacity:.5;}
-.wa-typing span:nth-child(1){animation:wt 1.2s .0s ease-in-out infinite;}
-.wa-typing span:nth-child(2){animation:wt 1.2s .2s ease-in-out infinite;}
-.wa-typing span:nth-child(3){animation:wt 1.2s .4s ease-in-out infinite;}
+.plans-section{background:var(--abyss)}
+.plans-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:2.75rem}
+.plan-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.4rem;position:relative;transition:border-color .2s}
+.plan-card:hover{border-color:var(--violet)}
+.plan-card.featured{border-color:var(--violet)}
+.plan-badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--violet);color:#fff;font-size:10px;font-weight:500;letter-spacing:.08em;padding:.2rem .7rem;border-radius:99px;white-space:nowrap}
+.plan-name{font-size:15px;font-weight:500;color:var(--text1);margin-bottom:.3rem}
+.plan-price{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--text1);margin:.35rem 0 .1rem}
+.plan-price span{font-size:12px;font-family:'DM Sans',sans-serif;font-weight:400;color:var(--text2)}
+.plan-storage{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin-bottom:.875rem}
+.plan-divider{height:1px;background:var(--border);margin-bottom:.875rem}
+.plan-items{list-style:none;display:flex;flex-direction:column;gap:.45rem}
+.plan-items li{font-size:12px;color:var(--text2);display:flex;gap:.35rem;align-items:flex-start;line-height:1.5}
+.ck{color:var(--cyan);flex-shrink:0}
+.xk{color:var(--text3);flex-shrink:0}
+.extras-note{margin-top:1.25rem;padding:.875rem 1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2);line-height:1.6}
+.extras-note strong{color:var(--text1)}
 
-/* ── Pain / Solution / Browser / Features / How ── */
-#pain{padding:100px 24px;max-width:1000px;margin:0 auto;text-align:center;}
-.pain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:52px;}
-.pain-card{background:#fff;border:1px solid var(--border-light);border-radius:16px;padding:28px 24px;text-align:left;transition:border-color .2s;}
-.pain-card:hover{border-color:var(--border-light2);}
-.pain-icon{font-size:28px;margin-bottom:14px;display:block;}
-.pain-title{font-size:15px;font-weight:500;color:var(--text-dark);margin-bottom:6px;}
-.pain-text{font-size:13px;color:var(--text2-dark);line-height:1.6;}
-#solution{padding:100px 24px;position:relative;overflow:hidden;}
-.solution-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(124,58,237,.08) 0%,transparent 70%);pointer-events:none;}
-.solution-inner{max-width:1000px;margin:0 auto;text-align:center;}
-.solution-text{font-size:clamp(18px,2.5vw,24px);color:var(--text2);font-weight:300;line-height:1.8;max-width:680px;margin:24px auto 0;}
-.solution-text strong{color:var(--text);font-weight:500;}
-#browser-section{padding:80px 24px;}
-.browser-inner{max-width:960px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;}
-.device-item{display:flex;align-items:center;gap:14px;padding:16px 20px;background:#fff;border:1px solid var(--border-light);border-radius:12px;transition:all .2s;margin-bottom:10px;}
-.device-item:hover{border-color:var(--accent);transform:translateX(4px);}
-.device-icon{font-size:24px;flex-shrink:0;}
-.device-title{font-size:14px;font-weight:500;color:var(--text-dark);}
-.device-sub{font-size:12px;color:var(--text2-dark);}
-.browser-highlight{margin-top:24px;padding:16px 20px;background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.18);border-radius:12px;font-size:14px;color:var(--accent);line-height:1.6;}
-#features{padding:80px 24px 100px;max-width:1100px;margin:0 auto;}
-.features-header{text-align:center;margin-bottom:60px;}
-.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;}
-.feature-card{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:32px 28px;transition:all .2s;position:relative;overflow:hidden;}
-.feature-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--fc,var(--accent)),transparent);opacity:0;transition:opacity .2s;}
-.feature-card:hover{border-color:var(--border2);transform:translateY(-3px);box-shadow:0 20px 40px rgba(0,0,0,.3);}
-.feature-card:hover::before{opacity:1;}
-.feature-icon{width:48px;height:48px;border-radius:12px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:20px;}
-.feature-title{font-size:17px;font-weight:500;color:var(--text);margin-bottom:8px;}
-.feature-text{font-size:13px;color:var(--text2);line-height:1.7;}
-#how{padding:100px 24px;}
-.how-inner{max-width:800px;margin:0 auto;text-align:center;}
-.steps{display:flex;flex-direction:column;margin-top:56px;text-align:left;}
-.step{display:flex;gap:28px;align-items:flex-start;padding:28px 0;border-bottom:1px solid var(--border-light);}
-.step:last-child{border-bottom:none;}
-.step-num{font-family:'DM Serif Display',serif;font-size:48px;color:rgba(124,58,237,.2);line-height:1;flex-shrink:0;width:56px;text-align:center;transition:color .2s;}
-.step:hover .step-num{color:rgba(124,58,237,.5);}
-.step-title{font-size:18px;font-weight:500;color:var(--text-dark);margin-bottom:6px;}
-.step-text{font-size:14px;color:var(--text2-dark);line-height:1.7;}
+.wa-section{background:var(--void)}
+.wa-grid{display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;margin-top:3rem}
+.wa-chat{background:var(--abyss);border-radius:16px;padding:1.4rem;border:1px solid var(--border)}
+.wa-header{display:flex;align-items:center;gap:.75rem;padding-bottom:.875rem;border-bottom:1px solid var(--border);margin-bottom:1.1rem}
+.wa-avatar{width:36px;height:36px;background:var(--violet);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px}
+.wa-name{font-weight:500;font-size:13px;color:var(--text1)}
+.wa-status{font-size:11px;color:var(--cyan)}
+.wa-messages{display:flex;flex-direction:column;gap:.65rem}
+.wa-msg{max-width:80%;padding:.6rem .9rem;border-radius:10px;font-size:12px;line-height:1.55}
+.wa-msg.user{background:var(--violet);color:#fff;align-self:flex-end;border-bottom-right-radius:3px}
+.wa-msg.ai{background:var(--surface);color:var(--text2);align-self:flex-start;border-bottom-left-radius:3px;border:1px solid var(--border)}
+.wa-time{font-size:10px;color:#ffffff33;margin-top:.25rem;text-align:right}
+.wa-features{display:flex;flex-direction:column;gap:1.25rem}
+.wa-feature h4{font-size:15px;font-weight:500;color:var(--text1);margin-bottom:.3rem}
+.wa-feature p{font-size:12px;color:var(--text2);line-height:1.65}
 
-/* ── Waitlist ── */
-#waitlist{padding:120px 24px;text-align:center;position:relative;overflow:hidden;}
-.waitlist-glow{position:absolute;bottom:-100px;left:50%;transform:translateX(-50%);width:800px;height:400px;background:radial-gradient(ellipse,rgba(124,58,237,.08) 0%,transparent 70%);pointer-events:none;}
-.waitlist-box{max-width:560px;margin:0 auto;background:#fff;border:1px solid var(--border-light);border-radius:24px;padding:52px 48px;position:relative;box-shadow:0 20px 60px rgba(124,58,237,.08);}
-#waitlist .waitlist-box h2{color:var(--text-dark);}
-#waitlist .waitlist-box p{color:var(--text2-dark);}
-.waitlist-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:100px;background:rgba(29,158,117,.1);border:1px solid rgba(29,158,117,.25);color:#1d9e75;font-size:11px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:20px;}
-.waitlist-counter{font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);margin-bottom:24px;padding:8px 16px;background:rgba(124,58,237,.07);border-radius:8px;display:inline-block;}
-.waitlist-form{display:flex;flex-direction:column;gap:12px;}
-.waitlist-input{width:100%;background:var(--bg-light);border:1px solid var(--border-light2);border-radius:12px;padding:14px 18px;font-size:14px;font-family:'DM Sans',sans-serif;color:var(--text-dark);outline:none;transition:border-color .15s;}
-.waitlist-input:focus{border-color:var(--accent);}
-.waitlist-input::placeholder{color:#b0aac8;}
-.waitlist-btn{width:100%;padding:15px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#059669);color:#fff;font-size:15px;font-weight:500;font-family:'DM Sans',sans-serif;border:none;cursor:pointer;transition:all .2s;}
-.waitlist-btn:hover{opacity:.85;transform:translateY(-1px);}
-.waitlist-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
-.waitlist-disclaimer{font-size:11px;color:var(--text2-dark);margin-top:12px;}
-.waitlist-success{display:none;padding:20px;background:rgba(29,158,117,.08);border:1px solid rgba(29,158,117,.2);border-radius:12px;color:#1d9e75;font-size:14px;line-height:1.6;}
-.spots-left{font-size:12px;color:var(--coral);margin-top:10px;font-weight:500;}
+.coletivo-section{background:var(--abyss)}
+.coletivo-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-top:2.75rem}
+.col-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.75rem;transition:border-color .2s}
+.col-card:hover{border-color:var(--violet)}
+.col-card.featured{border-color:#a99cf533}
+.col-target{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--lilac);margin-bottom:.75rem}
+.col-name{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--text1);margin-bottom:.25rem}
+.col-price{font-family:'DM Serif Display',serif;font-size:2.5rem;color:var(--text1);margin-bottom:.15rem}
+.col-price span{font-size:13px;font-family:'DM Sans',sans-serif;font-weight:400;color:var(--text2)}
+.col-base{font-size:12px;color:var(--text2);margin-bottom:.25rem}
+.col-extra{font-size:12px;color:var(--amber);font-weight:500;margin-bottom:1.1rem}
+.col-divider{height:1px;background:var(--border);margin-bottom:1.1rem}
+.col-items{list-style:none;display:flex;flex-direction:column;gap:.5rem}
+.col-items li{font-size:12px;color:var(--text2);display:flex;gap:.4rem;align-items:flex-start;line-height:1.5}
+.col-items li .dot{color:var(--cyan);flex-shrink:0}
+.col-enterprise{grid-column:1/-1;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.4rem 1.75rem;display:flex;align-items:center;justify-content:space-between;gap:2rem}
+.col-enterprise h4{font-size:17px;font-weight:500;color:var(--text1);margin-bottom:.3rem}
+.col-enterprise p{font-size:12px;color:var(--text2);line-height:1.6;max-width:540px}
 
-/* ── Footer ── */
-footer{background:var(--bg-light);border-top:1px solid var(--border-light);padding:40px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;max-width:1100px;margin:0 auto;color:var(--text2-dark);}
-.footer-logo{font-family:'DM Serif Display',serif;font-size:18px;color:var(--accent);}
-.footer-logo em{color:var(--text-dark);font-style:normal;}
-.footer-text{font-size:12px;color:var(--text2-dark);}
+.setores-section{background:var(--void);padding-top:0;padding-bottom:4rem}
+.setores-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem}
+.setor{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.875rem 1rem;transition:border-color .15s}
+.setor:hover{border-color:var(--violet)}
+.setor-name{font-size:13px;font-weight:500;color:var(--text1);margin-bottom:.2rem}
+.setor-desc{font-size:11px;color:var(--text2);line-height:1.5}
 
-@media(max-width:768px){.browser-inner,.wa-inner{grid-template-columns:1fr;}.wa-chat-mock{display:none;}}
-@media(max-width:640px){nav{padding:0 20px;}.hero-stats{gap:24px;}.waitlist-box{padding:36px 24px;}footer{flex-direction:column;text-align:center;}}
+.her-section{background:var(--abyss)}
+.her-quote{max-width:700px;margin:2.5rem auto 0;text-align:center}
+.her-quote blockquote{font-family:'DM Serif Display',serif;font-size:clamp(1.3rem,2.5vw,1.85rem);line-height:1.5;color:var(--text1);font-style:italic;margin-bottom:2rem}
+.her-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:2.5rem}
+.her-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.4rem}
+.her-card-icon{font-size:1.3rem;margin-bottom:.65rem}
+.her-card h4{font-size:13px;font-weight:500;color:var(--text1);margin-bottom:.3rem}
+.her-card p{font-size:12px;color:var(--text2);line-height:1.6}
+
+.combos-section{background:var(--void)}
+.combo-list{display:flex;flex-direction:column;gap:.875rem;margin-top:2.75rem}
+.combo{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1.25rem;padding:1.25rem 1.5rem;background:var(--abyss);border:1px solid var(--border);border-radius:12px;transition:border-color .2s}
+.combo:hover{border-color:var(--violet)}
+.combo-tag{font-size:10px;font-weight:500;padding:.3rem .8rem;border-radius:99px;white-space:nowrap}
+.combo-tag.v{background:#7c3aed22;color:var(--lilac);border:1px solid #7c3aed44}
+.combo-tag.g{background:#00F5D422;color:var(--cyan);border:1px solid #00F5D444}
+.combo-tag.a{background:#FF9F1C22;color:var(--amber);border:1px solid #FF9F1C44}
+.combo-title{font-size:14px;font-weight:500;color:var(--text1);margin-bottom:.2rem}
+.combo-desc{font-size:12px;color:var(--text2);line-height:1.5}
+.combo-price{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--text1);white-space:nowrap;text-align:right}
+.combo-save{font-size:11px;color:var(--cyan);text-align:right}
+
+/* Waitlist */
+.waitlist-section{background:var(--abyss);text-align:center}
+.waitlist-section .sec-title{color:var(--text1)}
+.waitlist-section .sec-sub{color:var(--text2);margin:0 auto 1.5rem}
+.wl-counter{font-family:'DM Mono',monospace;font-size:12px;color:var(--lilac);margin-bottom:1.5rem;padding:.4rem 1rem;background:#7c3aed18;border:1px solid #7c3aed33;border-radius:6px;display:inline-block}
+.wl-form-wrap{max-width:420px;margin:0 auto}
+.wl-form{display:flex;flex-direction:column;gap:.75rem}
+.wl-input{width:100%;padding:.8rem 1.1rem;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text1);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;transition:border-color .15s}
+.wl-input::placeholder{color:var(--text3)}
+.wl-input:focus{border-color:var(--violet)}
+.wl-btn{background:var(--violet);color:#fff;border:none;border-radius:7px;padding:.8rem 1.5rem;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:transform .15s,box-shadow .15s;width:100%}
+.wl-btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px #7c3aed33}
+.wl-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.wl-note{font-size:11px;color:var(--text3);margin-top:.875rem}
+.wl-success{display:none;margin-top:1rem;padding:1rem 1.25rem;background:#34d39918;border:1px solid #34d39944;border-radius:8px;color:var(--green);font-size:13px;line-height:1.6}
+.spots-msg{font-size:12px;color:var(--amber);min-height:1rem;margin-top:.5rem}
+
+footer{background:#080C10;color:var(--text3);padding:2.5rem 2rem 2rem;text-align:center;font-size:12px;border-top:1px solid var(--border)}
+footer .fl{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--text1);margin-bottom:.4rem}
+footer a{color:var(--text3);text-decoration:none}
+footer a:hover{color:var(--lilac)}
+
+@media(max-width:768px){
+  .science-grid,.wa-grid,.products-grid,.plans-grid,.coletivo-grid,.her-cards,.setores-grid{grid-template-columns:1fr}
+  .combo{grid-template-columns:1fr}
+  nav .nav-links{display:none}
+}
 </style>
 </head>
 <body>
 
 <nav>
-  <div class="nav-logo">Pally<em>um</em></div>
-  <a href="#precos" style="font-size:13px;color:var(--text2);text-decoration:none;transition:color .2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text2)'">Preços</a>
-  <a href="/app?mode=login" style="font-size:13px;color:rgba(255,255,255,0.4);text-decoration:none;transition:color .2s;" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">Já tenho acesso →</a>
-  <a href="#waitlist" class="nav-cta">Entrar na lista exclusiva</a>
+  <a href="#" class="nav-logo">Pallyum</a>
+  <ul class="nav-links">
+    <li><a href="#produto">Produto</a></li>
+    <li><a href="#companion">Companion</a></li>
+    <li><a href="#coletivo">Empresas</a></li>
+    <li><a href="#combos">Combos</a></li>
+  </ul>
+  <div class="nav-actions">
+    <a href="/app" class="nav-app">Entrar no app</a>
+    <a href="#waitlist" class="nav-cta">Entrar na lista</a>
+  </div>
 </nav>
 
-<section id="hero">
+<section class="hero">
+  <div class="hero-grid"></div>
   <div class="hero-glow"></div>
-  <div class="hero-label"><span></span> Seu segundo cérebro</div>
-  <h1>Chega de perder suas<br/><em>ideias na bagunça.</em></h1>
-  <p class="hero-sub">Tudo que você precisa lembrar, em um só lugar — com uma IA que te ajuda a não perder nada.</p>
-  <div class="hero-browser-note">🌐 Acessa pelo navegador, de qualquer dispositivo. Sem baixar nada.</div>
-  <div style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:13px;color:#34d399;animation:fadeUp .7s .28s ease both;">✦ 7 dias grátis em qualquer plano. Sem cartão de crédito.</div>
-  <div class="hero-actions">
-    <a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a>
-    <a href="#how" class="btn-secondary">Como funciona?</a>
+  <div class="symbol">
+    <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+      <circle cx="60" cy="60" r="50" stroke="#EF4444" stroke-width="2" opacity=".6"/>
+      <circle cx="60" cy="60" r="36" stroke="#34d399" stroke-width="2" opacity=".7"/>
+      <circle cx="60" cy="60" r="22" stroke="#a99cf5" stroke-width="2" opacity=".9"/>
+      <circle cx="60" cy="60" r="6" fill="#7c3aed"/>
+      <circle cx="60" cy="60" r="12" fill="#7c3aed" opacity=".18"/>
+    </svg>
+  </div>
+  <p class="hero-badge">INTELLIGENCE LAYER</p>
+  <h1>O manto que envolve<br><em>a sua inteligência</em></h1>
+  <p class="hero-sub">Não é um assistente. É uma presença que te conhece de verdade — lembra do que você disse, pensa junto, e escala do pessoal ao corporativo sem perder o fio.</p>
+  <div class="hero-ctas">
+    <a href="#waitlist" class="btn-p">Entrar na lista de espera</a>
+    <a href="#produto" class="btn-g">Ver como funciona</a>
   </div>
   <div class="hero-stats">
-    <div class="stat"><span class="stat-num">20</span><span class="stat-label">vagas exclusivas</span></div>
-    <div class="stat"><span class="stat-num">1</span><span class="stat-label">lugar para tudo</span></div>
-    <div class="stat"><span class="stat-num">∞</span><span class="stat-label">menos esquecimentos</span></div>
+    <div style="text-align:center"><div class="hero-stat-num">3</div><div class="hero-stat-label">produtos integrados</div></div>
+    <div style="text-align:center"><div class="hero-stat-num">∞</div><div class="hero-stat-label">conversas nos planos pagos</div></div>
+    <div style="text-align:center"><div class="hero-stat-num">7</div><div class="hero-stat-label">dias grátis para começar</div></div>
   </div>
 </section>
 
-<section id="video-section" class="section-light">
-  <div class="video-wrap">
-    <div class="video-app-preview">
-      <div class="fake-sidebar">
-        <div class="fake-sidebar-item" style="width:60%;opacity:.6"></div>
-        <div class="fake-sidebar-item" style="width:80%"></div>
-        <div class="fake-sidebar-item" style="width:70%;opacity:.8"></div>
-        <div class="fake-sidebar-item" style="width:90%"></div>
+<div class="divider"></div>
+
+<section class="science" id="produto">
+  <div class="container">
+    <p class="sec-label">A CIÊNCIA POR TRÁS</p>
+    <h2 class="sec-title">Inspirado na estrutura<br>do cérebro humano</h2>
+    <p class="sec-sub">O Pallium é o manto que envolve o cérebro de todos os vertebrados. O Pallyum adota a mesma arquitetura tripartite — sentidos, memória e decisão.</p>
+    <div class="science-grid">
+      <div style="display:flex;justify-content:center">
+        <svg width="280" height="280" viewBox="0 0 280 280" fill="none">
+          <circle cx="140" cy="140" r="110" stroke="#EF4444" stroke-width="2.5" opacity=".55"/>
+          <circle cx="140" cy="140" r="80" stroke="#34d399" stroke-width="2.5" opacity=".65"/>
+          <circle cx="140" cy="140" r="52" stroke="#a99cf5" stroke-width="2.5" opacity=".85"/>
+          <circle cx="140" cy="140" r="12" fill="#7c3aed"/>
+          <circle cx="140" cy="140" r="24" fill="#7c3aed" opacity=".15"/>
+          <text x="140" y="20" fill="#EF4444" font-size="11" font-family="DM Mono,monospace" text-anchor="middle" opacity=".8">Paleopallium</text>
+          <text x="140" y="52" fill="#34d399" font-size="11" font-family="DM Mono,monospace" text-anchor="middle" opacity=".8">Archipallium</text>
+          <text x="140" y="84" fill="#a99cf5" font-size="11" font-family="DM Mono,monospace" text-anchor="middle" opacity=".9">Neopallium</text>
+        </svg>
       </div>
-      <div class="fake-main">
-        <div class="fake-card"></div>
-        <div class="fake-card" style="height:40px;opacity:.6"></div>
-        <div class="fake-card" style="height:80px;opacity:.4"></div>
+      <div class="layers">
+        <div class="layer-card"><div class="layer-dot-lg" style="background:#a99cf5"></div><div><div class="layer-name">Neopallium — Decisão</div><div class="layer-desc">O córtex moderno. Motor de IA avançado, raciocínio complexo e tomada de decisão em tempo real.</div></div></div>
+        <div class="layer-card"><div class="layer-dot-lg" style="background:#34d399"></div><div><div class="layer-name">Archipallium — Memória</div><div class="layer-desc">O hipocampo digital. Vault semântico, histórico profundo, conexões entre ideias que você nem percebeu.</div></div></div>
+        <div class="layer-card"><div class="layer-dot-lg" style="background:#EF4444"></div><div><div class="layer-name">Paleopallium — Sentidos</div><div class="layer-desc">Voz, WhatsApp, APIs, integrações. O Pallyum ouvindo e agindo no mundo ao seu redor.</div></div></div>
       </div>
-    </div>
-    <div class="video-placeholder">
-      <div class="video-placeholder-icon">▶</div>
-      <div class="video-placeholder-text">Em breve — veja como o Pallyum, seu segundo cérebro, funciona</div>
-      <div class="video-placeholder-sub">Vídeo disponível em breve</div>
     </div>
   </div>
 </section>
 
-<section id="whatsapp-section" class="section-dark">
-  <div class="wa-glow"></div>
-  <div class="wa-inner">
-    <div class="wa-content reveal">
-      <div class="wa-label">💬 WhatsApp</div>
-      <div class="wa-title">Sua IA pessoal<br/>mora no seu <em>WhatsApp</em></div>
-      <p class="wa-text">Sem abrir nenhum app. Seu assistente está no WhatsApp — e <strong style="color:var(--text)">você escolhe o nome dele.</strong> Jarvis, Sofia, Max — o que fizer sentido pra você.</p>
-      <div class="wa-name-badge">✦ Você nomeia sua IA. Ela aprende com você. É sua mesmo.</div>
+<div class="divider"></div>
+
+<section class="products">
+  <div class="container">
+    <p class="sec-label">O PRODUTO</p>
+    <h2 class="sec-title">Três produtos.<br>Um ecossistema.</h2>
+    <p class="sec-sub">Podem ser usados separadamente ou combinados. Cada um cresce junto com você — do pessoal ao corporativo, sem ruptura.</p>
+    <div class="products-grid">
+      <div class="prod-card c1">
+        <div class="prod-icon">🤝</div>
+        <h3 class="prod-title">Companion</h3>
+        <p class="prod-sub">Presença pessoal 24h</p>
+        <div class="prod-divider"></div>
+        <ul class="prod-features">
+          <li><span style="color:var(--violet)">·</span> Conversas ilimitadas — sempre disponível</li>
+          <li><span style="color:var(--violet)">·</span> Memória emocional profunda</li>
+          <li><span style="color:var(--violet)">·</span> Personalidade que você nomeia</li>
+          <li><span style="color:var(--violet)">·</span> WhatsApp + voz (Whisper)</li>
+          <li><span style="color:var(--violet)">·</span> Proativo — age antes de você pedir</li>
+        </ul>
+      </div>
+      <div class="prod-card c2">
+        <div class="prod-icon">🧠</div>
+        <h3 class="prod-title">Segundo Cérebro</h3>
+        <p class="prod-sub">Poder profissional</p>
+        <div class="prod-divider"></div>
+        <ul class="prod-features">
+          <li><span style="color:var(--cyan)">·</span> Inclui Companion Pro</li>
+          <li><span style="color:var(--cyan)">·</span> Vault semântico + graph view neuronal</li>
+          <li><span style="color:var(--cyan)">·</span> Google Calendar e Gmail</li>
+          <li><span style="color:var(--cyan)">·</span> Integração financeira — 114 bancos</li>
+          <li><span style="color:var(--cyan)">·</span> Reuniões transcritas e indexadas</li>
+        </ul>
+      </div>
+      <div class="prod-card c3">
+        <div class="prod-icon">🏢</div>
+        <h3 class="prod-title">Cérebro Coletivo</h3>
+        <p class="prod-sub">Inteligência empresarial</p>
+        <div class="prod-divider"></div>
+        <ul class="prod-features">
+          <li><span style="color:var(--amber)">·</span> Agentes por setor — RH, Jurídico...</li>
+          <li><span style="color:var(--amber)">·</span> Vault central compartilhado</li>
+          <li><span style="color:var(--amber)">·</span> Permissões por papel e área</li>
+          <li><span style="color:var(--amber)">·</span> Pague por usuário real — sem assentos vazios</li>
+          <li><span style="color:var(--amber)">·</span> Decisões com contexto de toda a empresa</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section class="plans-section" id="companion">
+  <div class="container">
+    <p class="sec-label">COMPANION — PLANOS</p>
+    <h2 class="sec-title">Conversas ilimitadas.<br>Pague pela capacidade.</h2>
+    <p class="sec-sub">Nenhum plano pago limita mensagens. O que cresce com o plano é armazenamento, integrações e recursos.</p>
+    <div class="plans-grid">
+      <div class="plan-card">
+        <p class="plan-name">Teste</p>
+        <p class="plan-price">R$0 <span>/7 dias</span></p>
+        <p class="plan-storage">500MB · 50 notas</p>
+        <div class="plan-divider"></div>
+        <ul class="plan-items">
+          <li><span class="ck">✓</span> Conversas ilimitadas</li>
+          <li><span class="ck">✓</span> WhatsApp sandbox</li>
+          <li><span class="ck">✓</span> Memória 7 dias</li>
+          <li><span class="xk">–</span> Sem voz/áudio</li>
+          <li><span class="xk">–</span> Sem uploads</li>
+          <li><span class="xk">–</span> Sem Google</li>
+        </ul>
+      </div>
+      <div class="plan-card">
+        <p class="plan-name">Essencial</p>
+        <p class="plan-price">R$29 <span>/mês</span></p>
+        <p class="plan-storage">2GB · notas ilimitadas</p>
+        <div class="plan-divider"></div>
+        <ul class="plan-items">
+          <li><span class="ck">✓</span> Conversas ilimitadas</li>
+          <li><span class="ck">✓</span> WhatsApp oficial</li>
+          <li><span class="ck">✓</span> Memória 90 dias</li>
+          <li><span class="ck">✓</span> Voz/áudio (Whisper)</li>
+          <li><span class="xk">–</span> Sem uploads</li>
+          <li><span class="xk">–</span> Sem Google</li>
+        </ul>
+      </div>
+      <div class="plan-card featured">
+        <span class="plan-badge">Popular</span>
+        <p class="plan-name" style="margin-top:.4rem">Pro</p>
+        <p class="plan-price">R$59 <span>/mês</span></p>
+        <p class="plan-storage">10GB · histórico completo</p>
+        <div class="plan-divider"></div>
+        <ul class="plan-items">
+          <li><span class="ck">✓</span> Conversas ilimitadas</li>
+          <li><span class="ck">✓</span> WhatsApp + voz</li>
+          <li><span class="ck">✓</span> Memória permanente</li>
+          <li><span class="ck">✓</span> Upload fotos, docs, PDF</li>
+          <li><span class="ck">✓</span> Google Calendar + Gmail</li>
+          <li><span class="ck">✓</span> Briefing matinal</li>
+        </ul>
+      </div>
+      <div class="plan-card">
+        <p class="plan-name">Ultra</p>
+        <p class="plan-price">R$99 <span>/mês</span></p>
+        <p class="plan-storage">50GB · backup automático</p>
+        <div class="plan-divider"></div>
+        <ul class="plan-items">
+          <li><span class="ck">✓</span> Tudo do Pro</li>
+          <li><span class="ck">✓</span> Múltiplas personalidades</li>
+          <li><span class="ck">✓</span> Análise de imagens</li>
+          <li><span class="ck">✓</span> API pessoal (webhooks)</li>
+          <li><span class="ck">✓</span> Modelo premium</li>
+          <li><span class="ck">✓</span> Suporte prioritário</li>
+        </ul>
+      </div>
+    </div>
+    <div class="extras-note"><strong>Precisa de mais espaço?</strong> +10GB por R$9/mês · +50GB por R$29/mês — disponível em qualquer plano pago.</div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section class="wa-section">
+  <div class="container">
+    <p class="sec-label">WHATSAPP NATIVO</p>
+    <h2 class="sec-title">Seu cérebro mora<br>no WhatsApp</h2>
+    <div class="wa-grid">
+      <div class="wa-chat">
+        <div class="wa-header">
+          <div class="wa-avatar">🧠</div>
+          <div><div class="wa-name">Jarvis</div><div class="wa-status">● online agora</div></div>
+        </div>
+        <div class="wa-messages">
+          <div class="wa-msg user">Como está meu projeto principal?<div class="wa-time">08:31</div></div>
+          <div class="wa-msg ai">Seu MVP está no prazo. Faltam 3 itens antes do lançamento. Quer que eu priorize algum?<div class="wa-time">08:31</div></div>
+          <div class="wa-msg user">🎙️ <em>[áudio 18s]</em><div class="wa-time">08:32</div></div>
+          <div class="wa-msg ai">Transcrevi. Preparando briefing do dia com base no vault e agenda...<div class="wa-time">08:32</div></div>
+          <div class="wa-msg ai">📋 Hoje: reunião às 14h, 3 leads aguardando. Em março você estava preocupado com fluxo de caixa — isso mudou?<div class="wa-time">08:33</div></div>
+        </div>
+      </div>
       <div class="wa-features">
-        <div class="wa-feature">
-          <div class="wa-feature-dot">📅</div>
-          <div class="wa-feature-text"><strong>Lê sua agenda do Google Calendar</strong> — "o que tenho hoje?" e ela responde com todos os compromissos</div>
-        </div>
-        <div class="wa-feature">
-          <div class="wa-feature-dot">➕</div>
-          <div class="wa-feature-text"><strong>Agenda reuniões por mensagem</strong> — manda uma mensagem e o evento já aparece no seu calendário</div>
-        </div>
-        <div class="wa-feature">
-          <div class="wa-feature-dot">🧠</div>
-          <div class="wa-feature-text"><strong>Lê e cria notas no vault</strong> — acessa tudo que você já anotou e salva ideias novas direto pelo chat</div>
-        </div>
-        <div class="wa-feature">
-          <div class="wa-feature-dot">📝</div>
-          <div class="wa-feature-text"><strong>Não perca nada</strong> — manda um áudio ou texto e a nota é criada automaticamente, organizada na gaveta certa</div>
-        </div>
-        <div class="wa-feature">
-          <div class="wa-feature-dot">☀</div>
-          <div class="wa-feature-text"><strong>Briefing matinal</strong> — toda manhã um resumo das suas prioridades e agenda do dia direto no WhatsApp</div>
-        </div>
-      </div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;">
-        <a href="#waitlist" class="btn-whatsapp">💬 Quero minha IA no WhatsApp</a>
-      </div>
-    </div>
-    <div class="wa-chat-mock reveal">
-      <div class="wa-chat-header">
-        <div class="wa-chat-avatar">🧠</div>
-        <div><div class="wa-chat-name">Jarvis — Pallyum</div><div class="wa-chat-status">online agora</div></div>
-      </div>
-      <div class="wa-chat-body">
-        <div class="wa-msg sent">O que tenho na agenda hoje?<div class="wa-msg-time">08:07 ✓✓</div></div>
-        <div class="wa-msg received">📅 <strong>Sua agenda de hoje:</strong><br/>09:30 — Reunião equipe de vendas<br/>14:00 — Call com cliente Ana<br/>17:00 — Review semanal<div class="wa-msg-time">08:07</div></div>
-        <div class="wa-msg sent">Agenda reunião amanhã às 10h com João para falar do contrato<div class="wa-msg-time">08:12 ✓✓</div></div>
-        <div class="wa-msg received">✅ Evento criado no calendário:<br/><strong>"Reunião João — Contrato"</strong><br/>Amanhã às 10:00. Confirmado! 📅<div class="wa-msg-time">08:12</div></div>
-        <div class="wa-msg sent">Anota: revisar proposta cliente 4521 até sexta<div class="wa-msg-time">08:15 ✓✓</div></div>
-        <div class="wa-msg received">📝 Nota criada no vault:<br/><strong>"Revisar proposta — cliente 4521"</strong><br/>Prazo: sexta. Marcada como alta prioridade.<div class="wa-msg-time">08:15</div></div>
-        <div class="wa-typing"><span></span><span></span><span></span></div>
+        <div class="wa-feature"><h4>🎤 Voz que vira ação</h4><p>Mande um áudio e o Pallyum transcreve, entende e age. Sem digitar, sem abrir app.</p></div>
+        <div class="wa-feature"><h4>📅 Agenda em tempo real</h4><p>Google Calendar integrado — lê, cria e reagenda eventos por mensagem ou voz.</p></div>
+        <div class="wa-feature"><h4>🧠 Memória que cruza o tempo</h4><p>Conecta o que você disse antes com o que acontece agora. E avisa na hora certa.</p></div>
+        <div class="wa-feature"><h4>☀️ Briefing matinal automático</h4><p>Todo dia, no horário que você escolher, um resumo personalizado no seu WhatsApp.</p></div>
       </div>
     </div>
   </div>
 </section>
 
-<section id="pain" class="section-light">
-  <div class="section-label reveal">O problema</div>
-  <h2 class="reveal">Você anota em <em>todo lugar</em><br/>e não encontra em lugar nenhum</h2>
-  <p style="color:var(--text2);max-width:560px;margin:0 auto;font-size:15px;" class="reveal">Caderno, WhatsApp, bloco de notas, papelzinho na mesa... a informação existe, mas quando você precisa ela sumiu.</p>
-  <div class="pain-grid">
-    <div class="pain-card reveal"><span class="pain-icon">📒</span><div class="pain-title">Anotações espalhadas</div><div class="pain-text">Suas informações estão em dezenas de lugares. Quando precisa, não encontra nenhuma.</div></div>
-    <div class="pain-card reveal"><span class="pain-icon">🔥</span><div class="pain-title">Sempre apagando incêndio</div><div class="pain-text">Sem organização, tudo vira urgência. Você reage em vez de planejar.</div></div>
-    <div class="pain-card reveal"><span class="pain-icon">😓</span><div class="pain-title">"Eu sabia que tinha anotado..."</div><div class="pain-text">A sensação de que a informação existe mas sumiu. E o tempo perdido procurando.</div></div>
-    <div class="pain-card reveal"><span class="pain-icon">🧠</span><div class="pain-title">Tudo na cabeça cansa</div><div class="pain-text">Tentar lembrar de tudo ao mesmo tempo esgota. Sua cabeça não é um HD.</div></div>
-  </div>
-  <div class="section-cta center reveal">
-    <a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a>
-  </div>
-</section>
+<div class="divider"></div>
 
-<section id="solution" class="section-dark">
-  <div class="solution-glow"></div>
-  <div class="solution-inner">
-    <div class="section-label reveal">A solução</div>
-    <h2 class="reveal">O Pallyum é seu<br/><em>segundo cérebro</em></h2>
-    <p class="solution-text reveal">Um lugar só para <strong>todas as suas anotações, tarefas e ideias</strong> — organizado com inteligência artificial que te ajuda a encontrar, lembrar e agir. Como ter uma <strong>assistente pessoal disponível 24h</strong>, no seu celular ou computador.</p>
-    <div class="section-cta center reveal">
-      <a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a>
-      <a href="#features" class="btn-secondary">Ver o que inclui</a>
-    </div>
-  </div>
-</section>
-
-<section id="browser-section" class="section-light">
-  <div class="browser-inner">
-    <div class="browser-content reveal">
-      <div class="section-label">Em qualquer lugar</div>
-      <h2 style="font-size:clamp(26px,3vw,40px);">Sem baixar <em>nada.</em><br/>Abre no navegador.</h2>
-      <p style="color:var(--text2);font-size:14px;line-height:1.8;margin:16px 0 24px;">Não precisa instalar nenhum aplicativo. O Pallyum funciona direto no navegador do seu celular, tablet ou computador. Acessa de qualquer lugar, a qualquer hora.</p>
-      <div class="browser-highlight">🌐 Abra <strong style="color:var(--text)">pallyum.com</strong> em qualquer navegador e seu segundo cérebro está lá — pronto para usar.</div>
-      <div class="section-cta"><a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a></div>
-    </div>
-    <div class="reveal">
-      <div class="device-item"><div class="device-icon">💻</div><div><div class="device-title">Computador</div><div class="device-sub">Chrome, Safari, Edge, Firefox</div></div></div>
-      <div class="device-item"><div class="device-icon">📱</div><div><div class="device-title">Celular</div><div class="device-sub">iPhone, Android — qualquer modelo</div></div></div>
-      <div class="device-item"><div class="device-icon">📟</div><div><div class="device-title">Tablet</div><div class="device-sub">iPad, Samsung — funciona em todos</div></div></div>
-      <div class="device-item"><div class="device-icon">💬</div><div><div class="device-title">WhatsApp</div><div class="device-sub">Manda mensagem e já está salvo</div></div></div>
-    </div>
-  </div>
-</section>
-
-<section id="features" class="section-dark">
-  <div class="features-header">
-    <div class="section-label reveal">O que você vai ter</div>
-    <h2 class="reveal">Tudo que você precisa,<br/><em>em um só lugar</em></h2>
-  </div>
-  <div class="features-grid">
-    <div class="feature-card reveal" style="--fc:#7c6ef0"><div class="feature-icon">✎</div><div class="feature-title">Anote qualquer coisa</div><div class="feature-text">Texto, ideia, tarefa, decisão — capture em segundos e encontre depois com um clique.</div></div>
-    <div class="feature-card reveal" style="--fc:#D85A30"><div class="feature-icon">⚡</div><div class="feature-title">Organize por prioridade</div><div class="feature-text">Saiba sempre o que é urgente, o que está em andamento e o que já foi feito.</div></div>
-    <div class="feature-card reveal" style="--fc:#1D9E75"><div class="feature-icon">🎙</div><div class="feature-title">Capture por voz</div><div class="feature-text">Sem tempo para digitar? Fale — a IA transcreve, organiza e salva automaticamente.</div></div>
-    <div class="feature-card reveal" style="--fc:#a99cf5"><div class="feature-icon">◎</div><div class="feature-title">IA que te conhece</div><div class="feature-text">Pergunte qualquer coisa sobre suas notas. "Qual minha prioridade hoje?" — ela responde com contexto real.</div></div>
-    <div class="feature-card reveal" style="--fc:#25D366"><div class="feature-icon" style="background:rgba(37,211,102,.1);border-color:rgba(37,211,102,.2);">💬</div><div class="feature-title">Sua IA no WhatsApp</div><div class="feature-text">Você escolhe o nome. Ela agenda, anota, lê seu vault e te manda briefing toda manhã — tudo pelo WhatsApp.</div></div>
-    <div class="feature-card reveal" style="--fc:#D4537E"><div class="feature-icon">⬡</div><div class="feature-title">Visualize suas conexões</div><div class="feature-text">Veja como suas ideias se conectam em um mapa visual. Descubra padrões que você não sabia que existiam.</div></div>
-  </div>
-  <div class="section-cta center reveal">
-    <a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a>
-  </div>
-</section>
-
-<section id="how" class="section-light">
-  <div class="how-inner">
-    <div class="section-label reveal">Como funciona</div>
-    <h2 class="reveal">Simples como deveria ser</h2>
-    <div class="steps">
-      <div class="step reveal"><div class="step-num">1</div><div><div class="step-title">Crie sua conta em segundos</div><div class="step-text">Só email e senha. Direto no navegador — sem baixar nada. Você já chega numa tela de boas-vindas personalizada.</div></div></div>
-      <div class="step reveal"><div class="step-num">2</div><div><div class="step-title">Escolha o nome da sua IA</div><div class="step-text">Jarvis, Sofia, Max, o que quiser. Ela vai usar esse nome no WhatsApp e no app. É sua, com a sua cara.</div></div></div>
-      <div class="step reveal"><div class="step-num">3</div><div><div class="step-title">Organize do seu jeito</div><div class="step-text">Crie suas gavetas — Trabalho, Pessoal, Projetos. O Pallyum se adapta à sua vida, não o contrário.</div></div></div>
-      <div class="step reveal"><div class="step-num">4</div><div><div class="step-title">Capture de onde estiver</div><div class="step-text">No navegador, por voz ou pelo WhatsApp. Sua ideia nunca mais vai se perder.</div></div></div>
-    </div>
-    <div class="section-cta center reveal" style="margin-top:44px;">
-      <a href="#waitlist" class="btn-primary">✦ Entrar na lista exclusiva</a>
-    </div>
-  </div>
-</section>
-
-<section id="precos" class="section-dark" style="padding:100px 24px;">
-  <div style="max-width:1000px;margin:0 auto;text-align:center;">
-    <div class="section-label reveal">Planos e preços</div>
-    <h2 class="reveal">Simples e <em>transparente</em></h2>
-    <p class="reveal" style="color:var(--text2);font-size:15px;max-width:500px;margin:0 auto 16px;">7 dias grátis em qualquer plano. Cancele quando quiser. Sem surpresas.</p>
-
-    <!-- Toggle ciclo -->
-    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:40px;" class="reveal">
-      <button onclick="setLpCiclo('mensal',this)" id="lp-ciclo-mensal"
-        style="padding:7px 18px;border-radius:100px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;">
-        Mensal
-      </button>
-      <button onclick="setLpCiclo('semestral',this)" id="lp-ciclo-semestral"
-        style="padding:7px 18px;border-radius:100px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;">
-        Semestral <span style="color:#34d399;font-size:10px;">-10%</span>
-      </button>
-      <button onclick="setLpCiclo('anual',this)" id="lp-ciclo-anual"
-        style="padding:7px 18px;border-radius:100px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;">
-        Anual <span style="color:#34d399;font-size:10px;">-20%</span>
-      </button>
-    </div>
-
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:860px;margin:0 auto;" id="lp-planos-grid"></div>
-
-    <p style="font-size:11px;color:var(--text3);margin-top:24px;">Pagamento via Pix, Boleto ou Cartão de crédito</p>
-  </div>
-</section>
-
-<section id="waitlist" class="section-light">
-  <div class="waitlist-glow"></div>
-  <div class="waitlist-box reveal">
-    <div class="waitlist-badge">✦ Acesso exclusivo</div>
-    <h2>Resolva sua bagunça agora</h2>
-    <p>Estamos abrindo apenas <strong style="color:var(--text)">20 vagas</strong> para os primeiros usuários. Quem entrar primeiro vai moldar o produto e ter acesso ao período de testes.</p>
-    <div class="waitlist-counter" id="counter-display">⏳ Vagas restantes: carregando...</div>
-    <div id="waitlist-form-wrap">
-      <div class="waitlist-form">
-        <input class="waitlist-input" id="wl-name" type="text" placeholder="Seu nome" autocomplete="name"/>
-        <input class="waitlist-input" id="wl-email" type="email" placeholder="Seu melhor email" autocomplete="email"/>
-        <button class="waitlist-btn" id="wl-btn" onclick="submitWaitlist()">✦ Entrar na lista exclusiva</button>
+<section class="coletivo-section" id="coletivo">
+  <div class="container">
+    <p class="sec-label">CÉREBRO COLETIVO</p>
+    <h2 class="sec-title">Inteligência que escala<br>com sua empresa</h2>
+    <p class="sec-sub">Cada setor tem seu agente especializado. Todos lendo do mesmo vault central. Pague pelos usuários que usa — sem assentos vazios.</p>
+    <div class="coletivo-grid">
+      <div class="col-card">
+        <p class="col-target">PEQUENAS EMPRESAS</p>
+        <h3 class="col-name">Team</h3>
+        <p class="col-price">R$299 <span>/mês</span></p>
+        <p class="col-base">5 usuários inclusos · 100GB compartilhados</p>
+        <p class="col-extra">+ R$19 por usuário adicional</p>
+        <div class="col-divider"></div>
+        <ul class="col-items">
+          <li><span class="dot">✓</span> Vault central compartilhado</li>
+          <li><span class="dot">✓</span> Até 3 agentes setoriais</li>
+          <li><span class="dot">✓</span> Permissões por papel</li>
+          <li><span class="dot">✓</span> Histórico coletivo</li>
+          <li><span class="dot">✓</span> WhatsApp para o time</li>
+        </ul>
       </div>
-      <p class="waitlist-disclaimer">Sem spam. Você só receberá o link quando sua vaga for confirmada.</p>
-      <p class="spots-left" id="spots-msg"></p>
+      <div class="col-card featured">
+        <p class="col-target">EMPRESAS EM CRESCIMENTO</p>
+        <h3 class="col-name">Business</h3>
+        <p class="col-price">R$699 <span>/mês</span></p>
+        <p class="col-base">15 usuários inclusos · 500GB compartilhados</p>
+        <p class="col-extra">+ R$25 por usuário adicional</p>
+        <div class="col-divider"></div>
+        <ul class="col-items">
+          <li><span class="dot">✓</span> Agentes setoriais ilimitados</li>
+          <li><span class="dot">✓</span> Agentes 100% customizados</li>
+          <li><span class="dot">✓</span> API de integração (ERP, CRM)</li>
+          <li><span class="dot">✓</span> Relatórios por setor</li>
+          <li><span class="dot">✓</span> Onboarding dedicado</li>
+        </ul>
+      </div>
+      <div class="col-enterprise">
+        <div><h4>Enterprise — sob consulta</h4><p>Vault dedicado · SLA garantido · LGPD compliance · Integração com sistemas legados · Gerente de conta exclusivo. Para empresas acima de 50 usuários.</p></div>
+        <a href="mailto:leandro@somosvast.com" class="btn-g">Falar com a gente</a>
+      </div>
     </div>
-    <div class="waitlist-success" id="wl-success">🎉 <strong>Você está na lista!</strong><br/>Entraremos em contato assim que sua vaga for liberada. Fique de olho no seu email!</div>
+  </div>
+</section>
+
+<section class="setores-section">
+  <div class="container">
+    <p style="font-size:13px;font-weight:500;color:var(--text2);margin-bottom:1.1rem;text-align:center">Agentes setoriais — cada empresa monta o seu conjunto</p>
+    <div class="setores-grid">
+      <div class="setor"><div class="setor-name">RH & People</div><div class="setor-desc">Onboarding, políticas, benefícios, clima</div></div>
+      <div class="setor"><div class="setor-name">Jurídico</div><div class="setor-desc">Contratos, compliance, LGPD, pareceres</div></div>
+      <div class="setor"><div class="setor-name">Marketing</div><div class="setor-desc">Briefings, campanhas, métricas, copy</div></div>
+      <div class="setor"><div class="setor-name">Financeiro</div><div class="setor-desc">DRE, fluxo de caixa, relatórios</div></div>
+      <div class="setor"><div class="setor-name">Comercial</div><div class="setor-desc">Pipeline, clientes, propostas, follow-up</div></div>
+      <div class="setor"><div class="setor-name">TI & Produto</div><div class="setor-desc">Documentação, roadmap, incidentes</div></div>
+      <div class="setor"><div class="setor-name">Suporte</div><div class="setor-desc">FAQs, atendimento, SLA, escalações</div></div>
+      <div class="setor" style="border-style:dashed"><div class="setor-name">Personalizado</div><div class="setor-desc">Qualquer setor com contexto específico</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section class="her-section">
+  <div class="container">
+    <p class="sec-label">MAIS DO QUE UM ASSISTENTE</p>
+    <h2 class="sec-title">Uma inteligência que<br>cresce com você</h2>
+    <div class="her-quote">
+      <blockquote>"Imagine ter alguém que te conhece de verdade — que lembra do que você disse semana passada e pergunta como foi. Que age antes de você pedir."</blockquote>
+    </div>
+    <div class="her-cards">
+      <div class="her-card"><div class="her-card-icon">💜</div><h4>Presença genuína</h4><p>Não é um chatbot animado. É uma inteligência com memória, continuidade e o nome que você escolhe.</p></div>
+      <div class="her-card"><div class="her-card-icon">🔗</div><h4>Conexões invisíveis</h4><p>Você anotou algo em março. Aconteceu algo em julho. O Pallyum cruza os dois e avisa na hora certa.</p></div>
+      <div class="her-card"><div class="her-card-icon">📈</div><h4>Escala sem ruptura</h4><p>Começa como companhia pessoal. Quando você cresce, ele cresce junto — sem migrar, sem recomeçar.</p></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section class="combos-section" id="combos">
+  <div class="container">
+    <p class="sec-label">COMBOS</p>
+    <h2 class="sec-title">Ecossistema completo<br>com desconto</h2>
+    <p class="sec-sub">Para quem quer os três produtos juntos. Paga menos, usa mais.</p>
+    <div class="combo-list">
+      <div class="combo">
+        <span class="combo-tag v">Combo 1</span>
+        <div><p class="combo-title">Companion Pro + Segundo Cérebro Starter</p><p class="combo-desc">Para freelancers e autônomos — presença pessoal e organização profissional num pacote.</p></div>
+        <div><p class="combo-price">R$119<span style="font-size:12px;font-weight:400;color:var(--text2)">/mês</span></p><p class="combo-save">economiza R$19</p></div>
+      </div>
+      <div class="combo">
+        <span class="combo-tag g">Combo 2</span>
+        <div><p class="combo-title">Segundo Cérebro Pro + Cérebro Coletivo Team</p><p class="combo-desc">Para o fundador que usa pessoalmente e quer o produto para seu time de até 5 pessoas.</p></div>
+        <div><p class="combo-price">R$379<span style="font-size:12px;font-weight:400;color:var(--text2)">/mês</span></p><p class="combo-save">economiza R$49</p></div>
+      </div>
+      <div class="combo">
+        <span class="combo-tag a">Combo 3 · Ecossistema</span>
+        <div><p class="combo-title">Companion Ultra + Segundo Cérebro Executive + Cérebro Coletivo Business</p><p class="combo-desc">O stack completo. Para CEOs e líderes que operam nos três níveis.</p></div>
+        <div><p class="combo-price">R$799<span style="font-size:12px;font-weight:400;color:var(--text2)">/mês</span></p><p class="combo-save">economiza R$198</p></div>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:12px;color:var(--text3);margin-top:1.25rem">7 dias grátis em todos os planos · Cancele quando quiser · Sem fidelidade</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section class="waitlist-section" id="waitlist">
+  <div class="container">
+    <p class="sec-label" style="color:var(--lilac)">ACESSO ANTECIPADO</p>
+    <h2 class="sec-title">Faça parte do início</h2>
+    <p class="sec-sub">Os primeiros 100 usuários ganham 3 meses no plano Pro pelo preço do Essencial. Sem compromisso.</p>
+    <div id="counter-display" class="wl-counter">⏳ Vagas restantes: carregando...</div>
+    <p class="spots-msg" id="spots-msg"></p>
+    <div class="wl-form-wrap">
+      <div id="waitlist-form-wrap">
+        <div class="wl-form">
+          <input class="wl-input" id="wl-name" type="text" placeholder="Seu nome" autocomplete="name"/>
+          <input class="wl-input" id="wl-email" type="email" placeholder="Seu melhor email" autocomplete="email"/>
+          <button class="wl-btn" id="wl-btn" onclick="submitWaitlist()">Quero entrar na lista</button>
+        </div>
+        <p class="wl-note">Sem spam · Sem cartão de crédito · Só avisamos quando abrir</p>
+      </div>
+      <div class="wl-success" id="wl-success">🎉 <strong>Você está na lista!</strong><br/>Entraremos em contato assim que sua vaga for liberada. Fique de olho no seu email!</div>
+    </div>
   </div>
 </section>
 
 <footer>
-  <div class="footer-logo">Pally<em>um</em></div>
-  <div class="footer-text">© 2026 Pallyum — Somos Vast LTDA</div>
-  <div class="footer-text">contato: <a href="mailto:leandro@somosvast.com" style="color:var(--text2-dark);text-decoration:none;">leandro@somosvast.com</a></div>
-  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-    <a href="/privacidade" style="font-size:12px;color:var(--text3);text-decoration:none;" onmouseover="this.style.color='var(--text2)'" onmouseout="this.style.color='var(--text3)'">Política de Privacidade</a>
-    <a href="/termos" style="font-size:12px;color:var(--text3);text-decoration:none;" onmouseover="this.style.color='var(--text2)'" onmouseout="this.style.color='var(--text3)'">Termos de Serviço</a>
-  </div>
+  <div class="fl">Pallyum</div>
+  <p style="margin-bottom:.875rem;font-style:italic">O manto que envolve a sua inteligência.</p>
+  <p><a href="mailto:leandro@somosvast.com">leandro@somosvast.com</a> &nbsp;·&nbsp; <a href="/privacidade">Privacidade</a> &nbsp;·&nbsp; <a href="/termos">Termos</a></p>
+  <p style="margin-top:1.25rem;font-size:11px">© 2026 Somos Vast LTDA — Pallyum. Todos os direitos reservados.</p>
 </footer>
 
 <script>
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
-document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-
 const SUPABASE_URL = 'https://qmsuykfqtiqaauinehfu.supabase.co';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtc3V5a2ZxdGlxYWF1aW5laGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDYyMDMsImV4cCI6MjA5MzY4MjIwM30.fTiJ4pmmYMaDRWooDqClGWPpQM5-pta4zSd0Z5gQ6lM';
-const MAX_SPOTS = 20;
+const MAX_SPOTS = 100;
 
 async function getCount() {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?select=id`, { headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY } });
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?select=id`, {
+    headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY }
+  });
   const data = await res.json();
   return Array.isArray(data) ? data.length : 0;
 }
@@ -471,14 +571,16 @@ async function loadCounter() {
     const msg = document.getElementById('spots-msg');
     if (remaining === 0) {
       el.textContent = '🔴 Todas as vagas foram preenchidas';
-      el.style.background = 'rgba(216,90,48,.1)'; el.style.color = 'var(--coral)';
+      el.style.background = 'rgba(239,68,68,.1)'; el.style.color = 'var(--red)';
       document.getElementById('wl-btn').disabled = true;
       document.getElementById('wl-btn').textContent = 'Lista encerrada';
     } else {
       el.textContent = `⏳ ${remaining} vaga${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}`;
-      if (remaining <= 5) msg.textContent = `⚠️ Apenas ${remaining} vaga${remaining > 1 ? 's' : ''} disponível${remaining > 1 ? 'is' : ''}!`;
+      if (remaining <= 10) msg.textContent = `⚠️ Apenas ${remaining} vaga${remaining > 1 ? 's' : ''} disponível${remaining > 1 ? 'is' : ''}!`;
     }
-  } catch(e) { document.getElementById('counter-display').textContent = '⏳ Vagas limitadas — garanta a sua'; }
+  } catch(e) {
+    document.getElementById('counter-display').textContent = '⏳ Vagas limitadas — garanta a sua';
+  }
 }
 
 async function submitWaitlist() {
@@ -491,11 +593,13 @@ async function submitWaitlist() {
   try {
     const count = await getCount();
     if (count >= MAX_SPOTS) { btn.textContent = 'Lista encerrada'; loadCounter(); return; }
-    const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?email=eq.${encodeURIComponent(email)}&select=id`, { headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY } });
+    const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?email=eq.${encodeURIComponent(email)}&select=id`, {
+      headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY }
+    });
     const existing = await checkRes.json();
     if (existing && existing.length > 0) {
-      document.getElementById('wl-success').style.display = 'block';
       document.getElementById('wl-success').innerHTML = '✅ <strong>Você já está na lista!</strong><br/>Fique de olho no seu email.';
+      document.getElementById('wl-success').style.display = 'block';
       document.getElementById('waitlist-form-wrap').style.display = 'none';
       return;
     }
@@ -510,112 +614,14 @@ async function submitWaitlist() {
       loadCounter();
     } else { throw new Error('Erro ' + res.status); }
   } catch(e) {
-    btn.disabled = false; btn.textContent = '✦ Entrar na lista exclusiva';
+    btn.disabled = false; btn.textContent = 'Quero entrar na lista';
     alert('Ops! Algo deu errado. Tente novamente.');
   }
 }
 
-document.getElementById('wl-email').addEventListener('keydown', e => { if (e.key === 'Enter') submitWaitlist(); });
 document.getElementById('wl-name').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('wl-email').focus(); });
+document.getElementById('wl-email').addEventListener('keydown', e => { if (e.key === 'Enter') submitWaitlist(); });
 loadCounter();
-
-// ── Pricing section ───────────────────────────────────────────────
-let _lpCiclo = 'mensal';
-
-const LP_PLANOS = [
-  {
-    id: 'essencial',
-    nome: 'Essencial',
-    cor: '#7c3aed',
-    precos: { mensal: 49, semestral: 44, anual: 39 },
-    recursos: [
-      '10 mensagens IA por dia',
-      '5 mensagens WhatsApp por dia',
-      '5 capturas de voz por dia',
-      'Vault ilimitado de notas',
-      'Graph view',
-      'Kanban e organização',
-    ],
-  },
-  {
-    id: 'pro',
-    nome: 'Pro',
-    cor: '#34d399',
-    destaque: true,
-    precos: { mensal: 89, semestral: 80, anual: 71 },
-    recursos: [
-      '50 mensagens IA por dia',
-      '20 mensagens WhatsApp por dia',
-      'Captura de voz ilimitada',
-      'Google Calendar integrado',
-      'Briefing matinal',
-      'Upload de arquivos até 1GB',
-      'Tudo do Essencial',
-    ],
-  },
-  {
-    id: 'business',
-    nome: 'Business',
-    cor: '#fb923c',
-    precos: { mensal: 149, semestral: 134, anual: 119 },
-    recursos: [
-      'IA ilimitada',
-      'WhatsApp ilimitado',
-      'Voz ilimitada',
-      'Storage até 5GB',
-      'Suporte prioritário',
-      'Tudo do Pro',
-    ],
-  },
-];
-
-function setLpCiclo(ciclo, btn) {
-  _lpCiclo = ciclo;
-  document.querySelectorAll('#precos button[id^="lp-ciclo"]').forEach(b => {
-    b.style.background   = 'transparent';
-    b.style.color        = 'var(--text2)';
-    b.style.borderColor  = 'var(--border2)';
-  });
-  btn.style.background  = 'var(--accent)';
-  btn.style.color       = '#fff';
-  btn.style.borderColor = 'var(--accent)';
-  renderLpPlanos();
-}
-
-function renderLpPlanos() {
-  const grid = document.getElementById('lp-planos-grid');
-  if (!grid) return;
-  grid.innerHTML = LP_PLANOS.map(p => {
-    const preco = p.precos[_lpCiclo];
-    const totalLabel = _lpCiclo === 'semestral'
-      ? `R$${(preco * 6).toFixed(0)}/semestre`
-      : _lpCiclo === 'anual'
-      ? `R$${(preco * 12).toFixed(0)}/ano`
-      : '';
-    return `
-      <div style="background:var(--bg);border:${p.destaque ? '2px solid ' + p.cor : '1px solid var(--border2)'};border-radius:16px;padding:28px 24px;position:relative;transition:all .2s;text-align:left;">
-        ${p.destaque ? `<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);padding:4px 14px;border-radius:100px;background:${p.cor};color:#fff;font-size:11px;font-weight:500;white-space:nowrap;">Mais popular</div>` : ''}
-        <div style="width:10px;height:10px;border-radius:50%;background:${p.cor};margin-bottom:12px;"></div>
-        <div style="font-size:18px;font-weight:500;color:var(--text);margin-bottom:16px;">${p.nome}</div>
-        <div style="margin-bottom:4px;">
-          <span style="font-family:'DM Serif Display',serif;font-size:40px;color:var(--text);">R$${preco}</span>
-          <span style="font-size:13px;color:var(--text2);">/mês</span>
-        </div>
-        ${totalLabel ? `<div style="font-size:11px;color:var(--text3);margin-bottom:20px;">${totalLabel}</div>` : '<div style="margin-bottom:20px;"></div>'}
-        <a href="#waitlist" style="display:block;text-align:center;padding:12px;border-radius:10px;background:${p.cor};color:#fff;text-decoration:none;font-size:14px;font-weight:500;font-family:'DM Sans',sans-serif;margin-bottom:20px;transition:opacity .2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-          Começar 7 dias grátis
-        </a>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          ${p.recursos.map(r => `
-            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);">
-              <span style="color:${p.cor};font-size:14px;flex-shrink:0;">✓</span>${r}
-            </div>`).join('')}
-        </div>
-      </div>`;
-  }).join('');
-}
-
-renderLpPlanos();
 </script>
 </body>
 </html>
