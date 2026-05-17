@@ -33,20 +33,71 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:.9rem 2rem;display:f
 .hero-grid{position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:.3;pointer-events:none}
 .hero-glow{position:absolute;top:-20%;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,#7c3aed22 0%,transparent 70%);pointer-events:none}
 .symbol{
+  position:relative;
   width:380px;
   max-width:80vw;
   aspect-ratio:1/1;
   margin-bottom:1.5rem;
   animation:float 6s ease-in-out infinite;
-  display:flex;
-  align-items:center;
-  justify-content:center;
 }
-.symbol img{
+.symbol-img{
+  position:relative;
+  width:100%;
+  height:100%;
+  display:block;
+  z-index:2;
+  animation:brainBreath 4s ease-in-out infinite;
+}
+.symbol-img img{
   width:100%;
   height:100%;
   object-fit:contain;
   display:block;
+}
+.symbol-halo{
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:120%;
+  height:120%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,rgba(124,58,237,0.22) 0%,transparent 60%);
+  pointer-events:none;
+  z-index:1;
+  animation:haloPulse 4s ease-in-out infinite;
+}
+.symbol-neurons{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  z-index:3;
+  mix-blend-mode:screen;
+}
+.np{
+  animation:nPulse 2.5s ease-in-out infinite;
+  filter:drop-shadow(0 0 3px currentColor);
+}
+.np.n1{animation-delay:-0.2s;}
+.np.n2{animation-delay:-0.6s;}
+.np.n3{animation-delay:-1.0s;}
+.np.n4{animation-delay:-1.4s;}
+.np.n5{animation-delay:-1.8s;}
+.np.n6{animation-delay:-0.4s;}
+.np.n7{animation-delay:-0.8s;}
+.np.n8{animation-delay:-1.2s;}
+@keyframes brainBreath{
+  0%,100%{filter:brightness(1) saturate(1);}
+  50%{filter:brightness(1.12) saturate(1.18);}
+}
+@keyframes haloPulse{
+  0%,100%{opacity:0.7;transform:translate(-50%,-50%) scale(0.95);}
+  50%{opacity:1;transform:translate(-50%,-50%) scale(1.05);}
+}
+@keyframes nPulse{
+  0%,100%{opacity:0.3;transform:scale(1);transform-origin:center;}
+  50%{opacity:1;transform:scale(2);}
 }
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 .hero-badge{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--lilac);margin-bottom:1.25rem;opacity:0;animation:fadeUp .8s .2s forwards}
@@ -73,6 +124,7 @@ section{padding:5.5rem 2rem}
 
 .science{background:var(--abyss)}
 .brain-stage{
+  position:relative;
   width:100%;
   max-width:960px;
   margin:3rem auto 0;
@@ -82,6 +134,14 @@ section{padding:5.5rem 2rem}
   gap:1rem 2rem;
   align-items:center;
   justify-items:start;
+}
+.callouts{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  z-index:5;
 }
 .brain-wrap{
   grid-column:2;
@@ -159,6 +219,7 @@ section{padding:5.5rem 2rem}
   .cl-archi{grid-column:1;grid-row:2;align-self:auto;justify-self:start;text-align:left;}
   .cl-core{grid-column:1;grid-row:4;align-self:auto;}
   .cl-neo{grid-column:1;grid-row:5;align-self:auto;justify-self:start;text-align:left;}
+  .callouts{display:none;}
 }
 
 .products{background:var(--void)}
@@ -307,11 +368,22 @@ footer a:hover{color:var(--lilac)}
   <div class="hero-grid"></div>
   <div class="hero-glow"></div>
   <div class="symbol">
-    <picture>
+    <div class="symbol-halo"></div>
+    <picture class="symbol-img">
       <source media="(max-width: 768px)" srcset="assets/brain-hero-md.webp">
       <img src="assets/brain-hero.webp" alt="Cérebro neural Pallyum com três camadas"
            loading="eager" fetchpriority="high" decoding="async">
     </picture>
+    <svg class="symbol-neurons" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <circle class="np n1" cx="30" cy="32" r="0.8" fill="#EF4444"/>
+      <circle class="np n2" cx="48" cy="26" r="0.7" fill="#34d399"/>
+      <circle class="np n3" cx="65" cy="34" r="0.8" fill="#EF4444"/>
+      <circle class="np n4" cx="42" cy="48" r="0.9" fill="#a99cf5"/>
+      <circle class="np n5" cx="58" cy="52" r="0.8" fill="#34d399"/>
+      <circle class="np n6" cx="38" cy="62" r="0.7" fill="#00F5D4"/>
+      <circle class="np n7" cx="62" cy="64" r="0.8" fill="#a99cf5"/>
+      <circle class="np n8" cx="50" cy="44" r="1.2" fill="#F8F9FA"/>
+    </svg>
   </div>
   <p class="hero-badge">INTELLIGENCE LAYER</p>
   <h1>O manto que envolve<br><em>a sua inteligência</em></h1>
@@ -336,6 +408,23 @@ footer a:hover{color:var(--lilac)}
     <p class="sec-sub">O Pallium é o manto que envolve o cérebro de todos os vertebrados. O Pallyum adota a mesma arquitetura tripartite — sentidos, memória e decisão.</p>
 
   <div class="brain-stage">
+    <svg class="callouts" viewBox="0 0 1000 600" preserveAspectRatio="none">
+      <line x1="220" y1="160" x2="400" y2="220" stroke="#EF4444" stroke-width="1" opacity="0.6"/>
+      <circle cx="400" cy="220" r="4" fill="#EF4444"/>
+      <circle cx="400" cy="220" r="8" fill="#EF4444" opacity="0.3"/>
+
+      <line x1="780" y1="160" x2="600" y2="240" stroke="#34d399" stroke-width="1" opacity="0.6"/>
+      <circle cx="600" cy="240" r="4" fill="#34d399"/>
+      <circle cx="600" cy="240" r="8" fill="#34d399" opacity="0.3"/>
+
+      <line x1="220" y1="440" x2="490" y2="310" stroke="#7c3aed" stroke-width="1" opacity="0.7"/>
+      <circle cx="490" cy="310" r="5" fill="#7c3aed"/>
+      <circle cx="490" cy="310" r="10" fill="#7c3aed" opacity="0.4"/>
+
+      <line x1="780" y1="440" x2="580" y2="380" stroke="#a99cf5" stroke-width="1" opacity="0.6"/>
+      <circle cx="580" cy="380" r="4" fill="#a99cf5"/>
+      <circle cx="580" cy="380" r="8" fill="#a99cf5" opacity="0.3"/>
+    </svg>
     <div class="cl cl-paleo">
       <div class="cl-tag">Camada externa</div>
       <div class="cl-name">Paleopallium</div>
