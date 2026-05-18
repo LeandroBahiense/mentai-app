@@ -1,3 +1,6 @@
+import { getModelForUser, calculateCooldown, trackUsage } from './_lib/plans.js';
+import { searchRelevantNotes, buildRagContext }           from './_lib/embeddings.js';
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -6,6 +9,11 @@ const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_FROM = process.env.TWILIO_WHATSAPP_FROM;
+
+function sleep(ms) {
+  if (!ms || ms <= 0) return Promise.resolve();
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function sbHeaders() {
   return {
@@ -153,7 +161,7 @@ function detectMeetingTranscript(text) {
   return hasTriggerWords || hasTranscriptPattern;
 }
 
-async function processMeetingTranscript(transcriptText, userId) {
+async function processMeetingTranscript(transcriptText, userId, model) {
   const extractPrompt = [
     'Analise esta transcrição de reunião e extraia as informações estruturadas.',
     'Responda APENAS com JSON:',
@@ -166,7 +174,7 @@ async function processMeetingTranscript(transcriptText, userId) {
     '}',
   ].join('\n');
 
-  const raw = await askClaude(extractPrompt, [{ role: 'user', content: transcriptText }]);
+  const raw = await askClaude(extractPrompt, [{ role: 'user', content: transcriptText }], model);
   if (!raw) throw new Error('Claude não retornou dados da transcrição');
 
   const cleaned = raw
@@ -600,7 +608,8 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
 
 // ─── Claude ──────────────────────────────────────────────────────────────────
 
-async function askClaude(system, messages) {
+async function askClaude(system, messages, model) {
+  const resolvedModel = model || 'claude-sonnet-4-6';
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -609,13 +618,13 @@ async function askClaude(system, messages) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model:      'claude-sonnet-4-5',
+      model:      resolvedModel,
       max_tokens: 1500,
       system:     system,
       messages:   messages,
     }),
   });
-  console.log('CLAUDE STATUS:', res.status);
+  console.log('CLAUDE STATUS:', res.status, '| MODEL:', resolvedModel);
   const data = await res.json();
   if (data.content && data.content[0] && data.content[0].text) return data.content[0].text;
   if (data.error) console.error('CLAUDE ERROR:', JSON.stringify(data.error));
@@ -682,6 +691,24 @@ export default async function handler(req, res) {
     console.log('GOOGLE TOKENS FOUND:', !!googleTokens, '| PHONE:', phone);
     console.log('USER ID:', userId);
 
+    // ── Modelo e cooldown por plano ───────────────────────────────────────
+    if (userId) {
+      const [userModel, cooldown] = await Promise.all([
+        getModelForUser(userId),
+        calculateCooldown(userId),
+      ]);
+      req._pallyumModel    = userModel;
+      req._pallyumCooldown = cooldown;
+      console.log('PLAN: model=' + userModel + ' | cooldown=' + cooldown);
+
+      if (cooldown === 'BLOCKED') {
+        await sendWhatsApp(phone, 'Limite de uso atingido. Entre em contato com o suporte pelo app.');
+        return res.status(200).send('OK');
+      }
+      // Aplica delay fair-use ANTES de processar (parece "digitando...")
+      if (cooldown > 0) await sleep(cooldown);
+    }
+
     // ── Upload de imagem / documento (agora com userId resolvido) ─────────
     if (hasMedia) {
       try {
@@ -710,7 +737,7 @@ export default async function handler(req, res) {
         console.log('GMAIL MESSAGES:', gmailMessages.length);
       }
     } else if (needsGoogle) {
-      const authLink = 'https://mykoreo.com.br/api/auth/google?phone=' + encodeURIComponent(phone);
+      const authLink = 'https://pallyum.com/api/auth/google?phone=' + encodeURIComponent(phone);
       await sendWhatsApp(phone, 'Para acessar sua agenda e emails, conecte o Google primeiro: ' + authLink);
       return res.status(200).send('OK');
     }
@@ -725,7 +752,7 @@ export default async function handler(req, res) {
     if (detectMeetingTranscript(userMessage)) {
       console.log('TRANSCRIPT DETECTED: processando como reunião');
       try {
-        const meetData = await processMeetingTranscript(userMessage, userId);
+        const meetData = await processMeetingTranscript(userMessage, userId, req._pallyumModel);
         const parts = (meetData.participants || []).join(', ') || '—';
         const nDec  = (meetData.decisions || []).length;
         const nAct  = (meetData.actions   || []).length;
@@ -749,23 +776,19 @@ export default async function handler(req, res) {
       }
     }
 
-    const [notes, history] = await Promise.all([getNotes(), getHistory(phone)]);
-    console.log('NOTES:', Array.isArray(notes) ? notes.length : 0);
+    const history = await getHistory(phone);
 
-    // ── Detecta pergunta sobre o vault e busca por conteúdo ───────────────
-    const isVaultQuestion = /o que|quando|quem|onde|anotei|decidi|falei|está escrito|lembro|o que eu|o que a/i.test(userMessage);
-    let searchResults = [];
-    if (isVaultQuestion && userId) {
-      const keywords = extractKeywords(userMessage);
-      if (keywords) {
-        searchResults = await searchNotesByContent(userId, keywords);
-        console.log('VAULT SEARCH:', keywords, '| RESULTS:', searchResults.length);
+    // ── RAG semântico: busca notas relevantes para a mensagem ─────────────
+    let ragContext = '';
+    if (userId) {
+      try {
+        const ragNotes = await searchRelevantNotes(userId, userMessage);
+        ragContext = buildRagContext(ragNotes);
+        console.log('RAG:', ragNotes.length, 'notas encontradas para:', userMessage.substring(0, 60));
+      } catch (ragErr) {
+        console.warn('RAG error (non-fatal):', ragErr.message);
       }
     }
-
-    const vault = Array.isArray(notes)
-      ? notes.map(function(n) { return '### ' + n.title + '\n' + (n.content || '').substring(0, 300); }).join('\n---\n')
-      : '';
 
     const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
@@ -777,14 +800,9 @@ export default async function handler(req, res) {
       system += 'ARQUIVO RECEBIDO: O usuário enviou um arquivo via WhatsApp que foi salvo com sucesso no vault (Supabase Storage). Mencione de forma curta que o arquivo foi recebido e salvo.\n\n';
     }
 
-    if (searchResults.length > 0) {
-      const relevantVault = searchResults
-        .map(function(n) { return '### ' + n.title + '\n' + (n.content || '').substring(0, 500); })
-        .join('\n---\n');
-      system += 'NOTAS RELEVANTES (corresponderam à busca — priorize estas na resposta):\n' + relevantVault + '\n\n';
+    if (ragContext) {
+      system += ragContext + '\n\n';
     }
-
-    system += 'NOTAS DO VAULT:\n' + (vault || '(nenhuma nota ainda)') + '\n\n';
 
     if (googleConnected) {
       system += 'AGENDA DE HOJE:\n' + formatCalendarEvents(calendarEvents) + '\n\n';
@@ -810,7 +828,7 @@ export default async function handler(req, res) {
       .map(function(m) { return { role: m.role, content: m.content }; })
       .concat([{ role: 'user', content: userMessage }]);
 
-    const reply = await askClaude(system, msgs);
+    const reply = await askClaude(system, msgs, req._pallyumModel);
     console.log('REPLY:', (reply || '').substring(0, 200));
 
     if (!reply) {
@@ -901,6 +919,12 @@ export default async function handler(req, res) {
 
     const msgToSend = finalReply || '✅ Feito!';
     await sendWhatsApp(phone, msgToSend);
+
+    // ── Tracking de uso ───────────────────────────────────────────────────
+    if (userId) {
+      trackUsage(userId, 'whatsapp', { audio: hasAudio, image: !!hasMedia }).catch(console.error);
+    }
+
     return res.status(200).send('OK');
 
   } catch (err) {
