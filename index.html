@@ -915,6 +915,25 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           </div>
           <span id="email-status" class="ss-status" style="display:none;margin-top:8px;"></span>
         </div>
+        <div class="settings-section" id="section-conexoes">
+          <div class="ss-title">🔗 Conexões externas</div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
+            Conecte serviços externos para ampliar o que o Pallyum pode fazer.
+          </p>
+          <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;">
+            <div style="font-size:26px;flex-shrink:0;">🗓</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:500;color:var(--text);">Google Calendar + Gmail</div>
+              <div id="conn-google-status" style="font-size:11px;color:var(--text3);margin-top:3px;">Verificando...</div>
+            </div>
+            <button id="conn-google-btn" class="ss-btn primary" onclick="connectGoogle()" style="white-space:nowrap;flex-shrink:0;">
+              Conectar
+            </button>
+          </div>
+          <p style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.55;">
+            Ao conectar, o Pallyum poderá ler e criar eventos no seu Google Calendar e ler e-mails do Gmail para responder pelo WhatsApp.
+          </p>
+        </div>
         <div class="settings-section">
           <div class="ss-title">📊 Status do sistema</div>
           <div id="system-status" style="font-size:12px;color:var(--text2);line-height:2"></div>
@@ -1746,6 +1765,51 @@ async function iniciarCheckout(planoId, ev) {
 // EMAILS ALTERNATIVOS
 // ══════════════════════════════════════════════════════════════════
 
+async function checkGoogleConnection() {
+  if (!currentUser || !_supabase) return;
+  const statusEl = document.getElementById('conn-google-status');
+  const btnEl = document.getElementById('conn-google-btn');
+  if (!statusEl || !btnEl) return;
+  try {
+    const { data } = await _supabase.from('google_tokens')
+      .select('email, updated_at')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+    if (data && data.email) {
+      statusEl.textContent = '✓ Conectado: ' + data.email;
+      statusEl.style.color = 'var(--green)';
+      btnEl.textContent = 'Desconectar';
+      btnEl.className = 'ss-btn';
+      btnEl.style.color = 'var(--coral)';
+      btnEl.style.borderColor = 'rgba(216,90,48,.3)';
+      btnEl.onclick = disconnectGoogle;
+    } else {
+      statusEl.textContent = 'Não conectado';
+      statusEl.style.color = 'var(--text3)';
+      btnEl.textContent = 'Conectar';
+      btnEl.className = 'ss-btn primary';
+      btnEl.style.color = '';
+      btnEl.style.borderColor = '';
+      btnEl.onclick = connectGoogle;
+    }
+  } catch(e) {
+    console.warn('checkGoogleConnection error:', e);
+    statusEl.textContent = 'Erro ao verificar';
+  }
+}
+
+function connectGoogle() {
+  if (!currentUser) return;
+  sessionStorage.setItem('pallyum-return-to', 'settings');
+  window.location.href = '/api/auth/google?user_id=' + encodeURIComponent(currentUser.id);
+}
+
+async function disconnectGoogle() {
+  if (!confirm('Desconectar Google? O Pallyum perderá acesso ao seu Calendar e Gmail até reconectar.')) return;
+  await _supabase.from('google_tokens').delete().eq('user_id', currentUser.id);
+  checkGoogleConnection();
+}
+
 async function loadUserEmails() {
   if (!currentUser || !_supabase) return;
   const { data } = await _supabase
@@ -1877,6 +1941,7 @@ function navigate(view) {
   if (view === 'settings') {
     loadUserEmails();
     updateSystemStatus();
+    checkGoogleConnection();
   }
   if (view === 'graph') {
     setTimeout(() => {
@@ -3943,6 +4008,24 @@ function initSupabaseAuth() {
       currentUser = session.user;
       hideAuthScreen();
       injectTopbarButtons();
+
+      // Detectar retorno do OAuth do Google
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('conn') === 'google_ok') {
+        history.replaceState(null, '', window.location.pathname);
+        setTimeout(() => {
+          navigate('settings');
+          const statusEl = document.getElementById('conn-google-status');
+          if (statusEl) {
+            statusEl.textContent = '✓ Conectado com sucesso!';
+            statusEl.style.color = 'var(--green)';
+          }
+          checkGoogleConnection();
+        }, 800);
+      } else if (sessionStorage.getItem('pallyum-return-to') === 'settings') {
+        sessionStorage.removeItem('pallyum-return-to');
+        setTimeout(() => navigate('settings'), 500);
+      }
 
       // salva tokens do Google se disponíveis
       if (session.provider_token && session.user.id) {
