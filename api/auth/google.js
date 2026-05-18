@@ -1,24 +1,25 @@
 export default function handler(req, res) {
-  const phone = req.query.phone || '';
+  const userId = req.query.user_id || '';
+  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+  const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
 
-  if (!phone) {
-    return res.status(400).send('Parâmetro phone obrigatório.');
-  }
+  const scopes = [
+    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/userinfo.email',
+  ].join(' ');
 
   const params = new URLSearchParams({
-    client_id:     process.env.GOOGLE_CLIENT_ID,
-    redirect_uri:  process.env.GOOGLE_REDIRECT_URI,
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: GOOGLE_REDIRECT_URI,
     response_type: 'code',
-    access_type:   'offline',
-    prompt:        'consent',
-    scope: [
-      'https://www.googleapis.com/auth/calendar',
-      'https://www.googleapis.com/auth/gmail.readonly',
-      'https://www.googleapis.com/auth/gmail.compose',
-    ].join(' '),
-    state: phone,
+    scope: scopes,
+    access_type: 'offline',
+    prompt: 'consent',
+    state: userId,
   });
 
-  const url = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
-  return res.redirect(302, url);
+  return res.redirect(
+    'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString()
+  );
 }
