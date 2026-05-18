@@ -902,6 +902,41 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
             <span id="assistant-name-status" class="ss-status" style="display:none"></span>
           </div>
         </div>
+        <!-- ── Meu plano ── -->
+        <div class="settings-section" id="section-plano">
+          <div class="ss-title">💎 Meu plano</div>
+          <div id="plan-info-loading" style="font-size:12px;color:var(--text2)">Carregando...</div>
+          <div id="plan-info-content" style="display:none">
+            <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;">
+              <div style="font-size:28px;flex-shrink:0;" id="plan-icon">⭐</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:500;color:var(--text);" id="plan-name">—</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:3px;" id="plan-validade"></div>
+              </div>
+              <button class="ss-btn primary" onclick="window.open('https://pallyum.com/#pricing','_blank')" style="white-space:nowrap;flex-shrink:0;font-size:11px;">
+                Ver planos
+              </button>
+            </div>
+            <!-- Uso da semana -->
+            <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:500;">Uso esta semana</div>
+            <div style="display:flex;flex-direction:column;gap:6px;" id="plan-usage-bars"></div>
+          </div>
+        </div>
+
+        <!-- ── Admin Cérebro Coletivo (visível apenas para admins) ── -->
+        <div class="settings-section" id="section-coletivo" style="display:none">
+          <div class="ss-title">🏢 Cérebro Coletivo</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:14px;" id="coletivo-org-name">Carregando organização...</div>
+          <!-- Abas -->
+          <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
+            <button class="ss-btn" id="coletivo-tab-membros"   onclick="coletivotoTab('membros')"   style="font-size:11px;">👥 Membros</button>
+            <button class="ss-btn" id="coletivo-tab-upgrades"  onclick="coletivotoTab('upgrades')"  style="font-size:11px;">⬆️ Upgrades</button>
+            <button class="ss-btn" id="coletivo-tab-gavetas"   onclick="coletivotoTab('gavetas')"   style="font-size:11px;">🗂 Gavetas</button>
+            <button class="ss-btn" id="coletivo-tab-agentes"   onclick="coletivotoTab('agentes')"   style="font-size:11px;">🤖 Agentes</button>
+          </div>
+          <div id="coletivo-tab-content"></div>
+        </div>
+
         <div class="settings-section" id="section-emails">
           <div class="ss-title">📧 Meus emails</div>
           <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
@@ -1762,6 +1797,332 @@ async function iniciarCheckout(planoId, ev) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+// MEU PLANO + ADMIN COLETIVO
+// ══════════════════════════════════════════════════════════════════
+
+const PLAN_LABELS = {
+  'companion-teste':           { label: 'Companion Teste',            icon: '🔍', color: 'var(--text2)' },
+  'companion-essencial':       { label: 'Companion Essencial',        icon: '💛', color: '#f59e0b'      },
+  'companion-pro':             { label: 'Companion Pro',              icon: '💜', color: 'var(--accent2)'},
+  'companion-ultra':           { label: 'Companion Ultra',            icon: '🌟', color: 'var(--gold)'  },
+  'segundo-cerebro-essencial': { label: 'Segundo Cérebro Essencial',  icon: '🧠', color: '#f59e0b'      },
+  'segundo-cerebro-pro':       { label: 'Segundo Cérebro Pro',        icon: '🧠', color: 'var(--accent2)'},
+  'segundo-cerebro-ultra':     { label: 'Segundo Cérebro Ultra',      icon: '🧠', color: 'var(--gold)'  },
+  'coletivo-team':             { label: 'Cérebro Coletivo Team',      icon: '🏢', color: 'var(--green)' },
+  'coletivo-business':         { label: 'Cérebro Coletivo Business',  icon: '🏢', color: 'var(--gold)'  },
+  'duo-essencial':             { label: 'Duo Essencial',              icon: '✨', color: '#f59e0b'      },
+  'duo-pro':                   { label: 'Duo Pro',                    icon: '✨', color: 'var(--accent2)'},
+  'duo-ultra':                 { label: 'Duo Ultra',                  icon: '✨', color: 'var(--gold)'  },
+};
+
+async function loadPlanInfo() {
+  if (!currentUser || !_supabase) return;
+
+  const loadingEl = document.getElementById('plan-info-loading');
+  const contentEl = document.getElementById('plan-info-content');
+  if (!loadingEl || !contentEl) return;
+
+  try {
+    // Buscar dados do plano
+    const { data: prefs } = await _supabase
+      .from('user_preferences')
+      .select('plano, plano_validade, current_cooldown_ms')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+
+    // Buscar uso últimos 7 dias
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const since = sevenDaysAgo.toISOString().split('T')[0];
+
+    const { data: usageLogs } = await _supabase
+      .from('usage_logs')
+      .select('msg_count, audio_count, image_count, date, channel')
+      .eq('user_id', currentUser.id)
+      .gte('date', since)
+      .order('date', { ascending: false });
+
+    loadingEl.style.display = 'none';
+    contentEl.style.display = 'block';
+
+    // Info do plano
+    const plano     = prefs?.plano || 'companion-teste';
+    const planMeta  = PLAN_LABELS[plano] || { label: plano, icon: '📦', color: 'var(--text2)' };
+    const validade  = prefs?.plano_validade ? new Date(prefs.plano_validade) : null;
+
+    document.getElementById('plan-icon').textContent = planMeta.icon;
+    document.getElementById('plan-name').textContent  = planMeta.label;
+    document.getElementById('plan-name').style.color  = planMeta.color;
+
+    const validadeEl = document.getElementById('plan-validade');
+    if (validade) {
+      const diff = Math.ceil((validade - new Date()) / (1000 * 60 * 60 * 24));
+      validadeEl.textContent = diff > 0
+        ? `Válido até ${validade.toLocaleDateString('pt-BR')} (${diff} dias)`
+        : `Expirado em ${validade.toLocaleDateString('pt-BR')}`;
+      validadeEl.style.color = diff <= 7 ? 'var(--coral)' : 'var(--text2)';
+    } else {
+      validadeEl.textContent = plano.includes('teste') ? 'Período de teste' : 'Plano ativo';
+    }
+
+    // Barras de uso
+    const barsEl = document.getElementById('plan-usage-bars');
+    if (barsEl && Array.isArray(usageLogs)) {
+      // Agrupa por canal
+      const byChannel = { app: 0, whatsapp: 0 };
+      let totalAudio = 0, totalImages = 0;
+      for (const row of usageLogs) {
+        byChannel[row.channel] = (byChannel[row.channel] || 0) + row.msg_count;
+        totalAudio  += row.audio_count  || 0;
+        totalImages += row.image_count  || 0;
+      }
+      const total   = byChannel.app + byChannel.whatsapp;
+      const maxRef  = 300 * 7; // 300 msgs/dia × 7 dias = referência "uso normal"
+
+      function usageBar(label, value, color) {
+        const pct = Math.min(100, (value / maxRef) * 100).toFixed(1);
+        return `<div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:3px;">
+            <span>${label}</span><span>${value} msgs</span>
+          </div>
+          <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${color};border-radius:2px;transition:width .4s;"></div>
+          </div>
+        </div>`;
+      }
+
+      barsEl.innerHTML = [
+        usageBar('📱 App',       byChannel.app,       'var(--accent2)'),
+        usageBar('💬 WhatsApp',  byChannel.whatsapp,  'var(--green)'),
+        total > 0 ? `<div style="font-size:11px;color:var(--text3);margin-top:4px;">
+          Total: ${total} msgs • ${totalAudio} áudios • ${totalImages} imagens
+        </div>` : '',
+      ].join('');
+    }
+
+    // Mostrar seção admin coletivo se for admin de org
+    if (plano.startsWith('coletivo')) {
+      await loadColetivoSection();
+    }
+
+  } catch (e) {
+    console.warn('loadPlanInfo error:', e);
+    if (loadingEl) loadingEl.textContent = 'Erro ao carregar plano.';
+  }
+}
+
+// ── Admin Cérebro Coletivo ────────────────────────────────────────────────────
+
+let _coletivoOrgId = null;
+
+async function loadColetivoSection() {
+  if (!currentUser || !_supabase) return;
+  try {
+    // Verifica se o usuário é admin de alguma org
+    const { data: membership } = await _supabase
+      .from('org_members')
+      .select('organization_id, role, organizations(name, plan)')
+      .eq('user_id', currentUser.id)
+      .eq('role', 'admin')
+      .maybeSingle();
+
+    if (!membership) return; // não é admin
+
+    _coletivoOrgId = membership.organization_id;
+    const orgName  = membership.organizations?.name || 'Minha Empresa';
+
+    const sectionEl = document.getElementById('section-coletivo');
+    const orgNameEl = document.getElementById('coletivo-org-name');
+    if (sectionEl) sectionEl.style.display = '';
+    if (orgNameEl) orgNameEl.textContent = `Organização: ${orgName}`;
+
+    coletivotoTab('membros'); // carrega aba padrão
+  } catch (e) {
+    console.warn('loadColetivoSection error:', e);
+  }
+}
+
+async function coletivotoTab(tab) {
+  // Highlight aba ativa
+  ['membros', 'upgrades', 'gavetas', 'agentes'].forEach(t => {
+    const btn = document.getElementById(`coletivo-tab-${t}`);
+    if (btn) {
+      btn.style.background = t === tab ? 'var(--accent)' : '';
+      btn.style.color      = t === tab ? '#fff' : '';
+      btn.style.borderColor= t === tab ? 'var(--accent)' : '';
+    }
+  });
+
+  const contentEl = document.getElementById('coletivo-tab-content');
+  if (!contentEl || !_coletivoOrgId) return;
+  contentEl.innerHTML = '<div style="font-size:12px;color:var(--text2)">Carregando...</div>';
+
+  try {
+    if (tab === 'membros')  await renderColetivoMembros(contentEl);
+    if (tab === 'upgrades') await renderColetivoUpgrades(contentEl);
+    if (tab === 'gavetas')  await renderColetivoGavetas(contentEl);
+    if (tab === 'agentes')  await renderColetivoAgentes(contentEl);
+  } catch (e) {
+    contentEl.innerHTML = `<div style="font-size:12px;color:var(--coral)">Erro: ${e.message}</div>`;
+  }
+}
+
+async function renderColetivoMembros(el) {
+  const { data: members } = await _supabase
+    .from('org_members')
+    .select('user_id, role, joined_at')
+    .eq('organization_id', _coletivoOrgId)
+    .order('joined_at', { ascending: true });
+
+  if (!members || members.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text2)">Nenhum membro ainda.</div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${members.map(m => `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;">
+          <div style="font-size:20px;">${m.role === 'admin' ? '👑' : '👤'}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:500;color:var(--text);font-family:'DM Mono',monospace;opacity:.7;">${m.user_id.slice(0,8)}…</div>
+            <div style="font-size:11px;color:var(--text3);">${m.role} · desde ${new Date(m.joined_at).toLocaleDateString('pt-BR')}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:10px;">${members.length} membro(s) total</div>
+  `;
+}
+
+async function renderColetivoUpgrades(el) {
+  const { data: requests } = await _supabase
+    .from('upgrade_requests')
+    .select('id, user_id, from_plan, to_plan, status, requested_at')
+    .eq('organization_id', _coletivoOrgId)
+    .eq('status', 'pending')
+    .order('requested_at', { ascending: false });
+
+  if (!requests || requests.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--green)">✓ Nenhum pedido pendente.</div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${requests.map(r => `
+        <div style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;">
+          <div style="font-size:12px;color:var(--text);margin-bottom:6px;">
+            <strong>${r.from_plan}</strong> → <strong style="color:var(--accent2)">${r.to_plan}</strong>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">
+            Solicitado em ${new Date(r.requested_at).toLocaleDateString('pt-BR')}
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="ss-btn primary" style="font-size:11px;" onclick="resolveUpgrade('${r.id}','approved')">✓ Aprovar</button>
+            <button class="ss-btn" style="font-size:11px;color:var(--coral);border-color:rgba(216,90,48,.3);" onclick="resolveUpgrade('${r.id}','rejected')">✕ Rejeitar</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function resolveUpgrade(requestId, status) {
+  if (!currentUser || !_supabase) return;
+  await _supabase
+    .from('upgrade_requests')
+    .update({ status, resolved_at: new Date().toISOString(), resolved_by: currentUser.id })
+    .eq('id', requestId);
+  coletivotoTab('upgrades'); // recarrega
+}
+
+async function renderColetivoGavetas(el) {
+  const { data: drawers } = await _supabase
+    .from('org_drawers_shared')
+    .select('id, name, agent_setor, created_at')
+    .eq('organization_id', _coletivoOrgId)
+    .order('created_at', { ascending: true });
+
+  const listHtml = drawers && drawers.length > 0
+    ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+        ${drawers.map(d => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;">
+            <span style="font-size:16px;">🗂</span>
+            <div style="flex:1;font-size:12px;color:var(--text);">${d.name}</div>
+            <div style="font-size:11px;color:var(--text3);">${d.agent_setor || '—'}</div>
+          </div>
+        `).join('')}
+      </div>`
+    : '<div style="font-size:12px;color:var(--text2);margin-bottom:14px;">Nenhuma gaveta compartilhada.</div>';
+
+  el.innerHTML = listHtml + `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input class="ss-input" id="new-drawer-name" placeholder="Nome da gaveta (ex: Marketing)" style="flex:1;"/>
+      <button class="ss-btn primary" style="font-size:11px;" onclick="createDrawer()">+ Criar gaveta</button>
+    </div>
+  `;
+}
+
+async function createDrawer() {
+  const nameEl = document.getElementById('new-drawer-name');
+  const name   = nameEl?.value?.trim();
+  if (!name || !_coletivoOrgId) return;
+  await _supabase.from('org_drawers_shared').insert({
+    organization_id: _coletivoOrgId,
+    name,
+    permissions: { admin: [], member: [] },
+  });
+  nameEl.value = '';
+  coletivotoTab('gavetas');
+}
+
+async function renderColetivoAgentes(el) {
+  const { data: agents } = await _supabase
+    .from('org_agents')
+    .select('id, name, setor, created_at')
+    .eq('organization_id', _coletivoOrgId)
+    .order('created_at', { ascending: true });
+
+  const listHtml = agents && agents.length > 0
+    ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+        ${agents.map(a => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;">
+            <span style="font-size:16px;">🤖</span>
+            <div style="flex:1;">
+              <div style="font-size:12px;color:var(--text);">${a.name}</div>
+              <div style="font-size:11px;color:var(--text3);">${a.setor}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>`
+    : '<div style="font-size:12px;color:var(--text2);margin-bottom:14px;">Nenhum agente configurado.</div>';
+
+  el.innerHTML = listHtml + `
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <input class="ss-input" id="new-agent-name"  placeholder="Nome do agente (ex: Assistente RH)" />
+      <input class="ss-input" id="new-agent-setor" placeholder="Setor (ex: rh, marketing, juridico)" />
+      <button class="ss-btn primary" style="font-size:11px;align-self:flex-start;" onclick="createAgent()">+ Criar agente</button>
+    </div>
+  `;
+}
+
+async function createAgent() {
+  const name  = document.getElementById('new-agent-name')?.value?.trim();
+  const setor = document.getElementById('new-agent-setor')?.value?.trim();
+  if (!name || !setor || !_coletivoOrgId) return;
+  await _supabase.from('org_agents').insert({
+    organization_id: _coletivoOrgId,
+    name,
+    setor,
+    vault_access: [],
+  });
+  document.getElementById('new-agent-name').value  = '';
+  document.getElementById('new-agent-setor').value = '';
+  coletivotoTab('agentes');
+}
+
 // EMAILS ALTERNATIVOS
 // ══════════════════════════════════════════════════════════════════
 
@@ -1942,6 +2303,7 @@ function navigate(view) {
     loadUserEmails();
     updateSystemStatus();
     checkGoogleConnection();
+    loadPlanInfo();
   }
   if (view === 'graph') {
     setTimeout(() => {
