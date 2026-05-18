@@ -4,7 +4,7 @@
 -- ============================================================
 
 -- 0. Extensões -----------------------------------------------
-CREATE EXTENSION IF NOT EXISTS "pgvector";
+CREATE EXTENSION IF NOT EXISTS "vector";
 
 -- 1. Campos novos em user_preferences -------------------------
 ALTER TABLE user_preferences
@@ -258,7 +258,7 @@ CREATE POLICY "upgrade_requests: admin can manage"
     )
   );
 
--- 8. Tabela note_embeddings (pgvector) -------------------------
+-- 8. Tabela note_embeddings (vector) -------------------------
 CREATE TABLE IF NOT EXISTS note_embeddings (
   note_id    uuid PRIMARY KEY,
   user_id    uuid REFERENCES auth.users ON DELETE CASCADE,
@@ -270,7 +270,7 @@ CREATE TABLE IF NOT EXISTS note_embeddings (
 CREATE INDEX IF NOT EXISTS note_embeddings_user
   ON note_embeddings (user_id);
 
--- Índice HNSW para busca ANN rápida (pgvector)
+-- Índice HNSW para busca ANN rápida (vector)
 CREATE INDEX IF NOT EXISTS note_embeddings_cosine
   ON note_embeddings USING hnsw (embedding vector_cosine_ops);
 
