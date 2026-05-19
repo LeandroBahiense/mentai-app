@@ -105,7 +105,7 @@ export default async function handler(req, res) {
   console.log(`CHECKOUT: userId=${userId} | sku=${skuKey} | valor=R$${skuData.value}`);
 
   const checkoutBody = {
-    billingTypes:    ['CREDIT_CARD', 'BOLETO'],  // sem PIX (conta sem chave Pix)
+    billingTypes:    ['CREDIT_CARD'],  // só cartão para teste inicial
     chargeTypes:     ['DETACHED'],
     minutesToExpire: 60,
     callback: {
