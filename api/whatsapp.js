@@ -292,16 +292,29 @@ async function getUserIdByPhone(phone) {
   return Array.isArray(data) && data.length > 0 ? data[0].user_id : null;
 }
 
-async function getGoogleTokens(phone) {
+async function getGoogleTokens(phone, userId) {
+  const filter = userId
+    ? 'user_id=eq.' + encodeURIComponent(userId)
+    : 'phone=eq.' + encodeURIComponent(phone);
   const res = await fetch(
-    SUPABASE_URL + '/rest/v1/google_tokens?phone=eq.' + encodeURIComponent(phone) + '&limit=1',
+    SUPABASE_URL + '/rest/v1/google_tokens?' + filter + '&limit=1',
     { headers: googleSbHeaders() }
   );
   const data = await res.json();
-  return Array.isArray(data) && data.length > 0 ? data[0] : null;
+  if (!Array.isArray(data) || data.length === 0) return null;
+  const row = data[0];
+  // Binding tardio: se encontrou por user_id mas phone ainda está vazio, popula
+  if (userId && !row.phone && phone) {
+    fetch(SUPABASE_URL + '/rest/v1/google_tokens?user_id=eq.' + encodeURIComponent(userId), {
+      method: 'PATCH',
+      headers: googleSbHeaders(),
+      body: JSON.stringify({ phone: phone }),
+    }).catch(function(e) { console.error('BIND PHONE TO TOKEN ERR:', e.message); });
+  }
+  return row;
 }
 
-async function refreshGoogleToken(phone, refreshToken) {
+async function refreshGoogleToken(phone, refreshToken, userId) {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -315,19 +328,20 @@ async function refreshGoogleToken(phone, refreshToken) {
   const tokens = await res.json();
   if (tokens.error) throw new Error('Refresh falhou: ' + tokens.error);
 
-  await fetch(
-    SUPABASE_URL + '/rest/v1/google_tokens?phone=eq.' + encodeURIComponent(phone),
-    {
-      method: 'PATCH',
-      headers: googleSbHeaders(),
-      body: JSON.stringify({
-        access_token: tokens.access_token,
-        expiry_date:  Date.now() + tokens.expires_in * 1000,
-        updated_at:   new Date().toISOString(),
-      }),
-    }
-  );
-  console.log('GOOGLE TOKEN REFRESHED:', phone);
+  const filter = userId
+    ? 'user_id=eq.' + encodeURIComponent(userId)
+    : 'phone=eq.' + encodeURIComponent(phone);
+
+  await fetch(SUPABASE_URL + '/rest/v1/google_tokens?' + filter, {
+    method: 'PATCH',
+    headers: googleSbHeaders(),
+    body: JSON.stringify({
+      access_token: tokens.access_token,
+      expiry_date:  Date.now() + tokens.expires_in * 1000,
+      updated_at:   new Date().toISOString(),
+    }),
+  });
+  console.log('GOOGLE TOKEN REFRESHED:', userId || phone);
   return tokens.access_token;
 }
 
@@ -683,11 +697,9 @@ export default async function handler(req, res) {
   let userId         = null;
 
   try {
-    const [googleTokens, resolvedUserId] = await Promise.all([
-      getGoogleTokens(phone),
-      getUserIdByPhone(phone),
-    ]);
+    const resolvedUserId = await getUserIdByPhone(phone);
     userId = resolvedUserId;
+    const googleTokens = await getGoogleTokens(phone, resolvedUserId);
     console.log('GOOGLE TOKENS FOUND:', !!googleTokens, '| PHONE:', phone);
     console.log('USER ID:', userId);
 
@@ -728,7 +740,7 @@ export default async function handler(req, res) {
 
     if (googleTokens) {
       accessToken = Date.now() >= googleTokens.expiry_date - 60000
-        ? await refreshGoogleToken(phone, googleTokens.refresh_token)
+        ? await refreshGoogleToken(phone, googleTokens.refresh_token, userId)
         : googleTokens.access_token;
       googleConnected = true;
       calendarEvents  = await getCalendarEvents(accessToken, new Date());
