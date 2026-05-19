@@ -2246,10 +2246,22 @@ async function checkGoogleConnection() {
   }
 }
 
-function connectGoogle() {
+async function connectGoogle() {
   if (!currentUser) return;
   sessionStorage.setItem('pallyum-return-to', 'settings');
-  window.location.href = '/api/auth/google?user_id=' + encodeURIComponent(currentUser.id);
+  // Tenta incluir o phone do usuário pra o callback vincular à tabela phone_users
+  let phone = '';
+  try {
+    const { data: prefs } = await _supabase
+      .from('user_preferences')
+      .select('whatsapp_phone')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+    phone = prefs?.whatsapp_phone || '';
+  } catch(_) {}
+  const url = '/api/auth/google?user_id=' + encodeURIComponent(currentUser.id)
+    + (phone ? '&phone=' + encodeURIComponent(phone) : '');
+  window.location.href = url;
 }
 
 async function disconnectGoogle() {
@@ -4492,7 +4504,7 @@ function initSupabaseAuth() {
 
       // Detectar retorno do OAuth do Google
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('conn') === 'google_ok') {
+      if (urlParams.get('google') === 'connected' || urlParams.get('conn') === 'google_ok') {
         history.replaceState(null, '', window.location.pathname);
         setTimeout(() => {
           navigate('settings');
