@@ -1841,19 +1841,19 @@ async function iniciarCheckout(planoId, ev) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userId:  currentUser.id,
-        sku:     sku,
-        plano:   planoId,
-        ciclo:   _cicloAtual,
-        email:   currentUser.email,
-        name:    localStorage.getItem('koreo-display-name') || currentUser.email,
+        userId: currentUser.id,
+        sku:    sku,
+        plano:  planoId,
+        ciclo:  _cicloAtual,
+        email:  currentUser.email,
+        name:   localStorage.getItem('koreo-display-name') || currentUser.email,
       }),
     });
     const data = await res.json();
     if (data.invoiceUrl) {
       window.open(data.invoiceUrl, '_blank');
     } else {
-      alert('Erro ao gerar link de pagamento. Tente novamente.');
+      alert(data.message || 'Erro ao gerar link de pagamento. Tente novamente.');
       console.error('CHECKOUT ERR:', data);
     }
   } catch (e) {
