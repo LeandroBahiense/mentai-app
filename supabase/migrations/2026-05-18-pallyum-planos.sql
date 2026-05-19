@@ -260,7 +260,7 @@ CREATE POLICY "upgrade_requests: admin can manage"
 
 -- 8. Tabela note_embeddings (vector) -------------------------
 CREATE TABLE IF NOT EXISTS note_embeddings (
-  note_id    uuid PRIMARY KEY,
+  note_id    text PRIMARY KEY,
   user_id    uuid REFERENCES auth.users ON DELETE CASCADE,
   title      text,
   embedding  vector(1536),
@@ -297,7 +297,7 @@ CREATE OR REPLACE FUNCTION match_notes(
   p_top_k      int   DEFAULT 8
 )
 RETURNS TABLE (
-  note_id    uuid,
+  note_id    text,
   title      text,
   similarity float
 )
