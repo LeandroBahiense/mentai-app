@@ -1,10 +1,7 @@
 {
-  "redirects": [
-    { "source": "/", "destination": "/landing.html", "permanent": false }
-  ],
   "rewrites": [
-    { "source": "/app", "destination": "/index.html" },
-    { "source": "/app/:path*", "destination": "/index.html" },
+    { "source": "/app", "destination": "/app.html" },
+    { "source": "/app/:path*", "destination": "/app.html" },
     { "source": "/privacidade", "destination": "/privacidade.html" },
     { "source": "/termos", "destination": "/termos.html" }
   ],
