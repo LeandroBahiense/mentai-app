@@ -4322,12 +4322,23 @@ function injectTopbarButtons() {
 async function doLogout() {
   if (!currentUser) return;
   if (!confirm('Sair da conta ' + currentUser.email + '?')) return;
+
+  // signOut em paralelo, sem aguardar (não bloqueia o reload se travar)
   try {
-    await _supabase.auth.signOut();
+    _supabase.auth.signOut({ scope: 'local' }).catch(() => {});
   } catch(e) {
     console.warn('signOut error:', e);
   }
+
+  // Limpa tokens locais do Supabase manualmente (garantia)
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith('sb-') || key.startsWith('supabase')) {
+      localStorage.removeItem(key);
+    }
+  });
   localStorage.removeItem('koreo-user-id');
+
+  // Reload imediato — não aguarda nada
   window.location.reload();
 }
 
