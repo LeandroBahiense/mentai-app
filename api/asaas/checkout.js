@@ -49,26 +49,31 @@ const SKUS = {
   'duo-ultra-anual':                  { value: 2290.00, plano: 'duo-ultra'                 },
 };
 
-// ── Labels canônicos ───────────────────────────────────────────────────────────
-const SKU_LABELS = {
-  'companion-essencial':       'Companion Essencial',
-  'companion-pro':             'Companion Pro',
-  'companion-ultra':           'Companion Ultra',
-  'segundo-cerebro-essencial': 'Segundo Cérebro Essencial',
-  'segundo-cerebro-pro':       'Segundo Cérebro Pro',
-  'segundo-cerebro-ultra':     'Segundo Cérebro Ultra',
-  'coletivo-team':             'Coletivo Team',
-  'coletivo-business':         'Coletivo Business',
-  'duo-essencial':             'Duo Essencial',
-  'duo-pro':                   'Duo Pro',
-  'duo-ultra':                 'Duo Ultra',
+// ── Nomes curtos por SKU (max 30 chars — limite Asaas) ────────────────────────
+const SKU_NAMES = {
+  'companion-essencial-mensal':       'Companion Essencial Mensal',
+  'companion-pro-mensal':             'Companion Pro Mensal',
+  'companion-ultra-mensal':           'Companion Ultra Mensal',
+  'companion-essencial-anual':        'Companion Essencial Anual',
+  'companion-pro-anual':              'Companion Pro Anual',
+  'companion-ultra-anual':            'Companion Ultra Anual',
+  'segundo-cerebro-essencial-mensal': 'Seg Cérebro Essencial Mensal',
+  'segundo-cerebro-pro-mensal':       'Seg Cérebro Pro Mensal',
+  'segundo-cerebro-ultra-mensal':     'Seg Cérebro Ultra Mensal',
+  'segundo-cerebro-essencial-anual':  'Seg Cérebro Essencial Anual',
+  'segundo-cerebro-pro-anual':        'Seg Cérebro Pro Anual',
+  'segundo-cerebro-ultra-anual':      'Seg Cérebro Ultra Anual',
+  'coletivo-team-mensal':             'Coletivo Team Mensal',
+  'coletivo-business-mensal':         'Coletivo Business Mensal',
+  'coletivo-team-anual':              'Coletivo Team Anual',
+  'coletivo-business-anual':          'Coletivo Business Anual',
+  'duo-essencial-mensal':             'Duo Essencial Mensal',
+  'duo-pro-mensal':                   'Duo Pro Mensal',
+  'duo-ultra-mensal':                 'Duo Ultra Mensal',
+  'duo-essencial-anual':              'Duo Essencial Anual',
+  'duo-pro-anual':                    'Duo Pro Anual',
+  'duo-ultra-anual':                  'Duo Ultra Anual',
 };
-
-function buildDescription(plano, periodo) {
-  const label = SKU_LABELS[plano] || plano;
-  const per   = periodo === 'anual' ? 'Anual' : 'Mensal';
-  return `Pallyum ${label} — ${per}`;
-}
 
 // ── Handler ────────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
@@ -95,13 +100,12 @@ export default async function handler(req, res) {
     });
   }
 
-  const periodo     = skuKey.endsWith('-anual') ? 'anual' : 'mensal';
-  const description = buildDescription(skuData.plano, periodo);
+  const itemName = SKU_NAMES[skuKey] || skuKey;
 
   console.log(`CHECKOUT: userId=${userId} | sku=${skuKey} | valor=R$${skuData.value}`);
 
   const checkoutBody = {
-    billingTypes:    ['CREDIT_CARD', 'PIX', 'BOLETO'],
+    billingTypes:    ['CREDIT_CARD', 'BOLETO'],
     chargeTypes:     ['DETACHED'],
     minutesToExpire: 60,
     callback: {
@@ -111,7 +115,7 @@ export default async function handler(req, res) {
     },
     items: [
       {
-        name:     description,
+        name:     itemName,
         value:    skuData.value,
         quantity: 1,
       },
