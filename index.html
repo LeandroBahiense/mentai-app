@@ -1848,24 +1848,44 @@ async function loadPlanInfo() {
   if (!loadingEl || !contentEl) return;
 
   try {
-    // Buscar dados do plano
-    const { data: prefs } = await _supabase
+    // Buscar dados do plano (com timeout de 4s)
+    const prefsQuery = _supabase
       .from('user_preferences')
       .select('plano, plano_validade, current_cooldown_ms')
       .eq('user_id', currentUser.id)
       .maybeSingle();
+    const prefsTimeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('timeout prefs')), 4000)
+    );
+    let prefs = null;
+    try {
+      const result = await Promise.race([prefsQuery, prefsTimeout]);
+      prefs = result?.data;
+    } catch(e) {
+      console.warn('loadPlanInfo prefs timeout:', e.message);
+    }
 
     // Buscar uso últimos 7 dias
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const since = sevenDaysAgo.toISOString().split('T')[0];
 
-    const { data: usageLogs } = await _supabase
+    const usageQuery = _supabase
       .from('usage_logs')
       .select('msg_count, audio_count, image_count, date, channel')
       .eq('user_id', currentUser.id)
       .gte('date', since)
       .order('date', { ascending: false });
+    const usageTimeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('timeout usage')), 4000)
+    );
+    let usageLogs = [];
+    try {
+      const result = await Promise.race([usageQuery, usageTimeout]);
+      usageLogs = result?.data || [];
+    } catch(e) {
+      console.warn('loadPlanInfo usage timeout:', e.message);
+    }
 
     loadingEl.style.display = 'none';
     contentEl.style.display = 'block';
