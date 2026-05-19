@@ -973,6 +973,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           <div class="ss-title">📊 Status do sistema</div>
           <div id="system-status" style="font-size:12px;color:var(--text2);line-height:2"></div>
         </div>
+
+        <!-- ── Sair da conta ── -->
+        <div class="settings-section" style="text-align:center;">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">
+            Logado como <strong id="logout-user-email">—</strong>
+          </div>
+          <button class="ss-btn" onclick="doLogout()"
+            style="color:var(--coral);border:1px solid rgba(216,90,48,.3);padding:10px 24px;background:transparent;">
+            🚪 Sair da conta
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1353,14 +1364,18 @@ async function openNotePanel(noteId) {
 
   document.getElementById('np-title').value   = note.title || '';
   document.getElementById('np-content').innerHTML = renderMD(note.content || '');
-  await populateNpFolderSelect(note.folder || 'inbox');
-  _npUpdateWC();
-  _npSetSaved();
 
+  // Abre o painel IMEDIATAMENTE — não esperar Supabase
   document.getElementById('note-panel').classList.add('open');
   document.getElementById('np-overlay').classList.add('open');
-
+  _npUpdateWC();
+  _npSetSaved();
   setTimeout(() => document.getElementById('np-title').focus(), 260);
+
+  // Popula folder select em background (não trava abertura se Supabase pendurar)
+  populateNpFolderSelect(note.folder || 'inbox').catch(e =>
+    console.warn('populateNpFolderSelect error:', e.message)
+  );
 }
 
 function closeNotePanel() {
@@ -1381,21 +1396,30 @@ async function populateNpFolderSelect(currentFolder) {
     { id:'decisoes', label:'⚡ Decisões' },
     { id:'reunioes', label:'👥 Reuniões' },
   ];
-  // busca gavetas personalizadas do usuário
+  // busca gavetas personalizadas do usuário (com timeout de 3s)
   if (currentUser && _supabase) {
-    const { data } = await _supabase.from('user_preferences')
-      .select('gavetas').eq('user_id', currentUser.id).maybeSingle();
-    const labels = {
-      trabalho:'💼 Trabalho', pessoal:'🏠 Pessoal',
-      projetos:'🚀 Projetos', viagem:'✈️ Viagem',
-      estudos:'📚 Estudos', financeiro:'💰 Financeiro'
-    };
-    const defaultIds = ['inbox','projetos','decisoes','reunioes'];
-    (data?.gavetas || []).forEach(id => {
-      if (!defaultIds.includes(id)) {
-        folders.push({ id, label: labels[id] || id });
-      }
-    });
+    try {
+      const queryPromise = _supabase.from('user_preferences')
+        .select('gavetas').eq('user_id', currentUser.id).maybeSingle();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout 3s')), 3000)
+      );
+      const result = await Promise.race([queryPromise, timeoutPromise]);
+      const data = result?.data;
+      const labels = {
+        trabalho:'💼 Trabalho', pessoal:'🏠 Pessoal',
+        projetos:'🚀 Projetos', viagem:'✈️ Viagem',
+        estudos:'📚 Estudos', financeiro:'💰 Financeiro'
+      };
+      const defaultIds = ['inbox','projetos','decisoes','reunioes'];
+      (data?.gavetas || []).forEach(id => {
+        if (!defaultIds.includes(id)) {
+          folders.push({ id, label: labels[id] || id });
+        }
+      });
+    } catch(e) {
+      console.warn('populateNpFolderSelect:', e.message);
+    }
   }
   sel.innerHTML = folders.map(f =>
     `<option value="${f.id}" ${f.id === currentFolder ? 'selected' : ''}>${f.label}</option>`
@@ -4215,12 +4239,8 @@ function injectTopbarButtons() {
   if (!avatar || !currentUser) return;
   const initial = (currentUser.email || 'U')[0].toUpperCase();
   avatar.textContent = initial;
-  avatar.title = currentUser.email;
-  avatar.onclick = function() {
-    if (confirm('Sair da conta ' + currentUser.email + '?')) {
-      _supabase.auth.signOut();
-    }
-  };
+  avatar.title = currentUser.email + ' — clique para sair';
+  avatar.onclick = function() { doLogout(); };
   const badge = document.getElementById('db-badge');
   if (badge) badge.style.display = isAdmin() ? 'flex' : 'none';
   const adminSettings = document.getElementById('admin-settings');
@@ -4229,8 +4249,30 @@ function injectTopbarButtons() {
     const settingsDesc = document.querySelector('#view-settings > div > p');
     if (settingsDesc) settingsDesc.textContent = 'Personalize sua experiência no Pallyum.';
   }
+  // Atualiza email mostrado na seção de logout
+  const logoutEmail = document.getElementById('logout-user-email');
+  if (logoutEmail) logoutEmail.textContent = currentUser.email;
   loadUserEmails();
 }
+
+// Função global de logout (usada pelo avatar e pelo botão em Configurações)
+function doLogout() {
+  if (!currentUser) return;
+  if (!confirm('Sair da conta ' + currentUser.email + '?')) return;
+  try {
+    _supabase.auth.signOut();
+  } catch(e) {
+    console.warn('signOut error:', e);
+  }
+  // Fallback: força reload após 1.5s caso o signOut trave
+  setTimeout(() => {
+    if (currentUser) {
+      localStorage.removeItem('koreo-user-id');
+      window.location.reload();
+    }
+  }, 1500);
+}
+
 function showForgotPassword() {
   document.getElementById('login-fields').style.display    = 'none';
   document.getElementById('forgot-link').style.display     = 'none';
@@ -4352,7 +4394,15 @@ function initSupabaseAuth() {
         }
       )
       .subscribe(function(status) {
-        console.log('REALTIME STATUS:', status);
+        // Só loga eventos relevantes, ignora SUBSCRIBED em loop
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Realtime falhou (' + status + ') — tabela files pode não estar habilitada para Realtime no Supabase.');
+          _realtimeConfigured = false;
+          if (_realtimeChannel) {
+            try { _supabase.removeChannel(_realtimeChannel); } catch(e) {}
+            _realtimeChannel = null;
+          }
+        }
         if (status === 'CLOSED') {
           _realtimeConfigured = false;
         }
