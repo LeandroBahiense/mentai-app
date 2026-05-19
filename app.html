@@ -4319,21 +4319,16 @@ function injectTopbarButtons() {
 }
 
 // Função global de logout (usada pelo avatar e pelo botão em Configurações)
-function doLogout() {
+async function doLogout() {
   if (!currentUser) return;
   if (!confirm('Sair da conta ' + currentUser.email + '?')) return;
   try {
-    _supabase.auth.signOut();
+    await _supabase.auth.signOut();
   } catch(e) {
     console.warn('signOut error:', e);
   }
-  // Fallback: força reload após 1.5s caso o signOut trave
-  setTimeout(() => {
-    if (currentUser) {
-      localStorage.removeItem('koreo-user-id');
-      window.location.reload();
-    }
-  }, 1500);
+  localStorage.removeItem('koreo-user-id');
+  window.location.reload();
 }
 
 function showForgotPassword() {
