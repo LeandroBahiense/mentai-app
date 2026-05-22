@@ -59,7 +59,7 @@ export async function indexNote(noteId, userId, title, content) {
       note_id:    noteId,
       user_id:    userId,
       title:      title || '',
-      embedding:  JSON.stringify(embedding),
+      embedding:  embedding,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'note_id' });
 
