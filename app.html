@@ -3435,12 +3435,9 @@ async function loadFromSupabase(){
   const token = session.data.session?.access_token || APP.supabaseKey;
   try{
     document.getElementById('save-indicator').textContent='◌ carregando do Supabase...';
-    const res = await fetch(sbUrl('notes?order=updated_at.desc'), {
-      headers: {
-        'apikey': APP.supabaseKey,
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json',
-      }
+    const res = await fetch('/api/notes', {
+      headers: { 'Authorization': 'Bearer ' + token },
+      signal: AbortSignal.timeout(12000),
     });
     if(!res.ok) throw new Error('HTTP '+res.status);
     const rows = await res.json();
