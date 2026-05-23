@@ -1,5 +1,5 @@
 import { getModelForUser, calculateCooldown, trackUsage } from './_lib/plans.js';
-import { searchRelevantNotes, buildRagContext }           from './_lib/embeddings.js';
+import { searchRelevantNotes, buildRagContext, indexNote } from './_lib/embeddings.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
@@ -227,6 +227,9 @@ async function createNote(note) {
     }),
   });
   console.log('NOTE CREATE STATUS:', res.status, '|', note.title);
+  if (res.status >= 200 && res.status < 300) {
+    await indexNote(id, note.user_id, note.title || 'Nota sem título', note.content || '');
+  }
   return id;
 }
 
@@ -261,7 +264,11 @@ async function updateNote(title, newContent, userId) {
     }
   );
   console.log('NOTE UPDATE STATUS:', patch.status, '|', title);
-  return patch.status >= 200 && patch.status < 300;
+  const ok = patch.status >= 200 && patch.status < 300;
+  if (ok) {
+    await indexNote(notes[0].id, userId, title, finalContent);
+  }
+  return ok;
 }
 
 async function deleteNote(title) {
