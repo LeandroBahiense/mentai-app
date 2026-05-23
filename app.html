@@ -4576,6 +4576,15 @@ function initSupabaseAuth() {
 // INIT
 initSupabaseAuth();
 initApp();
+
+// ── Instrumentação temporária de boot ───────────────────────────────────────
+setTimeout(async () => {
+  try {
+    const { data } = await _supabase.auth.getSession();
+    const has = !!(data && data.session && data.session.access_token);
+    document.title = (has ? '✓ SESSAO OK' : '✗ SEM SESSAO') + ' @ ' + location.hostname;
+  } catch(e) { document.title = '✗ ERRO SESSAO'; }
+}, 4000);
 // ── Modal nova nota ──────────────────────────────────────────────
 document.getElementById('new-note-title-input')?.addEventListener('keydown', e => {
   if (e.key === 'Enter')  confirmNewNote();
