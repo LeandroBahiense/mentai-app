@@ -1244,6 +1244,7 @@ function _bindKbDragDrop(board) {
         date: note.date || 'agora',
         status: colStatus,
         updated_at: note.updated_at,
+        user_id: (currentUser && currentUser.id) || localStorage.getItem('koreo-user-id'),
       });
       const ind = document.getElementById('save-indicator');
       if (ok) { ind.textContent = '✓ salvo no Supabase'; ind.style.color = 'var(--green)'; }
@@ -1567,7 +1568,8 @@ function _npScheduleSave() {
       const ok = await pushNoteToBackend({ id: note.id, title: note.title, content: note.content || '',
         folder: note.folder || 'inbox', cluster: note.cluster || 'produto',
         tags: note.tags || [], date: note.date || 'agora',
-        status: note.status || 'inbox', updated_at: note.updated_at });
+        status: note.status || 'inbox', updated_at: note.updated_at,
+        user_id: (currentUser && currentUser.id) || localStorage.getItem('koreo-user-id') });
       _npSetSaved(ok);
     } else {
       _npSetSaved(false);
@@ -3425,6 +3427,7 @@ async function syncSupabase(){
     tags: note.tags||[],
     date: note.date||'agora',
     updated_at: now,
+    user_id: (currentUser && currentUser.id) || localStorage.getItem('koreo-user-id'),
   });
   const ind = document.getElementById('save-indicator');
   if (ok) { ind.textContent = '✓ salvo no Supabase'; ind.style.color = 'var(--green)'; }
