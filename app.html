@@ -1081,6 +1081,7 @@ const APP = {
   supabaseUrl: '',
   supabaseKey: '',
   supabaseConnected: false,
+  accessToken: null,
   chatHistory: [],
   activeNotes: new Set(),
   voiceTranscript: '',
@@ -1616,7 +1617,6 @@ function initApp() {
     setTimeout(() => {
       document.getElementById('sb-url').value = APP.supabaseUrl;
       document.getElementById('sb-key').value = APP.supabaseKey;
-      loadFromSupabase();
     }, 300);
   }
 
@@ -2684,9 +2684,7 @@ function triggerSave() {
   APP.saveTimer = setTimeout(async () => {
     saveNotes();
     renderSidebar();
-    if (APP.supabaseConnected) {
-      await syncSupabase();
-    }
+    await syncSupabase();
     if (statusEl) { statusEl.textContent = '✓ salvo automaticamente'; statusEl.style.color = 'var(--green)'; }
     if (btnSave)  { btnSave.style.display = 'none'; }
   }, 900);
@@ -2695,7 +2693,7 @@ function triggerSave() {
 function forceSaveNote() {
   clearTimeout(APP.saveTimer);
   saveNotes();
-  if (APP.supabaseConnected) syncSupabase();
+  syncSupabase();
   const statusEl = document.getElementById('editor-save-status');
   const btnSave  = document.getElementById('btn-save-note');
   if (statusEl) { statusEl.textContent = '✓ salvo'; statusEl.style.color = 'var(--green)'; }
@@ -3399,8 +3397,11 @@ function sbUrl(path){ return APP.supabaseUrl.replace(/\/$/,'') + '/rest/v1/' + p
 
 async function pushNoteToBackend(note) {
   try {
-    const session = await _supabase.auth.getSession();
-    const token = session.data.session?.access_token;
+    let token = APP.accessToken;
+    if (!token) {
+      const session = await _supabase.auth.getSession();
+      token = session.data.session?.access_token;
+    }
     if (!token) return false;
     const res = await fetch('/api/notes-save', {
       method: 'POST',
@@ -3437,7 +3438,7 @@ async function syncSupabase(){
 async function loadFromSupabase(){
   if(!APP.supabaseConnected) return;
   const session = await _supabase.auth.getSession();
-  const token = session.data.session?.access_token || APP.supabaseKey;
+  const token = APP.accessToken || session.data.session?.access_token || APP.supabaseKey;
   try{
     document.getElementById('save-indicator').textContent='◌ carregando do Supabase...';
     const res = await fetch('/api/notes', {
@@ -4488,6 +4489,7 @@ function initSupabaseAuth() {
 
   _supabase.auth.onAuthStateChange(async function(event, session) {
     if (session && session.user) {
+      APP.accessToken = session.access_token;
       const lastUserId = localStorage.getItem('koreo-user-id');
       if (lastUserId && lastUserId !== session.user.id) {
         localStorage.removeItem('mentai-notes');
@@ -4532,22 +4534,21 @@ function initSupabaseAuth() {
 
       checkOnboarding().catch(function(e) { console.warn('onboarding skip:', e); });
 
-      if (!APP.supabaseConnected) {
-        APP.supabaseUrl = SUPABASE_URL;
-        APP.supabaseKey = ANON_KEY;
-        localStorage.setItem('mentai-sb-url', APP.supabaseUrl);
-        localStorage.setItem('mentai-sb-key', APP.supabaseKey);
-        APP.supabaseConnected = true;
-        document.getElementById('db-dot').classList.add('on');
-        document.getElementById('db-label').textContent = 'IA + Supabase';
-        await loadFromSupabase();
-      }
+      APP.supabaseUrl = SUPABASE_URL;
+      APP.supabaseKey = ANON_KEY;
+      localStorage.setItem('mentai-sb-url', APP.supabaseUrl);
+      localStorage.setItem('mentai-sb-key', APP.supabaseKey);
+      APP.supabaseConnected = true;
+      document.getElementById('db-dot').classList.add('on');
+      document.getElementById('db-label').textContent = 'IA + Supabase';
+      await loadFromSupabase();
 
       navigate('home');
       setupRealtime(session.user.id);
 
     } else {
       currentUser = null;
+      APP.accessToken = null;
       _realtimeConfigured = false;
       showAuthScreen();
       if (_realtimeChannel) {
