@@ -1234,19 +1234,20 @@ function _bindKbDragDrop(board) {
       saveNotes();
       renderKanban();
       renderSidebar();
-      if (APP.supabaseConnected) {
-        await pushNoteToBackend({
-          id: note.id,
-          title: note.title,
-          content: note.content || '',
-          folder: note.folder || 'inbox',
-          cluster: note.cluster || 'produto',
-          tags: note.tags || [],
-          date: note.date || 'agora',
-          status: colStatus,
-          updated_at: note.updated_at,
-        });
-      }
+      const ok = await pushNoteToBackend({
+        id: note.id,
+        title: note.title,
+        content: note.content || '',
+        folder: note.folder || 'inbox',
+        cluster: note.cluster || 'produto',
+        tags: note.tags || [],
+        date: note.date || 'agora',
+        status: colStatus,
+        updated_at: note.updated_at,
+      });
+      const ind = document.getElementById('save-indicator');
+      if (ok) { ind.textContent = '✓ salvo no Supabase'; ind.style.color = 'var(--green)'; }
+      else     { ind.textContent = '⚠ salvo só localmente'; ind.style.color = 'var(--coral)'; }
     });
   });
 }
@@ -1560,26 +1561,31 @@ function _npScheduleSave() {
   clearTimeout(_npSaveTimer);
   _npSaveTimer = setTimeout(async () => {
     saveNotes();
-    if (APP.supabaseConnected) {
-      const note = APP.notes.find(n => n.id === APP.currentNoteId);
-      if (note) {
-        note.updated_at = new Date().toISOString();
-        await pushNoteToBackend({ id: note.id, title: note.title, content: note.content || '',
-          folder: note.folder || 'inbox', cluster: note.cluster || 'produto',
-          tags: note.tags || [], date: note.date || 'agora',
-          status: note.status || 'inbox', updated_at: note.updated_at });
-      }
+    const note = APP.notes.find(n => n.id === APP.currentNoteId);
+    if (note) {
+      note.updated_at = new Date().toISOString();
+      const ok = await pushNoteToBackend({ id: note.id, title: note.title, content: note.content || '',
+        folder: note.folder || 'inbox', cluster: note.cluster || 'produto',
+        tags: note.tags || [], date: note.date || 'agora',
+        status: note.status || 'inbox', updated_at: note.updated_at });
+      _npSetSaved(ok);
+    } else {
+      _npSetSaved(false);
     }
-    _npSetSaved();
   }, 900);
 }
 
-function _npSetSaved() {
+function _npSetSaved(ok) {
   const ind = document.getElementById('np-save-indicator');
   const lbl = document.getElementById('np-save-label');
   if (!ind) return;
-  ind.style.color = 'var(--green)'; ind.textContent = '✓';
-  lbl.textContent = APP.supabaseConnected ? 'salvo no Supabase' : 'salvo localmente';
+  if (ok) {
+    ind.style.color = 'var(--green)'; ind.textContent = '✓';
+    lbl.textContent = 'salvo no Supabase';
+  } else {
+    ind.style.color = 'var(--coral)'; ind.textContent = '⚠';
+    lbl.textContent = 'salvo só localmente';
+  }
 }
 
 function _npUpdateWC() {
@@ -3392,24 +3398,25 @@ function sbUrl(path){ return APP.supabaseUrl.replace(/\/$/,'') + '/rest/v1/' + p
 async function pushNoteToBackend(note) {
   try {
     const session = await _supabase.auth.getSession();
-    const token = session.data.session?.access_token || APP.supabaseKey;
-    await fetch('/api/notes-save', {
+    const token = session.data.session?.access_token;
+    if (!token) return false;
+    const res = await fetch('/api/notes-save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify(note),
       signal: AbortSignal.timeout(10000),
     });
-  } catch(e) { console.warn('push note error:', e); }
+    return res.ok;
+  } catch(e) { console.warn('push note error:', e); return false; }
 }
 
 async function syncSupabase(){
-  if(!APP.supabaseConnected) return;
   const note = APP.notes.find(n=>n.id===APP.currentNoteId);
   if(!note) return;
   const now = new Date().toISOString();
   note.updated_at = now; // atualiza local para o merge funcionar
   localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
-  await pushNoteToBackend({
+  const ok = await pushNoteToBackend({
     id: note.id,
     title: note.title,
     content: note.content||'',
@@ -3419,8 +3426,9 @@ async function syncSupabase(){
     date: note.date||'agora',
     updated_at: now,
   });
-  document.getElementById('save-indicator').textContent='✓ salvo no Supabase';
-  document.getElementById('save-indicator').style.color='var(--green)';
+  const ind = document.getElementById('save-indicator');
+  if (ok) { ind.textContent = '✓ salvo no Supabase'; ind.style.color = 'var(--green)'; }
+  else     { ind.textContent = '⚠ salvo só localmente'; ind.style.color = 'var(--coral)'; }
 }
 
 async function loadFromSupabase(){
@@ -4505,28 +4513,21 @@ function initSupabaseAuth() {
         setTimeout(() => navigate('settings'), 500);
       }
 
-      // salva tokens do Google se disponíveis
+      // salva tokens do Google se disponíveis (fire-and-forget — não bloqueia o fluxo)
       if (session.provider_token && session.user.id) {
-        try {
-          const { error: tokenError } = await _supabase.from('google_tokens').upsert({
-            user_id: session.user.id,
-            email: session.user.email,
-            access_token: session.provider_token,
-            refresh_token: session.provider_refresh_token || null,
-            expiry_date: Date.now() + 3600 * 1000,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id' });
-          if (tokenError) {
-            console.error('TOKEN SAVE ERROR:', JSON.stringify(tokenError));
-          } else {
-            console.log('Google tokens saved for:', session.user.email);
-          }
-        } catch(e) {
-          console.warn('Token save error:', e.message);
-        }
+        _supabase.from('google_tokens').upsert({
+          user_id: session.user.id,
+          email: session.user.email,
+          access_token: session.provider_token,
+          refresh_token: session.provider_refresh_token || null,
+          expiry_date: Date.now() + 3600 * 1000,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+          .then(function(r) { if (r.error) console.error('TOKEN SAVE ERROR:', JSON.stringify(r.error)); else console.log('Google tokens saved for:', session.user.email); })
+          .catch(function(e) { console.warn('Token save error:', e.message); });
       }
 
-      await checkOnboarding();
+      checkOnboarding().catch(function(e) { console.warn('onboarding skip:', e); });
 
       if (!APP.supabaseConnected) {
         APP.supabaseUrl = SUPABASE_URL;
