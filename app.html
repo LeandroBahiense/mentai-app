@@ -3395,16 +3395,21 @@ async function sbHeaders(){
 }
 function sbUrl(path){ return APP.supabaseUrl.replace(/\/$/,'') + '/rest/v1/' + path; }
 
+async function getValidToken() {
+  for (let i = 0; i < 8; i++) {
+    try {
+      const { data } = await _supabase.auth.getSession();
+      const t = data && data.session && data.session.access_token;
+      if (t) { APP.accessToken = t; return t; }
+    } catch(e) {}
+    await new Promise(r => setTimeout(r, 400));
+  }
+  return APP.accessToken || null;
+}
+
 async function pushNoteToBackend(note) {
-  let token = APP.accessToken;
-  if (!token) {
-    try { const s = await _supabase.auth.getSession(); token = s.data.session?.access_token; } catch(e) {}
-  }
-  const ind = document.getElementById('save-indicator');
-  if (!token) {
-    if (ind) { ind.textContent = '⚠ DEBUG: sem token (accessToken+getSession vazios)'; ind.style.color = 'var(--coral)'; }
-    return false;
-  }
+  const token = await getValidToken();
+  if (!token) return false;
   try {
     const res = await fetch('/api/notes-save', {
       method: 'POST',
@@ -3412,12 +3417,8 @@ async function pushNoteToBackend(note) {
       body: JSON.stringify(note),
       signal: AbortSignal.timeout(10000),
     });
-    if (!res.ok && ind) { ind.textContent = '⚠ DEBUG: backend status ' + res.status; ind.style.color = 'var(--coral)'; }
     return res.ok;
-  } catch(e) {
-    if (ind) { ind.textContent = '⚠ DEBUG: erro fetch ' + (e.message || e.name); ind.style.color = 'var(--coral)'; }
-    return false;
-  }
+  } catch(e) { return false; }
 }
 
 async function syncSupabase(){
@@ -4554,14 +4555,20 @@ function initSupabaseAuth() {
       setupRealtime(session.user.id);
 
     } else {
-      currentUser = null;
-      APP.accessToken = null;
-      _realtimeConfigured = false;
-      showAuthScreen();
-      if (_realtimeChannel) {
-        _supabase.removeChannel(_realtimeChannel);
-        _realtimeChannel = null;
+      if (event === 'SIGNED_OUT') {
+        currentUser = null;
+        APP.accessToken = null;
+        _realtimeConfigured = false;
+        showAuthScreen();
+        if (_realtimeChannel) {
+          _supabase.removeChannel(_realtimeChannel);
+          _realtimeChannel = null;
+        }
+      } else if (event === 'INITIAL_SESSION') {
+        currentUser = null;
+        showAuthScreen();
       }
+      // qualquer outro evento sem sessão: não faz nada (não apaga o token nem mexe na UI)
     }
   });
 }
