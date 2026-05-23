@@ -842,6 +842,9 @@ export default async function handler(req, res) {
       system += '• Atualizar evento: [ATUALIZAR_EVENTO:{"title":"...","newDatetime":"YYYY-MM-DDTHH:mm:ss-03:00"}]\n';
       system += '• Apagar evento:    [APAGAR_EVENTO:{"title":"..."}]\n';
     }
+    system += 'Regras para notas:\n';
+    system += '  - Use [CRIAR_NOTA] apenas para uma nota NOVA. No "content", coloque só a informação a anotar — NUNCA a frase de comando do usuário.\n';
+    system += '  - Use [ATUALIZAR_NOTA] quando o usuário quiser ACRESCENTAR a uma nota que JÁ existe (ex: "anota na nota X", "adiciona à nota X", "na nota X: ..."), usando no "title" o título EXATO da nota existente.\n';
     system += 'Confirme cada ação ao usuário de forma curta. NUNCA diga que não consegue fazer essas ações.\n';
     system += '- Quando o usuário mencionar dias da semana (sexta, sábado, segunda, etc), sempre converta para a data completa DD/MM/YYYY baseado na data atual.\n';
 
@@ -882,18 +885,12 @@ export default async function handler(req, res) {
     }
 
     // ── CRIAR_NOTA ────────────────────────────────────────────────────────
-    if (reply.includes('[CRIAR_NOTA:')) {
+    const criarNota = parseRobust('CRIAR_NOTA', reply);
+    if (criarNota) {
       try {
-        const noteJson = await askClaude(
-          'Extraia informações estruturadas. Responda SOMENTE com JSON puro, sem markdown, sem explicações: {"title":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."]}',
-          [{ role: 'user', content: 'Mensagem: ' + userMessage }]
-        );
-        const cleaned  = noteJson.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').replace(/```json\n?|\n?```/g, '').trim();
-        const noteData = JSON.parse(cleaned);
-        noteData.content = userMessage;
-        noteData.user_id = userId;
-        await createNote(noteData);
-        console.log('NOTE CREATED:', noteData.title);
+        criarNota.user_id = userId;
+        await createNote(criarNota);
+        console.log('NOTE CREATED:', criarNota.title);
       } catch (e) {
         console.error('CREATE NOTE ERR:', e.message);
       }
