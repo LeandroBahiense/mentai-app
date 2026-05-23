@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { createHmac }    from 'node:crypto';
+import { createHmac }    from 'crypto';
 
 const SUPABASE_URL      = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
