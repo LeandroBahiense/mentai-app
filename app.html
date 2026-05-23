@@ -1235,23 +1235,17 @@ function _bindKbDragDrop(board) {
       renderKanban();
       renderSidebar();
       if (APP.supabaseConnected) {
-        try {
-          await fetch(sbUrl('notes'), {
-            method: 'POST',
-            headers: await sbHeaders(),
-            body: JSON.stringify({
-              id: note.id,
-              title: note.title,
-              content: note.content || '',
-              folder: note.folder || 'inbox',
-              cluster: note.cluster || 'produto',
-              tags: note.tags || [],
-              date: note.date || 'agora',
-              status: colStatus,
-              updated_at: note.updated_at,
-            }),
-          });
-        } catch(err) { console.warn('Supabase drag-drop sync error:', err); }
+        await pushNoteToBackend({
+          id: note.id,
+          title: note.title,
+          content: note.content || '',
+          folder: note.folder || 'inbox',
+          cluster: note.cluster || 'produto',
+          tags: note.tags || [],
+          date: note.date || 'agora',
+          status: colStatus,
+          updated_at: note.updated_at,
+        });
       }
     });
   });
@@ -1570,15 +1564,10 @@ function _npScheduleSave() {
       const note = APP.notes.find(n => n.id === APP.currentNoteId);
       if (note) {
         note.updated_at = new Date().toISOString();
-        try {
-          await fetch(sbUrl('notes'), {
-            method: 'POST', headers: await sbHeaders(),
-            body: JSON.stringify({ id: note.id, title: note.title, content: note.content || '',
-              folder: note.folder || 'inbox', cluster: note.cluster || 'produto',
-              tags: note.tags || [], date: note.date || 'agora',
-              status: note.status || 'inbox', updated_at: note.updated_at }),
-          });
-        } catch(e) { console.warn('np sync error:', e); }
+        await pushNoteToBackend({ id: note.id, title: note.title, content: note.content || '',
+          folder: note.folder || 'inbox', cluster: note.cluster || 'produto',
+          tags: note.tags || [], date: note.date || 'agora',
+          status: note.status || 'inbox', updated_at: note.updated_at });
       }
     }
     _npSetSaved();
@@ -3400,33 +3389,38 @@ async function sbHeaders(){
 }
 function sbUrl(path){ return APP.supabaseUrl.replace(/\/$/,'') + '/rest/v1/' + path; }
 
+async function pushNoteToBackend(note) {
+  try {
+    const session = await _supabase.auth.getSession();
+    const token = session.data.session?.access_token || APP.supabaseKey;
+    await fetch('/api/notes-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(note),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch(e) { console.warn('push note error:', e); }
+}
+
 async function syncSupabase(){
   if(!APP.supabaseConnected) return;
   const note = APP.notes.find(n=>n.id===APP.currentNoteId);
   if(!note) return;
-  try{
-    const now = new Date().toISOString();
-    note.updated_at = now; // atualiza local para o merge funcionar
-    await fetch(sbUrl('notes'), {
-      method:'POST',
-      headers:await sbHeaders(),
-      body: JSON.stringify({
-        id: note.id,
-        title: note.title,
-        content: note.content||'',
-        folder: note.folder||'inbox',
-        cluster: note.cluster||'produto',
-        tags: note.tags||[],
-        date: note.date||'agora',
-        updated_at: now,
-      }),
-    });
-    localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
-    document.getElementById('save-indicator').textContent='✓ salvo no Supabase';
-    document.getElementById('save-indicator').style.color='var(--green)';
-  }catch(e){
-    console.warn('Supabase sync error:',e);
-  }
+  const now = new Date().toISOString();
+  note.updated_at = now; // atualiza local para o merge funcionar
+  localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
+  await pushNoteToBackend({
+    id: note.id,
+    title: note.title,
+    content: note.content||'',
+    folder: note.folder||'inbox',
+    cluster: note.cluster||'produto',
+    tags: note.tags||[],
+    date: note.date||'agora',
+    updated_at: now,
+  });
+  document.getElementById('save-indicator').textContent='✓ salvo no Supabase';
+  document.getElementById('save-indicator').style.color='var(--green)';
 }
 
 async function loadFromSupabase(){
@@ -3437,6 +3431,7 @@ async function loadFromSupabase(){
     document.getElementById('save-indicator').textContent='◌ carregando do Supabase...';
     const res = await fetch('/api/notes', {
       headers: { 'Authorization': 'Bearer ' + token },
+      cache: 'no-store',
       signal: AbortSignal.timeout(12000),
     });
     if(!res.ok) throw new Error('HTTP '+res.status);
