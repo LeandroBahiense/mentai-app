@@ -213,7 +213,7 @@ async function createNote(note) {
   const id = 'wa-' + Date.now();
   const res = await fetch(SUPABASE_URL + '/rest/v1/notes', {
     method: 'POST',
-    headers: { ...sbHeaders(), 'Prefer': 'resolution=merge-duplicates' },
+    headers: { ...googleSbHeaders(), 'Prefer': 'resolution=merge-duplicates' },
     body: JSON.stringify({
       id,
       title:      note.title      || 'Nota sem título',
@@ -226,10 +226,13 @@ async function createNote(note) {
       updated_at: new Date().toISOString(),
     }),
   });
-  console.log('NOTE CREATE STATUS:', res.status, '|', note.title);
-  if (res.status >= 200 && res.status < 300) {
-    await indexNote(id, note.user_id, note.title || 'Nota sem título', note.content || '');
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error('NOTE CREATE FAILED:', res.status, '|', note.title, '|', errBody);
+    return null;
   }
+  console.log('NOTE CREATED:', res.status, '|', note.title);
+  await indexNote(id, note.user_id, note.title || 'Nota sem título', note.content || '');
   return id;
 }
 
@@ -274,7 +277,7 @@ async function updateNote(title, newContent, userId) {
 async function deleteNote(title) {
   const res = await fetch(
     SUPABASE_URL + '/rest/v1/notes?title=ilike.' + encodeURIComponent(title) + '&limit=1&select=id,title',
-    { headers: sbHeaders() }
+    { headers: googleSbHeaders() }
   );
   const notes = await res.json();
   console.log('NOTE DELETE SEARCH:', JSON.stringify(notes));
@@ -282,7 +285,7 @@ async function deleteNote(title) {
 
   const del = await fetch(
     SUPABASE_URL + '/rest/v1/notes?id=eq.' + encodeURIComponent(notes[0].id),
-    { method: 'DELETE', headers: sbHeaders() }
+    { method: 'DELETE', headers: googleSbHeaders() }
   );
   console.log('NOTE DELETE STATUS:', del.status, '|', title);
   return del.status >= 200 && del.status < 300;
