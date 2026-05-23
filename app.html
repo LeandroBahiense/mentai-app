@@ -3397,7 +3397,7 @@ function sbUrl(path){ return APP.supabaseUrl.replace(/\/$/,'') + '/rest/v1/' + p
 
 async function pushNoteToBackend(note) {
   try {
-    const res = await fetch('/api/notes-save', {
+    const res = await fetch('/api/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
