@@ -3443,13 +3443,13 @@ async function loadFromSupabase(){
     const rows = await res.json();
     if(rows && rows.length > 0){
 
-      // ── Merge inteligente: só substitui se o banco for mais recente ──────
+      // ── Merge inteligente: banco vence no empate e quando for mais recente ──
       rows.forEach(function(r) {
         const localNote = APP.notes.find(function(n) { return n.id === r.id; });
         if (localNote) {
           const bankDate  = new Date(r.updated_at  || 0).getTime();
           const localDate = new Date(localNote.updated_at || 0).getTime();
-          if (bankDate > localDate) {
+          if (bankDate >= localDate) {
             Object.assign(localNote, {
               title:      r.title,
               content:    r.content  || '',
@@ -3483,26 +3483,19 @@ async function loadFromSupabase(){
 
       APP.activeNotes = new Set(APP.notes.map(function(n) { return n.id; }));
       localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
-      renderSidebar();
-      renderChatCtx();
-      buildGraphData();
-      updateStatusBar();
-      updateSystemStatus();
-
-      if (APP.currentView === 'home') {
-        renderHome();
-      } else {
-        renderKanban();
-      }
       document.getElementById('save-indicator').textContent='✓ notas sincronizadas';
       document.getElementById('save-indicator').style.color='var(--green)';
       showSBStatus(rows.length+' nota(s) sincronizada(s) ✓','ok');
+      try {
+        renderSidebar(); renderChatCtx(); buildGraphData(); updateStatusBar(); updateSystemStatus();
+        if (APP.currentView === 'home') renderHome(); else renderKanban();
+      } catch(re) { console.warn('render error:', re); }
     } else {
       // banco vazio — sobe as notas locais
       await pushAllToSupabase();
     }
   }catch(e){
-    document.getElementById('save-indicator').textContent='✓ salvo localmente';
+    document.getElementById('save-indicator').textContent='⚠ erro: ' + (e.message || e.name || 'desconhecido');
     console.warn('Supabase load error:',e);
   }
 }
