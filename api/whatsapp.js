@@ -370,12 +370,16 @@ async function refreshGoogleToken(phone, refreshToken, userId) {
 
 // ─── Google Calendar (CRUD) ───────────────────────────────────────────────────
 
-async function getCalendarEvents(accessToken, date) {
-  const start = new Date(date); start.setHours(0, 0, 0, 0);
-  const end   = new Date(date); end.setHours(23, 59, 59, 999);
+async function getCalendarEvents(accessToken, daysAhead = 8) {
+  const hojeBR = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(new Date());
+  const timeMin = hojeBR + 'T00:00:00-03:00';
+  const timeMax = new Date(Date.now() + daysAhead * 86400000).toISOString();
   const params = new URLSearchParams({
-    timeMin: start.toISOString(), timeMax: end.toISOString(),
-    singleEvents: 'true', orderBy: 'startTime', maxResults: '10',
+    timeMin, timeMax,
+    singleEvents: 'true', orderBy: 'startTime', maxResults: '50',
+    timeZone: 'America/Sao_Paulo',
   });
   const res = await fetch(
     'https://www.googleapis.com/calendar/v3/calendars/primary/events?' + params,
@@ -383,6 +387,7 @@ async function getCalendarEvents(accessToken, date) {
   );
   const data = await res.json();
   if (data.error) { console.error('CALENDAR READ ERR:', JSON.stringify(data.error)); return []; }
+  console.log('CALENDAR EVENTS:', (data.items || []).length);
   return data.items || [];
 }
 
@@ -481,12 +486,30 @@ async function getGmailMessages(accessToken) {
 // ─── Formatadores ────────────────────────────────────────────────────────────
 
 function formatCalendarEvents(events) {
-  if (!events || events.length === 0) return 'Nenhum evento hoje.';
+  if (!events || events.length === 0) return 'Nenhum evento nos próximos dias.';
+  const hojeBR = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(new Date());
   return events.map(function(e) {
-    const time = e.start.dateTime
-      ? new Date(e.start.dateTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
-      : 'dia todo';
-    return '- ' + time + ': ' + (e.summary || 'Sem título');
+    if (e.start.dateTime) {
+      const dt = new Date(e.start.dateTime);
+      const dataBR = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit'
+      }).format(dt);
+      const horaBR = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit'
+      }).format(dt);
+      const eventoDia = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit'
+      }).format(dt);
+      const label = eventoDia === hojeBR ? horaBR : dataBR + ' ' + horaBR;
+      return '- ' + label + ' — ' + (e.summary || 'Sem título');
+    } else {
+      const dataBR = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit'
+      }).format(new Date(e.start.date + 'T00:00:00-03:00'));
+      return '- ' + dataBR + ' (dia todo) — ' + (e.summary || 'Sem título');
+    }
   }).join('\n');
 }
 
@@ -791,7 +814,7 @@ export default async function handler(req, res) {
         ? await refreshGoogleToken(phone, googleTokens.refresh_token, userId)
         : googleTokens.access_token;
       googleConnected = true;
-      calendarEvents  = await getCalendarEvents(accessToken, new Date());
+      calendarEvents  = await getCalendarEvents(accessToken);
       if (needsGmail) {
         gmailMessages = await getGmailMessages(accessToken);
         console.log('GMAIL MESSAGES:', gmailMessages.length);
@@ -865,7 +888,7 @@ export default async function handler(req, res) {
     }
 
     if (googleConnected) {
-      system += 'AGENDA DE HOJE:\n' + formatCalendarEvents(calendarEvents) + '\n\n';
+      system += 'AGENDA (próximos dias, horário de Brasília):\n' + formatCalendarEvents(calendarEvents) + '\n\n';
       if (gmailMessages.length > 0) {
         system += 'EMAILS NÃO LIDOS:\n' + formatGmailMessages(gmailMessages) + '\n\n';
       }
