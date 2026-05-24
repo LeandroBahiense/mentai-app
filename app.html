@@ -3431,7 +3431,6 @@ async function syncSupabase(){
 }
 
 async function loadFromSupabase(){
-  if(!APP.supabaseConnected) return;
   const session = await _supabase.auth.getSession();
   const token = APP.accessToken || session.data.session?.access_token || APP.supabaseKey;
   try{
@@ -3502,8 +3501,12 @@ async function loadFromSupabase(){
       if (APP.currentView === 'home') renderHome(); else renderKanban();
     } catch(re) { console.warn('render error:', re); }
   }catch(e){
-    document.getElementById('save-indicator').textContent='⚠ erro: ' + (e.message || e.name || 'desconhecido');
-    console.warn('Supabase load error:',e);
+    if (e.message === 'HTTP 401') {
+      // sem cookie (usuário não logado) — silencia, o app segue com o localStorage
+    } else {
+      document.getElementById('save-indicator').textContent='⚠ erro: ' + (e.message || e.name || 'desconhecido');
+      console.warn('Supabase load error:',e);
+    }
   }
 }
 
@@ -4575,6 +4578,7 @@ function initSupabaseAuth() {
 // INIT
 initSupabaseAuth();
 initApp();
+loadFromSupabase(); // boot: usa o cookie persistido, sem depender do onAuthStateChange
 
 // ── Modal nova nota ──────────────────────────────────────────────
 document.getElementById('new-note-title-input')?.addEventListener('keydown', e => {
