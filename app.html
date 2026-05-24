@@ -378,6 +378,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 #statusbar{height:26px;background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:14px;font-size:10px;color:var(--text3);flex-shrink:0;letter-spacing:.4px;}
 #statusbar span{display:flex;align-items:center;gap:4px;}
 #save-indicator{color:var(--green);}
+@keyframes spin{to{transform:rotate(360deg);}}
+#btn-sync.syncing{animation:spin .7s linear infinite;pointer-events:none;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .fade-in{animation:fadeIn .2s ease;}
 
@@ -1014,6 +1016,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <span id="sb-conn-count">0 conexões</span>
   <span>|</span>
   <span id="save-indicator">✓ salvo localmente</span>
+  <button id="btn-sync" onclick="manualSync()" title="Sincronizar com o banco" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:12px;padding:0 2px;line-height:1;transition:color .2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">↻</button>
   <span style="margin-left:auto;color:var(--text3)" id="sb-hint">Dica: [[NomeDaNota]] para criar conexões</span>
 </div>
 
@@ -4474,6 +4477,14 @@ function initSupabaseAuth() {
       // qualquer outro evento sem sessão: não faz nada (não apaga o token nem mexe na UI)
     }
   });
+}
+
+async function manualSync() {
+  const btn = document.getElementById('btn-sync');
+  if (btn) btn.classList.add('syncing');
+  try { await loadFromSupabase(); } finally {
+    if (btn) btn.classList.remove('syncing');
+  }
 }
 
 // INIT
