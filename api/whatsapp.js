@@ -1,5 +1,6 @@
 import { getModelForUser, calculateCooldown, trackUsage } from './_lib/plans.js';
 import { searchRelevantNotes, buildRagContext, indexNote } from './_lib/embeddings.js';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
@@ -9,6 +10,18 @@ const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_FROM = process.env.TWILIO_WHATSAPP_FROM;
+
+function validateTwilioSignature(token, signature, url, params) {
+  const keys = Object.keys(params || {}).sort();
+  let data = url;
+  for (const k of keys) data += k + params[k];
+  const expected = createHmac('sha1', token).update(Buffer.from(data, 'utf-8')).digest('base64');
+  try {
+    const a = Buffer.from(signature);
+    const b = Buffer.from(expected);
+    return a.length === b.length && timingSafeEqual(a, b);
+  } catch { return false; }
+}
 
 function sleep(ms) {
   if (!ms || ms <= 0) return Promise.resolve();
@@ -660,23 +673,19 @@ async function askClaude(system, messages, model) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' });
 
-  // ── Validação de assinatura Twilio ────────────────────────────────────────
+  // ── Validação de assinatura Twilio (manual, sem dependência externa) ──────
   try {
-    const { validateRequest } = (await import('twilio')).default;
-    const authToken   = process.env.TWILIO_AUTH_TOKEN || '';
-    const signature   = req.headers['x-twilio-signature'] || '';
-    const params      = req.body || {};
+    const authToken = process.env.TWILIO_AUTH_TOKEN || '';
+    const signature = req.headers['x-twilio-signature'] || '';
+    const params    = req.body || {};
     const candidateUrls = [
       'https://pallyum.com/api/whatsapp',
       'https://www.pallyum.com/api/whatsapp',
     ];
-    let isValid    = false;
-    let matchedUrl = null;
+    let isValid = false, matchedUrl = null;
     for (const url of candidateUrls) {
-      if (validateRequest(authToken, signature, url, params)) {
-        isValid    = true;
-        matchedUrl = url;
-        break;
+      if (validateTwilioSignature(authToken, signature, url, params)) {
+        isValid = true; matchedUrl = url; break;
       }
     }
     const enforce = process.env.TWILIO_ENFORCE_SIGNATURE === 'true';
@@ -684,9 +693,8 @@ export default async function handler(req, res) {
     if (!isValid && enforce) {
       return res.status(403).json({ error: 'Invalid Twilio signature' });
     }
-  } catch(e) {
+  } catch (e) {
     console.log('TWILIO SIG CHECK ERROR:', e.message);
-    // erro inesperado na validação — não bloqueia o fluxo
   }
   // ─────────────────────────────────────────────────────────────────────────
 
