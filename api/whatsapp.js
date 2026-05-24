@@ -368,6 +368,48 @@ async function refreshGoogleToken(phone, refreshToken, userId) {
   return tokens.access_token;
 }
 
+async function getAllGoogleAccounts(userId, phone) {
+  const filter = userId
+    ? 'user_id=eq.' + encodeURIComponent(userId)
+    : 'phone=eq.' + encodeURIComponent(phone);
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/google_tokens?' + filter + '&order=is_primary.desc',
+    { headers: googleSbHeaders() }
+  );
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+async function refreshAccountToken(account) {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      refresh_token: account.refresh_token,
+      grant_type:    'refresh_token',
+    }),
+  });
+  const tokens = await res.json();
+  if (tokens.error) throw new Error('Refresh falhou: ' + tokens.error);
+  await fetch(SUPABASE_URL + '/rest/v1/google_tokens?id=eq.' + account.id, {
+    method: 'PATCH',
+    headers: googleSbHeaders(),
+    body: JSON.stringify({
+      access_token: tokens.access_token,
+      expiry_date:  Date.now() + tokens.expires_in * 1000,
+      updated_at:   new Date().toISOString(),
+    }),
+  });
+  return tokens.access_token;
+}
+
+async function ensureAccountToken(account) {
+  if (Date.now() >= account.expiry_date - 60000) return await refreshAccountToken(account);
+  return account.access_token;
+}
+
 // ─── Google Calendar (CRUD) ───────────────────────────────────────────────────
 
 async function getCalendarEvents(accessToken, daysAhead = 8) {
@@ -756,7 +798,7 @@ export default async function handler(req, res) {
   }
 
   // ── Detecta intenções ─────────────────────────────────────────────────────
-  const needsCalendar = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso/i.test(userMessage);
+  const needsCalendar = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo|livre|ocupad|marcad|dispon[íi]vel/i.test(userMessage);
   const needsGmail    = /e-?mails?|gmail|caixa|inbox|correio/i.test(userMessage);
   const needsGoogle   = needsCalendar || needsGmail;
 
@@ -770,8 +812,6 @@ export default async function handler(req, res) {
   try {
     const resolvedUserId = await getUserIdByPhone(phone);
     userId = resolvedUserId;
-    const googleTokens = await getGoogleTokens(phone, resolvedUserId);
-    console.log('GOOGLE TOKENS FOUND:', !!googleTokens, '| PHONE:', phone);
     console.log('USER ID:', userId);
 
     // ── Modelo e cooldown por plano ───────────────────────────────────────
@@ -809,12 +849,25 @@ export default async function handler(req, res) {
       }
     }
 
-    if (googleTokens) {
-      accessToken = Date.now() >= googleTokens.expiry_date - 60000
-        ? await refreshGoogleToken(phone, googleTokens.refresh_token, userId)
-        : googleTokens.access_token;
+    const accounts = await getAllGoogleAccounts(userId, phone);
+    if (accounts.length > 0) {
       googleConnected = true;
-      calendarEvents  = await getCalendarEvents(accessToken);
+      const primary = accounts.find(function(a){ return a.is_primary; }) || accounts[0];
+      accessToken = await ensureAccountToken(primary);   // escrita usa a conta principal
+      if (needsCalendar) {
+        for (const acc of accounts) {
+          try {
+            const tk  = await ensureAccountToken(acc);
+            const evs = await getCalendarEvents(tk);
+            evs.forEach(function(e){ e._accountEmail = acc.email; });
+            calendarEvents = calendarEvents.concat(evs);
+          } catch (e) { console.error('CAL ACCOUNT ERR (' + acc.email + '):', e.message); }
+        }
+        calendarEvents.sort(function(a,b){
+          return new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date);
+        });
+        console.log('CALENDAR EVENTS (agregado):', calendarEvents.length, '| contas:', accounts.length);
+      }
       if (needsGmail) {
         gmailMessages = await getGmailMessages(accessToken);
         console.log('GMAIL MESSAGES:', gmailMessages.length);
