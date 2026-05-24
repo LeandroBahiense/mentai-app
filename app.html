@@ -3444,32 +3444,16 @@ async function loadFromSupabase(){
     });
     if(!res.ok) throw new Error('HTTP '+res.status);
     const rows = await res.json();
-    if(rows && rows.length > 0){
+    const bankIds = new Set((rows || []).map(function(r) { return r.id; }));
 
-      // ── Merge inteligente: banco vence no empate e quando for mais recente ──
-      rows.forEach(function(r) {
-        const localNote = APP.notes.find(function(n) { return n.id === r.id; });
-        if (localNote) {
-          const bankDate  = new Date(r.updated_at  || 0).getTime();
-          const localDate = new Date(localNote.updated_at || 0).getTime();
-          if (bankDate >= localDate) {
-            Object.assign(localNote, {
-              title:      r.title,
-              content:    r.content  || '',
-              folder:     r.folder   || 'inbox',
-              cluster:    r.cluster  || 'produto',
-              tags:       r.tags     || [],
-              date:       r.date     || 'salvo',
-              status:     r.status   || 'inbox',
-              updated_at: r.updated_at,
-              in_trash:   r.in_trash   || false,
-              deleted_at: r.deleted_at || null,
-            });
-          }
-        } else {
-          // Nota nova que não existe localmente — adiciona
-          APP.notes.push({
-            id:         r.id,
+    // ── 1. Banco → local: banco é fonte da verdade ───────────────
+    (rows || []).forEach(function(r) {
+      const localNote = APP.notes.find(function(n) { return n.id === r.id; });
+      if (localNote) {
+        const bankDate  = new Date(r.updated_at  || 0).getTime();
+        const localDate = new Date(localNote.updated_at || 0).getTime();
+        if (bankDate >= localDate) {
+          Object.assign(localNote, {
             title:      r.title,
             content:    r.content  || '',
             folder:     r.folder   || 'inbox',
@@ -3482,21 +3466,41 @@ async function loadFromSupabase(){
             deleted_at: r.deleted_at || null,
           });
         }
-      });
+      } else {
+        // Nota que existe só no banco — adiciona localmente
+        APP.notes.push({
+          id:         r.id,
+          title:      r.title,
+          content:    r.content  || '',
+          folder:     r.folder   || 'inbox',
+          cluster:    r.cluster  || 'produto',
+          tags:       r.tags     || [],
+          date:       r.date     || 'salvo',
+          status:     r.status   || 'inbox',
+          updated_at: r.updated_at,
+          in_trash:   r.in_trash   || false,
+          deleted_at: r.deleted_at || null,
+        });
+      }
+    });
 
-      APP.activeNotes = new Set(APP.notes.map(function(n) { return n.id; }));
-      localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
-      document.getElementById('save-indicator').textContent='✓ notas sincronizadas';
-      document.getElementById('save-indicator').style.color='var(--green)';
-      showSBStatus(rows.length+' nota(s) sincronizada(s) ✓','ok');
-      try {
-        renderSidebar(); renderChatCtx(); buildGraphData(); updateStatusBar(); updateSystemStatus();
-        if (APP.currentView === 'home') renderHome(); else renderKanban();
-      } catch(re) { console.warn('render error:', re); }
-    } else {
-      // banco vazio — sobe as notas locais
-      await pushAllToSupabase();
+    // ── 2. Local → banco: notas que não estão no banco ainda ─────
+    const localOnly = APP.notes.filter(function(n) { return !bankIds.has(n.id); });
+    for (const note of localOnly) {
+      await pushNoteToBackend(note);
     }
+
+    // ── 3. Persiste e renderiza ───────────────────────────────────
+    APP.activeNotes = new Set(APP.notes.map(function(n) { return n.id; }));
+    localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
+    document.getElementById('save-indicator').textContent='✓ notas sincronizadas';
+    document.getElementById('save-indicator').style.color='var(--green)';
+    const total = (rows || []).length;
+    showSBStatus(total + ' nota(s) sincronizada(s) ✓', 'ok');
+    try {
+      renderSidebar(); renderChatCtx(); buildGraphData(); updateStatusBar(); updateSystemStatus();
+      if (APP.currentView === 'home') renderHome(); else renderKanban();
+    } catch(re) { console.warn('render error:', re); }
   }catch(e){
     document.getElementById('save-indicator').textContent='⚠ erro: ' + (e.message || e.name || 'desconhecido');
     console.warn('Supabase load error:',e);
