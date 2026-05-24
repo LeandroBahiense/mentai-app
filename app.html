@@ -1322,28 +1322,8 @@ async function setNoteStatus(noteId, newStatus) {
   renderKanban();
   renderSidebar();
   updateJarvisSays();
-  // persiste o status no Supabase
-  if (APP.supabaseConnected) {
-    try {
-      const now = new Date().toISOString();
-      note.updated_at = now;
-      await fetch(sbUrl('notes'), {
-        method: 'POST',
-        headers: await sbHeaders(),
-        body: JSON.stringify({
-          id: note.id,
-          title: note.title,
-          content: note.content || '',
-          folder: note.folder || 'inbox',
-          cluster: note.cluster || 'produto',
-          tags: note.tags || [],
-          date: note.date || 'agora',
-          status: newStatus,
-          updated_at: now,
-        }),
-      });
-    } catch(e) { console.warn('Supabase status sync error:', e); }
-  }
+  note.updated_at = new Date().toISOString();
+  await pushNoteToBackend(note);
 }
 
 // fecha o menu ao clicar fora
@@ -1446,19 +1426,7 @@ async function changeNoteFolder(newFolder) {
   saveNotes();
   renderKanban();
   renderSidebar();
-  if (APP.supabaseConnected && currentUser) {
-    const headers = await sbHeaders();
-    await fetch(sbUrl('notes'), {
-      method: 'POST', headers,
-      body: JSON.stringify({
-        id: note.id, title: note.title,
-        content: note.content || '', folder: newFolder,
-        cluster: note.cluster || 'produto', tags: note.tags || [],
-        date: note.date || 'agora', status: note.status || 'inbox',
-        user_id: currentUser.id, updated_at: note.updated_at,
-      }),
-    });
-  }
+  await pushNoteToBackend(note);
 }
 
 function renderHome() {
@@ -2755,27 +2723,7 @@ function deleteCurrentNote() {
   note.deleted_at = now;
   note.updated_at = now;
   saveNotes();
-  if (APP.supabaseConnected && currentUser) {
-    sbHeaders().then(headers => {
-      fetch(sbUrl('notes'), {
-        method: 'POST', headers,
-        body: JSON.stringify({
-          id:         note.id,
-          title:      note.title,
-          content:    note.content || '',
-          folder:     note.folder  || 'inbox',
-          cluster:    note.cluster || 'produto',
-          tags:       note.tags    || [],
-          date:       note.date    || 'agora',
-          status:     note.status  || 'inbox',
-          user_id:    currentUser.id,
-          updated_at: now,
-          in_trash:   true,
-          deleted_at: now,
-        }),
-      });
-    });
-  }
+  pushNoteToBackend(note);
   APP.currentNoteId = null;
   renderSidebar();
   renderKanban();
@@ -3508,42 +3456,19 @@ async function loadFromSupabase(){
 }
 
 async function pushAllToSupabase() {
-  if (!APP.supabaseConnected || !currentUser) return;
-  const headers = await sbHeaders();
   let ok = 0;
   for (const note of APP.notes) {
-    try {
-      note.user_id    = currentUser.id;
-      note.updated_at = note.updated_at || new Date().toISOString();
-      const res = await fetch(sbUrl('notes'), {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          id:         note.id,
-          title:      note.title,
-          content:    note.content  || '',
-          folder:     note.folder   || 'inbox',
-          cluster:    note.cluster  || 'produto',
-          tags:       note.tags     || [],
-          date:       note.date     || 'agora',
-          status:     note.status   || 'inbox',
-          user_id:    currentUser.id,
-          updated_at: note.updated_at,
-          in_trash:   note.in_trash   || false,
-          deleted_at: note.deleted_at || null,
-        }),
-      });
-      if (res.ok) ok++;
-    } catch(e) { console.warn('push error', note.id, e); }
+    note.updated_at = note.updated_at || new Date().toISOString();
+    const res = await pushNoteToBackend(note);
+    if (res) ok++;
   }
   showSBStatus(ok + ' notas enviadas ✓', 'ok');
 }
 
 async function deleteFromSupabase(id){
-  if(!APP.supabaseConnected) return;
   try{
-    await fetch(sbUrl('notes?id=eq.'+encodeURIComponent(id)), {
-      method:'DELETE', headers:await sbHeaders(),
+    await fetch('/api/notes?id=' + encodeURIComponent(id), {
+      method: 'DELETE', credentials: 'include',
     });
   }catch(e){ console.warn('delete error',e); }
 }
@@ -4003,19 +3928,8 @@ async function deleteGaveta(id) {
   saveNotes();
   renderSidebar();
   renderKanban();
-  // sync trash to Supabase
-  if (APP.supabaseConnected && currentUser) {
-    const headers = await sbHeaders();
-    for (const note of APP.notes.filter(n => n.folder === id && n.in_trash)) {
-      await fetch(sbUrl('notes'), {
-        method: 'POST', headers,
-        body: JSON.stringify({ id: note.id, title: note.title, content: note.content || '',
-          folder: note.folder, cluster: note.cluster || 'produto', tags: note.tags || [],
-          date: note.date || 'agora', status: note.status || 'inbox',
-          user_id: currentUser.id, updated_at: note.updated_at,
-          in_trash: true, deleted_at: note.deleted_at }),
-      });
-    }
+  for (const note of APP.notes.filter(n => n.folder === id && n.in_trash)) {
+    await pushNoteToBackend(note);
   }
 }
 
@@ -4047,17 +3961,7 @@ async function restoreNote(id) {
   saveNotes();
   renderSidebar();
   renderKanban();
-  if (APP.supabaseConnected && currentUser) {
-    const headers = await sbHeaders();
-    await fetch(sbUrl('notes'), {
-      method: 'POST', headers,
-      body: JSON.stringify({ id: note.id, title: note.title, content: note.content || '',
-        folder: note.folder, cluster: note.cluster || 'produto', tags: note.tags || [],
-        date: note.date || 'agora', status: note.status || 'inbox',
-        user_id: currentUser.id, updated_at: note.updated_at,
-        in_trash: false, deleted_at: null }),
-    });
-  }
+  await pushNoteToBackend(note);
 }
 
 async function permanentlyDeleteNote(id) {
