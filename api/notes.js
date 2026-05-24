@@ -80,6 +80,27 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // ── DELETE: apaga nota do dono ──────────────────────────────────
+  if (req.method === 'DELETE') {
+    const id = req.query && req.query.id;
+    if (!id) {
+      return res.status(400).json({ error: 'id obrigatório' });
+    }
+
+    const { error } = await supabase
+      .from('notes')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', uid);
+
+    if (error) {
+      console.error('[api/notes DELETE] supabase error:', error.message);
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({ ok: true });
+  }
+
   // ── outros métodos ──────────────────────────────────────────────
   return res.status(405).json({ error: 'method not allowed' });
 }
