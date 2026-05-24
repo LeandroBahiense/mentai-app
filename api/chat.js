@@ -9,8 +9,36 @@
 
 import { getModelForUser, calculateCooldown, trackUsage } from './_lib/plans.js';
 import { searchRelevantNotes, buildRagContext } from './_lib/embeddings.js';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
+
+// ── Identidade pelo cookie de sessão assinado (mesmo padrão do notes.js) ──────
+function toBase64url(buf) {
+  return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function readSession(req) {
+  const cookieHeader = req.headers['cookie'] || '';
+  const match = cookieHeader.match(/(?:^|;\s*)pallyum_session=([^;]+)/);
+  if (!match) return null;
+  const cookieVal = match[1];
+  const dot = cookieVal.lastIndexOf('.');
+  if (dot === -1) return null;
+  const payloadB64  = cookieVal.slice(0, dot);
+  const sigReceived = cookieVal.slice(dot + 1);
+  const expectedSig = toBase64url(createHmac('sha256', process.env.SESSION_SECRET).update(payloadB64).digest());
+  try {
+    const a = Buffer.from(sigReceived);
+    const b = Buffer.from(expectedSig);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  } catch { return null; }
+  let payload;
+  try { payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')); } catch { return null; }
+  if (!payload.uid || typeof payload.uid !== 'string') return null;
+  if (!payload.exp || Date.now() > payload.exp) return null;
+  return payload.uid;
+}
 
 function sleep(ms) {
   if (ms <= 0) return Promise.resolve();
@@ -59,9 +87,14 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'API key not configured on server' });
 
+  // Identidade vem do cookie de sessão assinado — NUNCA do corpo (não-forjável).
+  // Sem sessão válida, recusa: fecha leitura de notas de terceiros e uso anônimo da API.
+  const uid = readSession(req);
+  if (!uid) return res.status(401).json({ error: 'sessão inválida' });
+
   try {
     const body   = req.body || {};
-    const userId = body.userId || null;
+    const userId = uid;
 
     // ── 1. Cooldown fair-use ──────────────────────────────────────────────────
     let cooldownMs = 0;
