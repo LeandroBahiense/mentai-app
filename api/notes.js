@@ -1,8 +1,34 @@
-import { createClient } from '@supabase/supabase-js';
-import { readSession }  from './_lib/session.js';
+import { createClient }              from '@supabase/supabase-js';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+function toBase64url(buf) {
+  return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function readSession(req) {
+  const cookieHeader = req.headers['cookie'] || '';
+  const match = cookieHeader.match(/(?:^|;\s*)pallyum_session=([^;]+)/);
+  if (!match) return null;
+  const cookieVal = match[1];
+  const dot = cookieVal.lastIndexOf('.');
+  if (dot === -1) return null;
+  const payloadB64  = cookieVal.slice(0, dot);
+  const sigReceived = cookieVal.slice(dot + 1);
+  const expectedSig = toBase64url(createHmac('sha256', process.env.SESSION_SECRET).update(payloadB64).digest());
+  try {
+    const a = Buffer.from(sigReceived);
+    const b = Buffer.from(expectedSig);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  } catch { return null; }
+  let payload;
+  try { payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')); } catch { return null; }
+  if (!payload.uid || typeof payload.uid !== 'string') return null;
+  if (!payload.exp || Date.now() > payload.exp) return null;
+  return payload.uid;
+}
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
