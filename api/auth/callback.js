@@ -78,7 +78,17 @@ export default async function handler(req, res) {
       return res.redirect('https://pallyum.com/app?google=error&msg=user_not_found');
     }
 
-    // ── UPSERT em google_tokens (by user_id — UNIQUE constraint) ─────────────
+    // ── Busca contas Google já existentes para decidir is_primary ────────────
+    const existingRes = await fetch(
+      SUPABASE_URL + '/rest/v1/google_tokens?user_id=eq.' + encodeURIComponent(userId) + '&select=email,is_primary',
+      { headers: { 'apikey': SERVICE_KEY, 'Authorization': 'Bearer ' + SERVICE_KEY } }
+    );
+    const existingList = await existingRes.json().catch(() => []);
+    const arr       = Array.isArray(existingList) ? existingList : [];
+    const jaExiste  = arr.some(r => r.email === email);
+    const temAlguma = arr.length > 0;
+
+    // ── UPSERT em google_tokens (by user_id, email) ───────────────────────────
     const upsertBody = {
       user_id:       userId,
       phone:         phone || null,
@@ -89,7 +99,11 @@ export default async function handler(req, res) {
       updated_at:    new Date().toISOString(),
     };
 
-    const upsertRes = await fetch(SUPABASE_URL + '/rest/v1/google_tokens', {
+    if (!jaExiste) {
+      upsertBody.is_primary = !temAlguma;  // 1ª conta = principal; adicionais entram como secundárias
+    }
+
+    const upsertRes = await fetch(SUPABASE_URL + '/rest/v1/google_tokens?on_conflict=user_id,email', {
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
