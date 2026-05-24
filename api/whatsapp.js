@@ -660,6 +660,36 @@ async function askClaude(system, messages, model) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' });
 
+  // ── Validação de assinatura Twilio ────────────────────────────────────────
+  try {
+    const { validateRequest } = (await import('twilio')).default;
+    const authToken   = process.env.TWILIO_AUTH_TOKEN || '';
+    const signature   = req.headers['x-twilio-signature'] || '';
+    const params      = req.body || {};
+    const candidateUrls = [
+      'https://pallyum.com/api/whatsapp',
+      'https://www.pallyum.com/api/whatsapp',
+    ];
+    let isValid    = false;
+    let matchedUrl = null;
+    for (const url of candidateUrls) {
+      if (validateRequest(authToken, signature, url, params)) {
+        isValid    = true;
+        matchedUrl = url;
+        break;
+      }
+    }
+    const enforce = process.env.TWILIO_ENFORCE_SIGNATURE === 'true';
+    console.log('TWILIO SIG CHECK | valid:', isValid, '| matchedUrl:', matchedUrl || 'none', '| enforce:', enforce);
+    if (!isValid && enforce) {
+      return res.status(403).json({ error: 'Invalid Twilio signature' });
+    }
+  } catch(e) {
+    console.log('TWILIO SIG CHECK ERROR:', e.message);
+    // erro inesperado na validação — não bloqueia o fluxo
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   const body      = req.body || {};
   const phone     = (body.From || '').replace('whatsapp:', '');
   const mediaUrl  = body.MediaUrl0 || '';
