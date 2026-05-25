@@ -1093,20 +1093,13 @@ export default async function handler(req, res) {
       }
     }
 
-    system += 'SUAS CAPACIDADES — quando o usuário pedir, execute E inclua a tag em linha separada ao final:\n';
-    system += '• Criar nota:       [CRIAR_NOTA:{"title":"...","content":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."]}]\n';
-    system += '• Atualizar nota:   [ATUALIZAR_NOTA:{"title":"...","content":"..."}]\n';
-    system += '• Apagar nota:      [APAGAR_NOTA:{"title":"..."}]\n';
+    system += 'AÇÕES — use as FERRAMENTAS para agir quando o usuário pedir uma ação (não descreva a ação só em texto). Notas: criar_nota (registrar informação, ideia ou ata de reunião que já aconteceu), atualizar_nota (acrescentar a uma nota existente, pelo título exato), apagar_nota.\n';
     if (googleConnected) {
       const listaContas = accounts.map(a => a.email + (a.is_primary ? ' (principal)' : '')).join(', ');
       system += 'CONTAS GOOGLE CONECTADAS (para eventos): ' + listaContas + '.\n';
-      system += 'Para AÇÕES DE AGENDA (criar, remarcar ou cancelar compromissos/reuniões com data ou hora), use as FERRAMENTAS disponíveis (criar_evento, atualizar_evento, apagar_evento), não escreva tags de texto. Marcar algo com horário é SEMPRE um evento (ferramenta), nunca nota. Use [CRIAR_NOTA] apenas para registrar informações/ideias ou a ATA de uma reunião que já aconteceu.\n';
+      system += 'Agenda: use criar_evento, atualizar_evento, apagar_evento para marcar, remarcar ou cancelar compromissos/reuniões com data ou hora.\n';
     }
-    system += 'Regras para notas:\n';
-    system += '  - Use [CRIAR_NOTA] apenas para uma nota NOVA. No "content", coloque só a informação a anotar — NUNCA a frase de comando do usuário.\n';
-    system += '  - Só use [CRIAR_NOTA] quando o usuário pedir claramente para ANOTAR, REGISTRAR, SALVAR ou CRIAR UMA NOTA. Se o pedido for marcar/agendar algo com data ou hora, é EVENTO — nunca nota.\n';
-    system += '  - Use [ATUALIZAR_NOTA] quando o usuário quiser ACRESCENTAR a uma nota que JÁ existe (ex: "anota na nota X", "adiciona à nota X", "na nota X: ..."), usando no "title" o título EXATO da nota existente.\n';
-    system += 'Confirme cada ação ao usuário de forma curta. NUNCA diga que não consegue fazer essas ações.\n';
+    system += 'Distinção: marcar/agendar algo com data ou hora é sempre AGENDA (criar_evento), nunca nota; registrar informação/ideia/ata é NOTA (criar_nota); no conteúdo da nota coloque só a informação, nunca a frase de comando. Para perguntas e conversa, responda em texto sem acionar ferramenta. Confirme cada ação de forma curta e nunca diga que não consegue fazê-las.\n';
     system += '- Quando o usuário mencionar dias da semana (sexta, sábado, segunda, etc), sempre converta para a data completa DD/MM/YYYY baseado na data atual.\n';
 
     // ── Chamada ao Claude ─────────────────────────────────────────────────
@@ -1115,7 +1108,7 @@ export default async function handler(req, res) {
       .concat([{ role: 'user', content: userMessage }]);
 
     const _tools = googleConnected ? NOTE_TOOLS.concat(EVENT_TOOLS) : NOTE_TOOLS;
-    const _content = await askClaudeTools(system, msgs, req._pallyumModel, _tools, _tools ? { type: 'any' } : undefined);
+    const _content = await askClaudeTools(system, msgs, req._pallyumModel, _tools);
     const reply = (_content || []).filter(function (b) { return b && b.type === 'text'; }).map(function (b) { return b.text; }).join('\n');
     const _toolUses = (_content || []).filter(function (b) { return b && b.type === 'tool_use'; });
     console.log('REPLY:', (reply || '').substring(0, 200), '| TOOL_USES:', _toolUses.map(function (t) { return t.name; }).join(','));
