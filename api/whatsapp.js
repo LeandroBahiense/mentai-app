@@ -817,6 +817,7 @@ export default async function handler(req, res) {
   let gmailMessages  = [];
   let googleConnected = false;
   let userId         = null;
+  let accounts       = [];
 
   try {
     const resolvedUserId = await getUserIdByPhone(phone);
@@ -858,7 +859,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const accounts = await getAllGoogleAccounts(userId, phone);
+    accounts = await getAllGoogleAccounts(userId, phone);
     if (accounts.length > 0) {
       googleConnected = true;
       const primary = accounts.find(function(a){ return a.is_primary; }) || accounts[0];
