@@ -935,6 +935,16 @@ export default async function handler(req, res) {
     let system = 'Você é o Jarvis, assistente pessoal via WhatsApp. Responda em português, de forma curta e direta.\n\n';
     system += 'Data e hora atuais: ' + agoraTZ + '. Use isto para resolver "hoje", "amanhã", dias da semana e datas relativas.\n\n';
 
+    let refDatas = 'Tabela de datas (use SEMPRE para converter dias da semana; NUNCA calcule de cabeça):\n';
+    const baseMs = Date.now();
+    for (let i = 0; i <= 7; i++) {
+      const d = new Date(baseMs + i * 86400000);
+      const diaSemana = new Intl.DateTimeFormat('pt-BR', { timeZone: USER_TZ, weekday: 'long' }).format(d);
+      const dataFmt   = new Intl.DateTimeFormat('pt-BR', { timeZone: USER_TZ, day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+      refDatas += '- ' + (i === 0 ? diaSemana + ' (hoje)' : diaSemana) + ': ' + dataFmt + '\n';
+    }
+    system += refDatas + '\n';
+
     if (savedFileUrl) {
       system += 'ARQUIVO RECEBIDO: O usuário enviou um arquivo via WhatsApp que foi salvo com sucesso no vault (Supabase Storage). Mencione de forma curta que o arquivo foi recebido e salvo.\n\n';
     }
