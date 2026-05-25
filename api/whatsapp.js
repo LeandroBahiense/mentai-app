@@ -25,6 +25,16 @@ function validateTwilioSignature(token, signature, url, params) {
   } catch { return false; }
 }
 
+function toBase64url(buf) {
+  return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function signState(payload) {
+  const b64 = toBase64url(JSON.stringify(payload));
+  const sig = toBase64url(createHmac('sha256', process.env.SESSION_SECRET).update(b64).digest());
+  return b64 + '.' + sig;
+}
+
 function sleep(ms) {
   if (!ms || ms <= 0) return Promise.resolve();
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -872,7 +882,8 @@ export default async function handler(req, res) {
         console.log('GMAIL MESSAGES:', gmailMessages.length);
       }
     } else if (needsGoogle) {
-      const authLink = 'https://pallyum.com/api/auth/google?phone=' + encodeURIComponent(phone);
+      const token = signState({ phone, exp: Date.now() + 24 * 60 * 60 * 1000 });
+      const authLink = 'https://pallyum.com/api/auth/google?token=' + encodeURIComponent(token);
       await sendWhatsApp(phone, 'Para acessar sua agenda e emails, conecte o Google primeiro: ' + authLink);
       return res.status(200).send('OK');
     }
