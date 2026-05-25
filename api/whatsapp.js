@@ -775,8 +775,8 @@ async function askClaudeTools(system, messages, model, tools) {
     },
     body: JSON.stringify(body),
   });
-  console.log('CLAUDE STATUS:', res.status, '| MODEL:', resolvedModel);
   const data = await res.json();
+  console.log('CLAUDE STATUS:', res.status, '| MODEL:', resolvedModel, '| tools_sent:', (tools ? tools.length : 0), '| stop:', data && data.stop_reason);
   if (data.error) { console.error('CLAUDE ERROR:', JSON.stringify(data.error)); return null; }
   return data.content || null;
 }
