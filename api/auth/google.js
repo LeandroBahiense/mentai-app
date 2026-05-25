@@ -32,12 +32,39 @@ function signState(payload) {
   return b64 + '.' + sig;
 }
 
+function verifyState(state) {
+  if (!state || typeof state !== 'string') return null;
+  const dot = state.lastIndexOf('.');
+  if (dot === -1) return null;
+  const b64    = state.slice(0, dot);
+  const sigRecv = state.slice(dot + 1);
+  const expected = toBase64url(createHmac('sha256', process.env.SESSION_SECRET).update(b64).digest());
+  try {
+    const a = Buffer.from(sigRecv), b = Buffer.from(expected);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  } catch { return null; }
+  let payload;
+  try { payload = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8')); } catch { return null; }
+  if (payload.exp && Date.now() > payload.exp) return null;
+  return payload;
+}
+
 export default function handler(req, res) {
   const uidFromCookie = readSession(req);
-  const phone  = req.query.phone  || '';
-  const userId = uidFromCookie || (req.query.user_id || '');  // web usa cookie; sem cookie (WhatsApp) usa query
-  const web    = !!uidFromCookie;
-  const state  = signState({ user_id: userId, phone, web, exp: Date.now() + 10 * 60 * 1000 });
+  let userId = '', phone = '', web = false;
+  if (uidFromCookie) {
+    userId = uidFromCookie;
+    phone  = req.query.phone || '';
+    web    = true;
+  } else if (req.query.token) {
+    const t = verifyState(req.query.token);
+    if (!t || !t.phone) return res.redirect('https://pallyum.com/app?google=error&msg=bad_link');
+    phone = t.phone;
+    web   = false;
+  } else {
+    return res.redirect('https://pallyum.com/app?google=error&msg=no_auth');
+  }
+  const state = signState({ user_id: userId, phone, web, exp: Date.now() + 10 * 60 * 1000 });
 
   const GOOGLE_CLIENT_ID    = process.env.GOOGLE_CLIENT_ID;
   const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
