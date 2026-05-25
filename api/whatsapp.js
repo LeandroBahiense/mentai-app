@@ -781,6 +781,49 @@ async function askClaudeTools(system, messages, model, tools) {
   return data.content || null;
 }
 
+const EVENT_TOOLS = [
+  {
+    name: 'criar_evento',
+    description: 'Cria um evento na agenda do Google. Use sempre que o usuário pedir para marcar, agendar ou criar um compromisso, reunião, consulta, call ou lembrete com data e/ou hora — mesmo que não diga a palavra "agenda".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Título curto do evento, ex: "Reunião".' },
+        datetime: { type: 'string', description: 'Início em ISO com fuso de Brasília, ex: "2026-05-26T18:00:00-03:00". Use a tabela de datas do sistema para acertar o dia.' },
+        account: { type: 'string', description: 'Opcional. E-mail da conta Google onde criar, se o usuário indicar. Omita para a conta principal.' },
+        description: { type: 'string', description: 'Opcional. Detalhes adicionais.' }
+      },
+      required: ['title', 'datetime']
+    }
+  },
+  {
+    name: 'atualizar_evento',
+    description: 'Altera a data/hora de um evento existente. Use quando o usuário pedir para remarcar ou mudar o horário de um compromisso.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Título do evento a alterar.' },
+        new_datetime: { type: 'string', description: 'Novo início em ISO com fuso de Brasília, ex: "2026-05-26T19:00:00-03:00".' },
+        account: { type: 'string', description: 'Opcional. E-mail da conta, se o usuário indicar.' }
+      },
+      required: ['title', 'new_datetime']
+    }
+  },
+  {
+    name: 'apagar_evento',
+    description: 'Cancela/apaga um evento da agenda. Use quando o usuário pedir para cancelar ou desmarcar um compromisso.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Título do evento a cancelar.' },
+        datetime: { type: 'string', description: 'Importante quando há vários eventos com o mesmo nome: o início (ISO, fuso de Brasília) do evento a cancelar, copiado da AGENDA. Ex: "2026-05-26T19:00:00-03:00".' },
+        account: { type: 'string', description: 'Opcional. E-mail da conta, se o usuário indicar.' }
+      },
+      required: ['title']
+    }
+  }
+];
+
 // ─── Handler Principal ───────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -1018,13 +1061,7 @@ export default async function handler(req, res) {
     if (googleConnected) {
       const listaContas = accounts.map(a => a.email + (a.is_primary ? ' (principal)' : '')).join(', ');
       system += 'CONTAS GOOGLE CONECTADAS (para eventos): ' + listaContas + '.\n';
-      system += '• Criar evento:     [CRIAR_EVENTO:{"title":"...","datetime":"YYYY-MM-DDTHH:mm:ss-03:00","account":"email (opcional)"}]\n';
-      system += '• Atualizar evento: [ATUALIZAR_EVENTO:{"title":"...","newDatetime":"YYYY-MM-DDTHH:mm:ss-03:00","account":"email (opcional)"}]\n';
-      system += '• Apagar evento:    [APAGAR_EVENTO:{"title":"...","datetime":"YYYY-MM-DDTHH:mm:ss-03:00 (opcional)","account":"email (opcional)"}]\n';
-      system += 'Campo "account": inclua APENAS se o usuário indicar claramente a conta (pelo e-mail ou nome óbvio), usando o e-mail EXATO da lista acima. Se não especificar, OMITA — vai para a principal. Ao agir numa conta específica, confirme ao usuário em qual conta foi feito.\n';
-      system += 'Ao APAGAR um evento: se a AGENDA acima tiver mais de um evento com o mesmo nome, inclua o campo "datetime" com a data/hora exata do evento que você quer apagar (copie da AGENDA) para mirar o evento certo.\n';
-      system += 'AGENDA vs NOTA: se o usuário pedir para MARCAR, AGENDAR ou CRIAR um compromisso, reunião, evento, consulta ou call com DATA e/ou HORA, use SEMPRE [CRIAR_EVENTO] (vai para a agenda do Google) — NÃO crie nota nesse caso. Use [CRIAR_NOTA] apenas para registrar informações/ideias ou a ATA de uma reunião que já aconteceu. NUNCA confirme um agendamento sem incluir a tag [CRIAR_EVENTO] na resposta.\n';
-      system += 'EXEMPLO (siga o formato): se o usuário disser "marca reunião amanhã 18h", você confirma curto E inclui, em linha separada, [CRIAR_EVENTO:{"title":"Reunião","datetime":"<data de amanhã no formato YYYY-MM-DD>T18:00:00-03:00"}]. Mesmo sem a palavra "agenda" e mesmo sendo uma "reunião", marcar algo com horário é SEMPRE um evento na agenda — nunca uma nota.\n';
+      system += 'Para AÇÕES DE AGENDA (criar, remarcar ou cancelar compromissos/reuniões com data ou hora), use as FERRAMENTAS disponíveis (criar_evento, atualizar_evento, apagar_evento), não escreva tags de texto. Marcar algo com horário é SEMPRE um evento (ferramenta), nunca nota. Use [CRIAR_NOTA] apenas para registrar informações/ideias ou a ATA de uma reunião que já aconteceu.\n';
     }
     system += 'Regras para notas:\n';
     system += '  - Use [CRIAR_NOTA] apenas para uma nota NOVA. No "content", coloque só a informação a anotar — NUNCA a frase de comando do usuário.\n';
@@ -1038,9 +1075,11 @@ export default async function handler(req, res) {
       .map(function(m) { return { role: m.role, content: m.content }; })
       .concat([{ role: 'user', content: userMessage }]);
 
-    const _content = await askClaudeTools(system, msgs, req._pallyumModel);
+    const _tools = googleConnected ? EVENT_TOOLS : undefined;
+    const _content = await askClaudeTools(system, msgs, req._pallyumModel, _tools);
     const reply = (_content || []).filter(function (b) { return b && b.type === 'text'; }).map(function (b) { return b.text; }).join('\n');
-    console.log('REPLY:', (reply || '').substring(0, 200));
+    const _toolUses = (_content || []).filter(function (b) { return b && b.type === 'tool_use'; });
+    console.log('REPLY:', (reply || '').substring(0, 200), '| TOOL_USES:', _toolUses.map(function (t) { return t.name; }).join(','));
 
     if (!reply) {
       await sendWhatsApp(phone, 'Não consegui processar. Tente novamente.');
@@ -1103,32 +1142,27 @@ export default async function handler(req, res) {
       return await ensureAccountToken(conta);
     };
 
-    // ── CRIAR_EVENTO ──────────────────────────────────────────────────────
-    const criarEvento = parseRobust('CRIAR_EVENTO', reply);
-    if (criarEvento && accessToken) {
-      try {
-        const tk = await resolverContaToken(criarEvento.account);
-        await createCalendarEvent(tk, criarEvento.title, criarEvento.datetime, criarEvento.description || '');
-      } catch (e) { console.error('CREATE EVENT ERR:', e.message); }
+    // ── Ações de AGENDA (tool use) ────────────────────────────────────────
+    let eventConfirm = '';
+    if (accessToken) {
+      for (const tu of _toolUses) {
+        const inp = tu.input || {};
+        try {
+          const tk = await resolverContaToken(inp.account);
+          if (tu.name === 'criar_evento') {
+            const r = await createCalendarEvent(tk, inp.title, inp.datetime, inp.description || '');
+            eventConfirm += (r && r.id) ? ('✅ "' + inp.title + '" agendado.\n') : ('⚠️ Não consegui criar "' + inp.title + '".\n');
+          } else if (tu.name === 'atualizar_evento') {
+            const ok = await updateCalendarEvent(tk, inp.title, inp.new_datetime);
+            eventConfirm += ok ? ('✅ "' + inp.title + '" remarcado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para remarcar.\n');
+          } else if (tu.name === 'apagar_evento') {
+            const ok = await deleteCalendarEvent(tk, inp.title, inp.datetime);
+            eventConfirm += ok ? ('✅ "' + inp.title + '" cancelado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para cancelar.\n');
+          }
+        } catch (e) { console.error('EVENT TOOL ERR:', tu.name, e.message); eventConfirm += '⚠️ Erro ao processar o evento.\n'; }
+      }
     }
-
-    // ── ATUALIZAR_EVENTO ──────────────────────────────────────────────────
-    const atualizarEvento = parseRobust('ATUALIZAR_EVENTO', reply);
-    if (atualizarEvento && accessToken) {
-      try {
-        const tk = await resolverContaToken(atualizarEvento.account);
-        await updateCalendarEvent(tk, atualizarEvento.title, atualizarEvento.newDatetime);
-      } catch (e) { console.error('UPDATE EVENT ERR:', e.message); }
-    }
-
-    // ── APAGAR_EVENTO ─────────────────────────────────────────────────────
-    const apagarEvento = parseRobust('APAGAR_EVENTO', reply);
-    if (apagarEvento && accessToken) {
-      try {
-        const tk = await resolverContaToken(apagarEvento.account);
-        await deleteCalendarEvent(tk, apagarEvento.title, apagarEvento.datetime);
-      } catch (e) { console.error('DELETE EVENT ERR:', e.message); }
-    }
+    if (eventConfirm) finalReply = eventConfirm.trim();
 
     // ── Salva histórico ───────────────────────────────────────────────────
 
