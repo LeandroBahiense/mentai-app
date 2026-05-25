@@ -993,9 +993,11 @@ export default async function handler(req, res) {
       system += '• Apagar evento:    [APAGAR_EVENTO:{"title":"...","account":"email (opcional)"}]\n';
       system += 'Campo "account": inclua APENAS se o usuário indicar claramente a conta (pelo e-mail ou nome óbvio), usando o e-mail EXATO da lista acima. Se não especificar, OMITA — vai para a principal. Ao agir numa conta específica, confirme ao usuário em qual conta foi feito.\n';
       system += 'AGENDA vs NOTA: se o usuário pedir para MARCAR, AGENDAR ou CRIAR um compromisso, reunião, evento, consulta ou call com DATA e/ou HORA, use SEMPRE [CRIAR_EVENTO] (vai para a agenda do Google) — NÃO crie nota nesse caso. Use [CRIAR_NOTA] apenas para registrar informações/ideias ou a ATA de uma reunião que já aconteceu. NUNCA confirme um agendamento sem incluir a tag [CRIAR_EVENTO] na resposta.\n';
+      system += 'EXEMPLO (siga o formato): se o usuário disser "marca reunião amanhã 18h", você confirma curto E inclui, em linha separada, [CRIAR_EVENTO:{"title":"Reunião","datetime":"<data de amanhã no formato YYYY-MM-DD>T18:00:00-03:00"}]. Mesmo sem a palavra "agenda" e mesmo sendo uma "reunião", marcar algo com horário é SEMPRE um evento na agenda — nunca uma nota.\n';
     }
     system += 'Regras para notas:\n';
     system += '  - Use [CRIAR_NOTA] apenas para uma nota NOVA. No "content", coloque só a informação a anotar — NUNCA a frase de comando do usuário.\n';
+    system += '  - Só use [CRIAR_NOTA] quando o usuário pedir claramente para ANOTAR, REGISTRAR, SALVAR ou CRIAR UMA NOTA. Se o pedido for marcar/agendar algo com data ou hora, é EVENTO — nunca nota.\n';
     system += '  - Use [ATUALIZAR_NOTA] quando o usuário quiser ACRESCENTAR a uma nota que JÁ existe (ex: "anota na nota X", "adiciona à nota X", "na nota X: ..."), usando no "title" o título EXATO da nota existente.\n';
     system += 'Confirme cada ação ao usuário de forma curta. NUNCA diga que não consegue fazer essas ações.\n';
     system += '- Quando o usuário mencionar dias da semana (sexta, sábado, segunda, etc), sempre converta para a data completa DD/MM/YYYY baseado na data atual.\n';
