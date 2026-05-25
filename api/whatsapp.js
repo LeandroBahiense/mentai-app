@@ -762,6 +762,25 @@ async function askClaude(system, messages, model) {
   return null;
 }
 
+async function askClaudeTools(system, messages, model, tools) {
+  const resolvedModel = model || 'claude-sonnet-4-6';
+  const body = { model: resolvedModel, max_tokens: 1500, system: system, messages: messages };
+  if (tools && tools.length) body.tools = tools;
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(body),
+  });
+  console.log('CLAUDE STATUS:', res.status, '| MODEL:', resolvedModel);
+  const data = await res.json();
+  if (data.error) { console.error('CLAUDE ERROR:', JSON.stringify(data.error)); return null; }
+  return data.content || null;
+}
+
 // ─── Handler Principal ───────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -1019,7 +1038,8 @@ export default async function handler(req, res) {
       .map(function(m) { return { role: m.role, content: m.content }; })
       .concat([{ role: 'user', content: userMessage }]);
 
-    const reply = await askClaude(system, msgs, req._pallyumModel);
+    const _content = await askClaudeTools(system, msgs, req._pallyumModel);
+    const reply = (_content || []).filter(function (b) { return b && b.type === 'text'; }).map(function (b) { return b.text; }).join('\n');
     console.log('REPLY:', (reply || '').substring(0, 200));
 
     if (!reply) {
