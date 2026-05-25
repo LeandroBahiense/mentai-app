@@ -825,6 +825,44 @@ const EVENT_TOOLS = [
   }
 ];
 
+const NOTE_TOOLS = [
+  {
+    name: 'criar_nota',
+    description: 'Cria uma nota nova no vault. Use quando o usuário pedir para anotar, registrar, salvar ou guardar uma informação, ideia ou lembrete sem data/hora de compromisso.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Título curto da nota.' },
+        content: { type: 'string', description: 'Conteúdo da nota — apenas a informação a guardar, NUNCA a frase de comando do usuário.' },
+        cluster: { type: 'string', enum: ['produto', 'estrategia', 'equipe', 'pessoal', 'inbox'], description: 'Categoria da nota.' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Opcional. Etiquetas curtas.' }
+      },
+      required: ['title', 'content']
+    }
+  },
+  {
+    name: 'atualizar_nota',
+    description: 'Acrescenta conteúdo a uma nota que JÁ existe. Use quando o usuário pedir para adicionar/acrescentar algo a uma nota específica.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Título EXATO da nota existente.' },
+        content: { type: 'string', description: 'Texto a acrescentar.' }
+      },
+      required: ['title', 'content']
+    }
+  },
+  {
+    name: 'apagar_nota',
+    description: 'Apaga uma nota do vault. Use quando o usuário pedir para apagar/excluir uma nota.',
+    input_schema: {
+      type: 'object',
+      properties: { title: { type: 'string', description: 'Título da nota a apagar.' } },
+      required: ['title']
+    }
+  }
+];
+
 // ─── Handler Principal ───────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -1076,7 +1114,7 @@ export default async function handler(req, res) {
       .map(function(m) { return { role: m.role, content: m.content }; })
       .concat([{ role: 'user', content: userMessage }]);
 
-    const _tools = googleConnected ? EVENT_TOOLS : undefined;
+    const _tools = googleConnected ? NOTE_TOOLS.concat(EVENT_TOOLS) : NOTE_TOOLS;
     const _content = await askClaudeTools(system, msgs, req._pallyumModel, _tools, _tools ? { type: 'any' } : undefined);
     const reply = (_content || []).filter(function (b) { return b && b.type === 'text'; }).map(function (b) { return b.text; }).join('\n');
     const _toolUses = (_content || []).filter(function (b) { return b && b.type === 'tool_use'; });
@@ -1110,32 +1148,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── CRIAR_NOTA ────────────────────────────────────────────────────────
-    const criarNota = parseRobust('CRIAR_NOTA', reply);
-    if (criarNota) {
-      try {
-        criarNota.user_id = userId;
-        await createNote(criarNota);
-        console.log('NOTE CREATED:', criarNota.title);
-      } catch (e) {
-        console.error('CREATE NOTE ERR:', e.message);
-      }
-    }
-
-    // ── ATUALIZAR_NOTA ────────────────────────────────────────────────────
-    const atualizarNota = parseRobust('ATUALIZAR_NOTA', reply);
-    if (atualizarNota) {
-      try { await updateNote(atualizarNota.title, atualizarNota.content || userMessage, userId); }
-      catch (e) { console.error('UPDATE NOTE ERR:', e.message); }
-    }
-
-    // ── APAGAR_NOTA ───────────────────────────────────────────────────────
-    const apagarNota = parseRobust('APAGAR_NOTA', reply);
-    if (apagarNota) {
-      try { await deleteNote(apagarNota.title); }
-      catch (e) { console.error('DELETE NOTE ERR:', e.message); }
-    }
-
     // ── Helper: resolve token da conta-alvo (account do JSON) ou da principal ─
     const resolverContaToken = async (emailAlvo) => {
       const principal = accounts.find(a => a.is_primary) || accounts[0];
@@ -1143,27 +1155,38 @@ export default async function handler(req, res) {
       return await ensureAccountToken(conta);
     };
 
-    // ── Ações de AGENDA (tool use) ────────────────────────────────────────
-    let eventConfirm = '';
-    if (accessToken) {
-      for (const tu of _toolUses) {
-        const inp = tu.input || {};
-        try {
+    // ── Executa ações via tool use (notas + agenda) ───────────────────────
+    let actionConfirm = '';
+    for (const tu of _toolUses) {
+      const inp = tu.input || {};
+      try {
+        if (tu.name === 'criar_nota') {
+          inp.user_id = userId;
+          const id = await createNote(inp);
+          actionConfirm += id ? ('📝 Nota "' + (inp.title || '') + '" criada.\n') : ('⚠️ Não consegui criar a nota.\n');
+        } else if (tu.name === 'atualizar_nota') {
+          const ok = await updateNote(inp.title, inp.content || userMessage, userId);
+          actionConfirm += ok ? ('📝 Nota "' + inp.title + '" atualizada.\n') : ('⚠️ Não encontrei a nota "' + inp.title + '".\n');
+        } else if (tu.name === 'apagar_nota') {
+          await deleteNote(inp.title);
+          actionConfirm += '🗑️ Nota "' + inp.title + '" apagada.\n';
+        } else if (tu.name === 'criar_evento' || tu.name === 'atualizar_evento' || tu.name === 'apagar_evento') {
+          if (!accessToken) { actionConfirm += '⚠️ Conecte sua agenda Google primeiro.\n'; continue; }
           const tk = await resolverContaToken(inp.account);
           if (tu.name === 'criar_evento') {
             const r = await createCalendarEvent(tk, inp.title, inp.datetime, inp.description || '');
-            eventConfirm += (r && r.id) ? ('✅ "' + inp.title + '" agendado.\n') : ('⚠️ Não consegui criar "' + inp.title + '".\n');
+            actionConfirm += (r && r.id) ? ('✅ "' + inp.title + '" agendado.\n') : ('⚠️ Não consegui criar "' + inp.title + '".\n');
           } else if (tu.name === 'atualizar_evento') {
             const ok = await updateCalendarEvent(tk, inp.title, inp.new_datetime);
-            eventConfirm += ok ? ('✅ "' + inp.title + '" remarcado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para remarcar.\n');
-          } else if (tu.name === 'apagar_evento') {
+            actionConfirm += ok ? ('✅ "' + inp.title + '" remarcado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para remarcar.\n');
+          } else {
             const ok = await deleteCalendarEvent(tk, inp.title, inp.datetime);
-            eventConfirm += ok ? ('✅ "' + inp.title + '" cancelado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para cancelar.\n');
+            actionConfirm += ok ? ('✅ "' + inp.title + '" cancelado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para cancelar.\n');
           }
-        } catch (e) { console.error('EVENT TOOL ERR:', tu.name, e.message); eventConfirm += '⚠️ Erro ao processar o evento.\n'; }
-      }
+        }
+      } catch (e) { console.error('TOOL ERR:', tu.name, e.message); actionConfirm += '⚠️ Erro ao processar a ação.\n'; }
     }
-    if (eventConfirm) finalReply = eventConfirm.trim();
+    if (actionConfirm) finalReply = actionConfirm.trim();
 
     // ── Salva histórico ───────────────────────────────────────────────────
 
