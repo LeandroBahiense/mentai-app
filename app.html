@@ -972,15 +972,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
             Conecte serviços externos para ampliar o que o Pallyum pode fazer.
           </p>
-          <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;">
-            <div style="font-size:26px;flex-shrink:0;">🗓</div>
-            <div style="flex:1;min-width:0;">
+          <div style="padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">
+              <div style="font-size:26px;flex-shrink:0;">🗓</div>
               <div style="font-size:13px;font-weight:500;color:var(--text);">Google Calendar + Gmail</div>
-              <div id="conn-google-status" style="font-size:11px;color:var(--text3);margin-top:3px;">Verificando...</div>
             </div>
-            <button id="conn-google-btn" class="ss-btn primary" onclick="connectGoogle()" style="white-space:nowrap;flex-shrink:0;">
-              Conectar
-            </button>
+            <div id="google-accounts-list" style="margin-bottom:10px;"></div>
+            <button class="ss-btn primary" onclick="connectGoogle()" style="width:100%;font-size:12px;">+ Conectar outra conta</button>
           </div>
           <p style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.55;">
             Ao conectar, o Pallyum poderá ler e criar eventos no seu Google Calendar e ler e-mails do Gmail para responder pelo WhatsApp.
@@ -2182,35 +2180,38 @@ async function createAgent() {
 // ══════════════════════════════════════════════════════════════════
 
 async function checkGoogleConnection() {
-  if (!currentUser || !_supabase) return;
-  const statusEl = document.getElementById('conn-google-status');
-  const btnEl = document.getElementById('conn-google-btn');
-  if (!statusEl || !btnEl) return;
+  const listEl = document.getElementById('google-accounts-list');
+  if (!listEl) return;
+  listEl.textContent = 'Verificando…';
   try {
-    const { data } = await _supabase.from('google_tokens')
-      .select('email, updated_at')
-      .eq('user_id', currentUser.id)
-      .maybeSingle();
-    if (data && data.email) {
-      statusEl.textContent = '✓ Conectado: ' + data.email;
-      statusEl.style.color = 'var(--green)';
-      btnEl.textContent = 'Desconectar';
-      btnEl.className = 'ss-btn';
-      btnEl.style.color = 'var(--coral)';
-      btnEl.style.borderColor = 'rgba(216,90,48,.3)';
-      btnEl.onclick = disconnectGoogle;
-    } else {
-      statusEl.textContent = 'Não conectado';
-      statusEl.style.color = 'var(--text3)';
-      btnEl.textContent = 'Conectar';
-      btnEl.className = 'ss-btn primary';
-      btnEl.style.color = '';
-      btnEl.style.borderColor = '';
-      btnEl.onclick = connectGoogle;
+    const r = await fetch('/api/google-accounts', { credentials: 'same-origin' });
+    if (!r.ok) { listEl.textContent = 'Erro ao verificar (' + r.status + ')'; return; }
+    const data = await r.json();
+    const accounts = data.accounts || [];
+    if (accounts.length === 0) {
+      listEl.innerHTML = '<span style="font-size:12px;color:var(--text3);">Nenhuma conta conectada</span>';
+      return;
     }
+    listEl.innerHTML = accounts.map(function(acc) {
+      const isPrimary = acc.is_primary;
+      const canRemove = !isPrimary || accounts.length === 1;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">'
+        + '<div style="flex:1;min-width:0;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
+        +   acc.email
+        + '</div>'
+        + (isPrimary
+            ? '<span style="font-size:10px;font-weight:600;color:var(--green);border:1px solid var(--green);border-radius:4px;padding:1px 6px;white-space:nowrap;">Principal</span>'
+            : '<button class="ss-btn" style="font-size:10px;padding:2px 8px;white-space:nowrap;" onclick="setPrimaryAccount(\'' + acc.id + '\')">Tornar principal</button>'
+          )
+        + (canRemove
+            ? '<button class="ss-btn" style="font-size:10px;padding:2px 8px;white-space:nowrap;color:var(--coral);border-color:rgba(216,90,48,.3);" onclick="removeAccount(\'' + acc.id + '\',\'' + acc.email.replace(/'/g, "\\'") + '\')">Remover</button>'
+            : ''
+          )
+        + '</div>';
+    }).join('');
   } catch(e) {
     console.warn('checkGoogleConnection error:', e);
-    statusEl.textContent = 'Erro ao verificar';
+    if (listEl) listEl.innerHTML = '<span style="font-size:12px;color:var(--coral);">Erro ao verificar</span>';
   }
 }
 
@@ -2232,9 +2233,37 @@ async function connectGoogle() {
   window.location.href = url;
 }
 
-async function disconnectGoogle() {
-  if (!confirm('Desconectar Google? O Pallyum perderá acesso ao seu Calendar e Gmail até reconectar.')) return;
-  await _supabase.from('google_tokens').delete().eq('user_id', currentUser.id);
+async function setPrimaryAccount(id) {
+  try {
+    await fetch('/api/google-accounts', {
+      method: 'PATCH',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+  } catch(e) { console.warn('setPrimaryAccount error:', e); }
+  checkGoogleConnection();
+}
+
+async function removeAccount(id, email) {
+  // Precisamos saber o total de contas para exibir o confirm correto.
+  // Buscamos do DOM: conta o número de linhas renderizadas.
+  const listEl = document.getElementById('google-accounts-list');
+  const rowCount = listEl ? listEl.querySelectorAll('div[style*="border-bottom"]').length : 0;
+  const msg = rowCount === 1
+    ? 'Esta é sua última conta Google. Ao remover, o Pallyum perde acesso à sua agenda e e-mails. Continuar?'
+    : 'Remover a conta ' + email + '?';
+  if (!confirm(msg)) return;
+  try {
+    const r = await fetch('/api/google-accounts?id=' + encodeURIComponent(id), {
+      method: 'DELETE',
+      credentials: 'same-origin',
+    });
+    if (r.status === 409) {
+      alert('Defina outra conta como principal antes de remover esta.');
+      return;
+    }
+  } catch(e) { console.warn('removeAccount error:', e); return; }
   checkGoogleConnection();
 }
 
