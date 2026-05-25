@@ -218,8 +218,9 @@ async function generateJarvisLine(displayName, assistantName, eventsText, urgent
 
   const system =
     'Você é ' + (assistantName || 'Jarvis') + ', assistente pessoal de ' + (displayName || 'seu usuário') + '. ' +
-    'Responda APENAS com uma única frase curta (máx 20 palavras), motivadora e direta, ' +
-    'baseada no contexto da agenda e urgências do dia. Sem saudação, sem introdução, só a frase.';
+    'Escreva de 2 a 3 frases curtas (máx 50 palavras no total), motivadoras e diretas, ' +
+    'como um foco do dia personalizado baseado na agenda e nas urgências. ' +
+    'Mencione o evento mais importante se houver. Sem saudação, sem introdução, só as frases.';
 
   const prompt =
     'Hoje é ' + date + '.\n' +
@@ -236,7 +237,7 @@ async function generateJarvisLine(displayName, assistantName, eventsText, urgent
     },
     body: JSON.stringify({
       model:      'claude-haiku-4-5',
-      max_tokens: 80,
+      max_tokens: 150,
       system,
       messages:   [{ role: 'user', content: prompt }],
     }),
@@ -249,25 +250,33 @@ async function generateJarvisLine(displayName, assistantName, eventsText, urgent
 
 // ─── Monta mensagem final ─────────────────────────────────────────────────────
 
-function buildMessage(displayName, assistantName, eventsText, urgentText, jarvisLine) {
-  const hour = new Date().toLocaleString('pt-BR', {
-    hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
-  });
+function buildMessage(displayName, eventsText, urgentText, urgentCount, jarvisLine) {
+  const dataBR = new Date().toLocaleDateString('pt-BR', {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo',
+  }).replace('-feira', '');
+  const dataCap = dataBR.charAt(0).toUpperCase() + dataBR.slice(1);
 
-  const name  = displayName   || 'você';
+  const name  = displayName || 'você';
   const lines = [];
 
   lines.push('☀️ *Bom dia, ' + name + '!*');
+  lines.push('_' + dataCap + '_');
   lines.push('');
   lines.push('📅 *Agenda de hoje*');
   lines.push(eventsText);
   lines.push('');
-  lines.push('⚡ *Urgentes*');
-  lines.push(urgentText);
+
+  if (urgentCount > 0) {
+    lines.push('⚡ *Você tem ' + (urgentCount === 1 ? '1 nota Urgente' : urgentCount + ' notas Urgentes') + ':*');
+    lines.push(urgentText);
+  } else {
+    lines.push('⚡ *Nenhuma urgência — dia tranquilo!*');
+  }
 
   if (jarvisLine) {
     lines.push('');
-    lines.push('✦ _' + jarvisLine + '_');
+    lines.push('✦ *Foco do dia*');
+    lines.push('_' + jarvisLine + '_');
   }
 
   return lines.join('\n');
@@ -371,7 +380,7 @@ export default async function handler(req, res) {
 
       // Monta e envia
       const message = buildMessage(
-        displayName, assistantName || 'Jarvis', eventsText, urgentText, jarvisLine
+        displayName, eventsText, urgentText, urgentNotes.length, jarvisLine
       );
       const sent = await sendWhatsApp(phone, message);
       results.push({ userId, phone, ok: sent });
