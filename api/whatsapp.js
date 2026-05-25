@@ -1082,7 +1082,7 @@ export default async function handler(req, res) {
     const _toolUses = (_content || []).filter(function (b) { return b && b.type === 'tool_use'; });
     console.log('REPLY:', (reply || '').substring(0, 200), '| TOOL_USES:', _toolUses.map(function (t) { return t.name; }).join(','));
 
-    if (!reply) {
+    if (!reply && (!_toolUses || _toolUses.length === 0)) {
       await sendWhatsApp(phone, 'Não consegui processar. Tente novamente.');
       return res.status(200).send('OK');
     }
