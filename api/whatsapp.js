@@ -777,7 +777,7 @@ async function askClaudeTools(system, messages, model, tools, toolChoice) {
     body: JSON.stringify(body),
   });
   const data = await res.json();
-  console.log('CLAUDE STATUS:', res.status, '| MODEL:', resolvedModel, '| tools_sent:', (tools ? tools.length : 0), '| stop:', data && data.stop_reason);
+  console.log('CLAUDE STATUS:', res.status, '| MODEL:', resolvedModel, '| tools_sent:', (tools ? tools.length : 0), '| stop:', data && data.stop_reason, '| forced:', (toolChoice ? 'any' : 'auto'));
   if (data.error) { console.error('CLAUDE ERROR:', JSON.stringify(data.error)); return null; }
   return data.content || null;
 }
@@ -1108,7 +1108,9 @@ export default async function handler(req, res) {
       .concat([{ role: 'user', content: userMessage }]);
 
     const _tools = googleConnected ? NOTE_TOOLS.concat(EVENT_TOOLS) : NOTE_TOOLS;
-    const _content = await askClaudeTools(system, msgs, req._pallyumModel, _tools);
+    const _ehAcao = /\b(marc|agend|cri[ae]|cancel|remarc|desmarc|reagend|adia|anot|registr|salv|apag|delet|adicion|exclu|altera|edita|mud[ae])/i.test(userMessage || '');
+    const _toolChoice = (_ehAcao && _tools.length) ? { type: 'any' } : undefined;
+    const _content = await askClaudeTools(system, msgs, req._pallyumModel, _tools, _toolChoice);
     const reply = (_content || []).filter(function (b) { return b && b.type === 'text'; }).map(function (b) { return b.text; }).join('\n');
     const _toolUses = (_content || []).filter(function (b) { return b && b.type === 'tool_use'; });
     console.log('REPLY:', (reply || '').substring(0, 200), '| TOOL_USES:', _toolUses.map(function (t) { return t.name; }).join(','));
