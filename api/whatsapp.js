@@ -762,10 +762,11 @@ async function askClaude(system, messages, model) {
   return null;
 }
 
-async function askClaudeTools(system, messages, model, tools) {
+async function askClaudeTools(system, messages, model, tools, toolChoice) {
   const resolvedModel = model || 'claude-sonnet-4-6';
   const body = { model: resolvedModel, max_tokens: 1500, system: system, messages: messages };
   if (tools && tools.length) body.tools = tools;
+  if (toolChoice) body.tool_choice = toolChoice;
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -1076,7 +1077,7 @@ export default async function handler(req, res) {
       .concat([{ role: 'user', content: userMessage }]);
 
     const _tools = googleConnected ? EVENT_TOOLS : undefined;
-    const _content = await askClaudeTools(system, msgs, req._pallyumModel, _tools);
+    const _content = await askClaudeTools(system, msgs, req._pallyumModel, _tools, _tools ? { type: 'any' } : undefined);
     const reply = (_content || []).filter(function (b) { return b && b.type === 'text'; }).map(function (b) { return b.text; }).join('\n');
     const _toolUses = (_content || []).filter(function (b) { return b && b.type === 'tool_use'; });
     console.log('REPLY:', (reply || '').substring(0, 200), '| TOOL_USES:', _toolUses.map(function (t) { return t.name; }).join(','));
