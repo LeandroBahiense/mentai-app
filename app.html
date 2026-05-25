@@ -2228,8 +2228,7 @@ async function connectGoogle() {
       .maybeSingle();
     phone = prefs?.whatsapp_phone || '';
   } catch(_) {}
-  const url = '/api/auth/google?user_id=' + encodeURIComponent(currentUser.id)
-    + (phone ? '&phone=' + encodeURIComponent(phone) : '');
+  const url = '/api/auth/google' + (phone ? '?phone=' + encodeURIComponent(phone) : '');
   window.location.href = url;
 }
 
@@ -4449,30 +4448,11 @@ function initSupabaseAuth() {
         history.replaceState(null, '', window.location.pathname);
         setTimeout(() => {
           navigate('settings');
-          const statusEl = document.getElementById('conn-google-status');
-          if (statusEl) {
-            statusEl.textContent = '✓ Conectado com sucesso!';
-            statusEl.style.color = 'var(--green)';
-          }
           checkGoogleConnection();
         }, 800);
       } else if (sessionStorage.getItem('pallyum-return-to') === 'settings') {
         sessionStorage.removeItem('pallyum-return-to');
         setTimeout(() => navigate('settings'), 500);
-      }
-
-      // salva tokens do Google se disponíveis (fire-and-forget — não bloqueia o fluxo)
-      if (session.provider_token && session.user.id) {
-        _supabase.from('google_tokens').upsert({
-          user_id: session.user.id,
-          email: session.user.email,
-          access_token: session.provider_token,
-          refresh_token: session.provider_refresh_token || null,
-          expiry_date: Date.now() + 3600 * 1000,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' })
-          .then(function(r) { if (r.error) console.error('TOKEN SAVE ERROR:', JSON.stringify(r.error)); else console.log('Google tokens saved for:', session.user.email); })
-          .catch(function(e) { console.warn('Token save error:', e.message); });
       }
 
       checkOnboarding().catch(function(e) { console.warn('onboarding skip:', e); });
