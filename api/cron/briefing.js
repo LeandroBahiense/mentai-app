@@ -78,7 +78,7 @@ async function getPrefsForHour(horaAtual) {
 
 async function getPhoneByUserId(userId) {
   const res = await fetch(
-    SUPABASE_URL + '/rest/v1/google_tokens?user_id=eq.' + userId + '&select=phone&limit=1',
+    SUPABASE_URL + '/rest/v1/phone_users?user_id=eq.' + encodeURIComponent(userId) + '&select=phone&limit=1',
     { headers: svcHeaders() }
   );
   const data = await res.json();
