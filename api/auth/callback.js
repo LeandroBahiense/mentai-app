@@ -1,3 +1,26 @@
+import { createHmac, timingSafeEqual } from 'crypto';
+
+function toBase64url(buf) {
+  return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function verifyState(state) {
+  if (!state || typeof state !== 'string') return null;
+  const dot = state.lastIndexOf('.');
+  if (dot === -1) return null;
+  const b64    = state.slice(0, dot);
+  const sigRecv = state.slice(dot + 1);
+  const expected = toBase64url(createHmac('sha256', process.env.SESSION_SECRET).update(b64).digest());
+  try {
+    const a = Buffer.from(sigRecv), b = Buffer.from(expected);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  } catch { return null; }
+  let payload;
+  try { payload = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8')); } catch { return null; }
+  if (payload.exp && Date.now() > payload.exp) return null;
+  return payload;
+}
+
 export default async function handler(req, res) {
   const SUPABASE_URL  = process.env.SUPABASE_URL;
   const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -6,26 +29,14 @@ export default async function handler(req, res) {
 
   if (!code) return res.redirect('https://pallyum.com/app?google=error&msg=no_code');
 
-  // ── Decodifica state (base64 JSON: { user_id, phone }) ──────────────────────
-  let userId = null;
-  let phone  = null;
+  // ── Verifica e decodifica state assinado (HMAC-SHA256) ──────────────────────
+  const st = verifyState(stateParam);
+  if (!st) return res.redirect('https://pallyum.com/app?google=error&msg=bad_state');
+  let userId = st.user_id || null;
+  let phone  = st.phone  || null;
+  const cameFromWeb = !!st.web;
 
-  try {
-    const decoded = JSON.parse(Buffer.from(stateParam, 'base64').toString('utf8'));
-    userId = decoded.user_id || null;
-    phone  = decoded.phone  || null;
-  } catch (_) {
-    // Fallback: state legado — pode ser UUID (user_id) ou phone nu
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stateParam);
-    if (isUUID) {
-      userId = stateParam;
-    } else {
-      phone = stateParam || null;
-    }
-    console.warn('CALLBACK: state não era base64 JSON, usando fallback | isUUID=' + isUUID);
-  }
-
-  console.log('CALLBACK: userId=' + userId + ' | phone=' + phone);
+  console.log('CALLBACK: userId=' + userId + ' | phone=' + phone + ' | web=' + cameFromWeb);
 
   try {
     // ── Troca code por tokens ─────────────────────────────────────────────────
@@ -140,7 +151,7 @@ export default async function handler(req, res) {
     // ── Redireciona com base na origem ────────────────────────────────────────
     // Veio do app web (tem user_id no state) → feedback na tela
     // Veio do WhatsApp (só phone) → fecha silencioso
-    if (userId && (!phone || stateParam.includes('user_id'))) {
+    if (userId && cameFromWeb) {
       return res.redirect('https://pallyum.com/app?google=connected');
     } else {
       return res.redirect('https://pallyum.com/app');
