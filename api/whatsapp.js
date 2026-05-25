@@ -472,21 +472,32 @@ async function createCalendarEvent(accessToken, title, datetime, description) {
   return data;
 }
 
-async function findCalendarEvent(accessToken, title) {
+async function findCalendarEvent(accessToken, title, datetime) {
   const now    = new Date();
   const past   = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const future = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
   const params = new URLSearchParams({
     q: title, timeMin: past.toISOString(), timeMax: future.toISOString(),
-    singleEvents: 'true', maxResults: '5',
+    singleEvents: 'true', orderBy: 'startTime', maxResults: '10',
   });
   const res = await fetch(
     'https://www.googleapis.com/calendar/v3/calendars/primary/events?' + params,
     { headers: { 'Authorization': 'Bearer ' + accessToken } }
   );
   const data = await res.json();
-  console.log('CALENDAR FIND:', (data.items || []).map(function(e) { return e.summary; }));
-  return data.items && data.items.length > 0 ? data.items[0] : null;
+  const items = data.items || [];
+  console.log('CALENDAR FIND:', items.map(function(e) { return e.summary + ' @ ' + ((e.start && (e.start.dateTime || e.start.date)) || '?'); }));
+  if (datetime) {
+    const target = new Date(datetime).getTime();
+    const match = items.find(function(e) {
+      const s = e.start && (e.start.dateTime || e.start.date);
+      return s && Math.abs(new Date(s).getTime() - target) < 60000;
+    });
+    if (match) return match;
+    console.log('NO EVENT MATCHES DATETIME:', datetime);
+    return null;
+  }
+  return items.length > 0 ? items[0] : null;
 }
 
 async function updateCalendarEvent(accessToken, title, newDatetime) {
@@ -509,8 +520,8 @@ async function updateCalendarEvent(accessToken, title, newDatetime) {
   return res.status >= 200 && res.status < 300;
 }
 
-async function deleteCalendarEvent(accessToken, title) {
-  const event = await findCalendarEvent(accessToken, title);
+async function deleteCalendarEvent(accessToken, title, datetime) {
+  const event = await findCalendarEvent(accessToken, title, datetime);
   if (!event) { console.log('EVENT NOT FOUND FOR DELETE:', title); return false; }
   const res = await fetch(
     'https://www.googleapis.com/calendar/v3/calendars/primary/events/' + event.id,
@@ -990,8 +1001,9 @@ export default async function handler(req, res) {
       system += 'CONTAS GOOGLE CONECTADAS (para eventos): ' + listaContas + '.\n';
       system += '• Criar evento:     [CRIAR_EVENTO:{"title":"...","datetime":"YYYY-MM-DDTHH:mm:ss-03:00","account":"email (opcional)"}]\n';
       system += '• Atualizar evento: [ATUALIZAR_EVENTO:{"title":"...","newDatetime":"YYYY-MM-DDTHH:mm:ss-03:00","account":"email (opcional)"}]\n';
-      system += '• Apagar evento:    [APAGAR_EVENTO:{"title":"...","account":"email (opcional)"}]\n';
+      system += '• Apagar evento:    [APAGAR_EVENTO:{"title":"...","datetime":"YYYY-MM-DDTHH:mm:ss-03:00 (opcional)","account":"email (opcional)"}]\n';
       system += 'Campo "account": inclua APENAS se o usuário indicar claramente a conta (pelo e-mail ou nome óbvio), usando o e-mail EXATO da lista acima. Se não especificar, OMITA — vai para a principal. Ao agir numa conta específica, confirme ao usuário em qual conta foi feito.\n';
+      system += 'Ao APAGAR um evento: se a AGENDA acima tiver mais de um evento com o mesmo nome, inclua o campo "datetime" com a data/hora exata do evento que você quer apagar (copie da AGENDA) para mirar o evento certo.\n';
       system += 'AGENDA vs NOTA: se o usuário pedir para MARCAR, AGENDAR ou CRIAR um compromisso, reunião, evento, consulta ou call com DATA e/ou HORA, use SEMPRE [CRIAR_EVENTO] (vai para a agenda do Google) — NÃO crie nota nesse caso. Use [CRIAR_NOTA] apenas para registrar informações/ideias ou a ATA de uma reunião que já aconteceu. NUNCA confirme um agendamento sem incluir a tag [CRIAR_EVENTO] na resposta.\n';
       system += 'EXEMPLO (siga o formato): se o usuário disser "marca reunião amanhã 18h", você confirma curto E inclui, em linha separada, [CRIAR_EVENTO:{"title":"Reunião","datetime":"<data de amanhã no formato YYYY-MM-DD>T18:00:00-03:00"}]. Mesmo sem a palavra "agenda" e mesmo sendo uma "reunião", marcar algo com horário é SEMPRE um evento na agenda — nunca uma nota.\n';
     }
@@ -1094,7 +1106,7 @@ export default async function handler(req, res) {
     if (apagarEvento && accessToken) {
       try {
         const tk = await resolverContaToken(apagarEvento.account);
-        await deleteCalendarEvent(tk, apagarEvento.title);
+        await deleteCalendarEvent(tk, apagarEvento.title, apagarEvento.datetime);
       } catch (e) { console.error('DELETE EVENT ERR:', e.message); }
     }
 
