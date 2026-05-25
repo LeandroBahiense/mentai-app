@@ -976,9 +976,12 @@ export default async function handler(req, res) {
     system += '• Atualizar nota:   [ATUALIZAR_NOTA:{"title":"...","content":"..."}]\n';
     system += '• Apagar nota:      [APAGAR_NOTA:{"title":"..."}]\n';
     if (googleConnected) {
-      system += '• Criar evento:     [CRIAR_EVENTO:{"title":"...","datetime":"YYYY-MM-DDTHH:mm:ss-03:00"}]\n';
-      system += '• Atualizar evento: [ATUALIZAR_EVENTO:{"title":"...","newDatetime":"YYYY-MM-DDTHH:mm:ss-03:00"}]\n';
-      system += '• Apagar evento:    [APAGAR_EVENTO:{"title":"..."}]\n';
+      const listaContas = accounts.map(a => a.email + (a.is_primary ? ' (principal)' : '')).join(', ');
+      system += 'CONTAS GOOGLE CONECTADAS (para eventos): ' + listaContas + '.\n';
+      system += '• Criar evento:     [CRIAR_EVENTO:{"title":"...","datetime":"YYYY-MM-DDTHH:mm:ss-03:00","account":"email (opcional)"}]\n';
+      system += '• Atualizar evento: [ATUALIZAR_EVENTO:{"title":"...","newDatetime":"YYYY-MM-DDTHH:mm:ss-03:00","account":"email (opcional)"}]\n';
+      system += '• Apagar evento:    [APAGAR_EVENTO:{"title":"...","account":"email (opcional)"}]\n';
+      system += 'Campo "account": inclua APENAS se o usuário indicar claramente a conta (pelo e-mail ou nome óbvio), usando o e-mail EXATO da lista acima. Se não especificar, OMITA — vai para a principal. Ao agir numa conta específica, confirme ao usuário em qual conta foi feito.\n';
     }
     system += 'Regras para notas:\n';
     system += '  - Use [CRIAR_NOTA] apenas para uma nota NOVA. No "content", coloque só a informação a anotar — NUNCA a frase de comando do usuário.\n';
@@ -1048,25 +1051,38 @@ export default async function handler(req, res) {
       catch (e) { console.error('DELETE NOTE ERR:', e.message); }
     }
 
+    // ── Helper: resolve token da conta-alvo (account do JSON) ou da principal ─
+    const resolverContaToken = async (emailAlvo) => {
+      const principal = accounts.find(a => a.is_primary) || accounts[0];
+      const conta = (emailAlvo && accounts.find(a => a.email === emailAlvo)) || principal;
+      return await ensureAccountToken(conta);
+    };
+
     // ── CRIAR_EVENTO ──────────────────────────────────────────────────────
     const criarEvento = parseRobust('CRIAR_EVENTO', reply);
     if (criarEvento && accessToken) {
-      try { await createCalendarEvent(accessToken, criarEvento.title, criarEvento.datetime, criarEvento.description || ''); }
-      catch (e) { console.error('CREATE EVENT ERR:', e.message); }
+      try {
+        const tk = await resolverContaToken(criarEvento.account);
+        await createCalendarEvent(tk, criarEvento.title, criarEvento.datetime, criarEvento.description || '');
+      } catch (e) { console.error('CREATE EVENT ERR:', e.message); }
     }
 
     // ── ATUALIZAR_EVENTO ──────────────────────────────────────────────────
     const atualizarEvento = parseRobust('ATUALIZAR_EVENTO', reply);
     if (atualizarEvento && accessToken) {
-      try { await updateCalendarEvent(accessToken, atualizarEvento.title, atualizarEvento.newDatetime); }
-      catch (e) { console.error('UPDATE EVENT ERR:', e.message); }
+      try {
+        const tk = await resolverContaToken(atualizarEvento.account);
+        await updateCalendarEvent(tk, atualizarEvento.title, atualizarEvento.newDatetime);
+      } catch (e) { console.error('UPDATE EVENT ERR:', e.message); }
     }
 
     // ── APAGAR_EVENTO ─────────────────────────────────────────────────────
     const apagarEvento = parseRobust('APAGAR_EVENTO', reply);
     if (apagarEvento && accessToken) {
-      try { await deleteCalendarEvent(accessToken, apagarEvento.title); }
-      catch (e) { console.error('DELETE EVENT ERR:', e.message); }
+      try {
+        const tk = await resolverContaToken(apagarEvento.account);
+        await deleteCalendarEvent(tk, apagarEvento.title);
+      } catch (e) { console.error('DELETE EVENT ERR:', e.message); }
     }
 
     // ── Salva histórico ───────────────────────────────────────────────────
