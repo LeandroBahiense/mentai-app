@@ -116,8 +116,9 @@ async function refreshGoogleToken(phone, refreshToken) {
 }
 
 async function getCalendarEventsToday(accessToken) {
-  const start = new Date(); start.setHours(0, 0, 0, 0);
-  const end   = new Date(); end.setHours(23, 59, 59, 999);
+  const hojeBR = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const start = new Date(hojeBR + 'T00:00:00-03:00');
+  const end   = new Date(hojeBR + 'T23:59:59-03:00');
   const params = new URLSearchParams({
     timeMin:      start.toISOString(),
     timeMax:      end.toISOString(),
@@ -132,6 +133,48 @@ async function getCalendarEventsToday(accessToken) {
   const data = await res.json();
   if (data.error) { console.error('CALENDAR ERR:', JSON.stringify(data.error)); return []; }
   return data.items || [];
+}
+
+async function getAllGoogleAccountsByUserId(userId) {
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/google_tokens?user_id=eq.' + encodeURIComponent(userId) + '&order=is_primary.desc',
+    { headers: svcHeaders() }
+  );
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+async function refreshAccountToken(account) {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      refresh_token: account.refresh_token,
+      grant_type:    'refresh_token',
+    }),
+  });
+  const tokens = await res.json();
+  if (tokens.error) throw new Error('Refresh falhou: ' + tokens.error);
+  await fetch(
+    SUPABASE_URL + '/rest/v1/google_tokens?id=eq.' + encodeURIComponent(account.id),
+    {
+      method:  'PATCH',
+      headers: svcHeaders(),
+      body: JSON.stringify({
+        access_token: tokens.access_token,
+        expiry_date:  Date.now() + tokens.expires_in * 1000,
+        updated_at:   new Date().toISOString(),
+      }),
+    }
+  );
+  return tokens.access_token;
+}
+
+async function ensureAccountToken(account) {
+  if (Date.now() >= (account.expiry_date - 60000)) return await refreshAccountToken(account);
+  return account.access_token;
 }
 
 // ─── Vault: notas urgentes ────────────────────────────────────────────────────
@@ -297,19 +340,22 @@ export default async function handler(req, res) {
         continue;
       }
 
-      // Google Calendar — busca tokens por user_id (OAuth flow)
+      // Google Calendar — agrega TODAS as contas do usuário (multi-conta)
       let calendarEvents = [];
-      const tokenRow = await getGoogleTokensByUserId(userId);
-      if (tokenRow) {
+      const accounts = await getAllGoogleAccountsByUserId(userId);
+      for (const acc of accounts) {
         try {
-          const accessToken = Date.now() >= (tokenRow.expiry_date - 60000)
-            ? await refreshGoogleToken(phone, tokenRow.refresh_token)
-            : tokenRow.access_token;
-          calendarEvents = await getCalendarEventsToday(accessToken);
+          const accessToken = await ensureAccountToken(acc);
+          const evs = await getCalendarEventsToday(accessToken);
+          calendarEvents = calendarEvents.concat(evs);
         } catch (err) {
-          console.error('GOOGLE ERR:', userId, err.message);
+          console.error('BRIEFING CAL ERR:', acc.email, err.message);
         }
       }
+      calendarEvents.sort(function (a, b) {
+        return new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date);
+      });
+      console.log('BRIEFING: eventos agregados:', calendarEvents.length, '| contas:', accounts.length);
 
       // Notas urgentes
       const urgentNotes = await getUrgentNotes(userId);
