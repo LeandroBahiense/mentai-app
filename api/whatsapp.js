@@ -178,12 +178,21 @@ function extractKeywords(text) {
 // ─── Transcrição de Reunião ───────────────────────────────────────────────────
 
 function detectMeetingTranscript(text) {
-  // Palavras-chave explícitas de reunião — sem limite mínimo de caracteres
-  const hasTriggerWords = /transcri[çc][aã]o|reuni[aã]o|meeting|ata\b|call\b/i.test(text);
-  // Padrão de transcrição: pelo menos 2 ocorrências de "Nome:"
-  const speakerLines = (text.match(/[A-ZÀ-Úa-záéíóúâêôãõü][^\n:]{1,40}:/g) || []).length;
-  const hasTranscriptPattern = speakerLines >= 2;
-  return hasTriggerWords || hasTranscriptPattern;
+  const t = (text || '').trim();
+
+  // Comando de agenda (verbo de marcar + referência de tempo, mensagem curta) NUNCA é ata
+  const ehComandoAgenda =
+    /\b(marc|agend|cri|coloc|adicion|marque|agende)/i.test(t) &&
+    /\b(amanh|hoje|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo|meio-dia|meia-noite|\d{1,2}\s*h\b|\d{1,2}:\d{2})/i.test(t);
+  if (ehComandoAgenda && t.length < 200) return false;
+
+  // Transcrição de verdade: "Nome:" no início de pelo menos 2 linhas
+  const falas = (t.match(/^[A-ZÀ-Úa-záéíóúâêôãõü][^\n:]{1,40}:/gm) || []).length;
+  if (falas >= 2) return true;
+
+  // Palavras-chave de reunião só contam em texto longo (ata/transcrição colada)
+  const temPalavraChave = /transcri[çc][aã]o|reuni[aã]o|meeting|ata\b|call\b/i.test(t);
+  return temPalavraChave && t.length >= 200;
 }
 
 async function processMeetingTranscript(transcriptText, userId, model) {
