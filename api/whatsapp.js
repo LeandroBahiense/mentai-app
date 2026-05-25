@@ -11,6 +11,8 @@ const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_FROM = process.env.TWILIO_WHATSAPP_FROM;
 
+const USER_TZ = 'America/Sao_Paulo'; // futuramente: user.timezone || 'America/Sao_Paulo' — fuso por usuário ao internacionalizar
+
 function validateTwilioSignature(token, signature, url, params) {
   const keys = Object.keys(params || {}).sort();
   let data = url;
@@ -414,7 +416,7 @@ async function ensureAccountToken(account) {
 
 async function getCalendarEvents(accessToken, daysAhead = 8) {
   const hojeBR = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit'
+    timeZone: USER_TZ, year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(new Date());
   const timeMin = hojeBR + 'T00:00:00-03:00';
   const timeMax = new Date(Date.now() + daysAhead * 86400000).toISOString();
@@ -530,27 +532,24 @@ async function getGmailMessages(accessToken) {
 function formatCalendarEvents(events) {
   if (!events || events.length === 0) return 'Nenhum evento nos próximos dias.';
   const hojeBR = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit'
+    timeZone: USER_TZ, year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(new Date());
   return events.map(function(e) {
     if (e.start.dateTime) {
-      const dt = new Date(e.start.dateTime);
-      const dataBR = new Intl.DateTimeFormat('pt-BR', {
-        timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit'
-      }).format(dt);
-      const horaBR = new Intl.DateTimeFormat('pt-BR', {
-        timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit'
-      }).format(dt);
-      const eventoDia = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit'
-      }).format(dt);
-      const label = eventoDia === hojeBR ? horaBR : dataBR + ' ' + horaBR;
+      const dt      = new Date(e.start.dateTime);
+      const diaSem  = new Intl.DateTimeFormat('pt-BR', { timeZone: USER_TZ, weekday: 'short' }).format(dt).replace('.', '');
+      const dataBR  = new Intl.DateTimeFormat('pt-BR', { timeZone: USER_TZ, day: '2-digit', month: '2-digit' }).format(dt);
+      const horaBR  = new Intl.DateTimeFormat('pt-BR', { timeZone: USER_TZ, hour: '2-digit', minute: '2-digit' }).format(dt);
+      const eventoDia = new Intl.DateTimeFormat('en-CA', { timeZone: USER_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(dt);
+      const label   = eventoDia === hojeBR
+        ? diaSem + ' ' + horaBR
+        : diaSem + ' ' + dataBR + ' ' + horaBR;
       return '- ' + label + ' — ' + (e.summary || 'Sem título');
     } else {
-      const dataBR = new Intl.DateTimeFormat('pt-BR', {
-        timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit'
-      }).format(new Date(e.start.date + 'T00:00:00-03:00'));
-      return '- ' + dataBR + ' (dia todo) — ' + (e.summary || 'Sem título');
+      const dt      = new Date(e.start.date + 'T00:00:00-03:00');
+      const diaSem  = new Intl.DateTimeFormat('pt-BR', { timeZone: USER_TZ, weekday: 'short' }).format(dt).replace('.', '');
+      const dataBR  = new Intl.DateTimeFormat('pt-BR', { timeZone: USER_TZ, day: '2-digit', month: '2-digit' }).format(dt);
+      return '- ' + diaSem + ' ' + dataBR + ' (dia todo) — ' + (e.summary || 'Sem título');
     }
   }).join('\n');
 }
@@ -926,11 +925,15 @@ export default async function handler(req, res) {
       }
     }
 
-    const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const agoraTZ = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: USER_TZ,
+      weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(new Date());
 
     // ── System Prompt ─────────────────────────────────────────────────────
     let system = 'Você é o Jarvis, assistente pessoal via WhatsApp. Responda em português, de forma curta e direta.\n\n';
-    system += 'Data/hora atual: ' + now + '\n\n';
+    system += 'Data e hora atuais: ' + agoraTZ + '. Use isto para resolver "hoje", "amanhã", dias da semana e datas relativas.\n\n';
 
     if (savedFileUrl) {
       system += 'ARQUIVO RECEBIDO: O usuário enviou um arquivo via WhatsApp que foi salvo com sucesso no vault (Supabase Storage). Mencione de forma curta que o arquivo foi recebido e salvo.\n\n';
