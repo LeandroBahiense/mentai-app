@@ -992,6 +992,7 @@ export default async function handler(req, res) {
       system += '• Atualizar evento: [ATUALIZAR_EVENTO:{"title":"...","newDatetime":"YYYY-MM-DDTHH:mm:ss-03:00","account":"email (opcional)"}]\n';
       system += '• Apagar evento:    [APAGAR_EVENTO:{"title":"...","account":"email (opcional)"}]\n';
       system += 'Campo "account": inclua APENAS se o usuário indicar claramente a conta (pelo e-mail ou nome óbvio), usando o e-mail EXATO da lista acima. Se não especificar, OMITA — vai para a principal. Ao agir numa conta específica, confirme ao usuário em qual conta foi feito.\n';
+      system += 'AGENDA vs NOTA: se o usuário pedir para MARCAR, AGENDAR ou CRIAR um compromisso, reunião, evento, consulta ou call com DATA e/ou HORA, use SEMPRE [CRIAR_EVENTO] (vai para a agenda do Google) — NÃO crie nota nesse caso. Use [CRIAR_NOTA] apenas para registrar informações/ideias ou a ATA de uma reunião que já aconteceu. NUNCA confirme um agendamento sem incluir a tag [CRIAR_EVENTO] na resposta.\n';
     }
     system += 'Regras para notas:\n';
     system += '  - Use [CRIAR_NOTA] apenas para uma nota NOVA. No "content", coloque só a informação a anotar — NUNCA a frase de comando do usuário.\n';
