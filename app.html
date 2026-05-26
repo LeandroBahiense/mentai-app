@@ -2488,10 +2488,11 @@ function renderSidebar() {
   upd('cnt-dec',   live.filter(n=>n.folder==='decisoes').length);
   upd('cnt-reu',   live.filter(n=>n.folder==='reunioes').length);
   upd('cnt-trash', APP.notes.filter(n=>n.in_trash).length);
-  // update extra-gavetas counts
-  document.querySelectorAll('#extra-gavetas .s-item').forEach(el => {
-    const id = el.dataset.gavataId || el.getAttribute('data-gaveta-id');
-    if (id) {
+  // update extra-gavetas counts (procura em toda a sidebar, mesmo se a ordenação mover)
+  const _fixedCount = ['inbox','projetos','decisoes','reunioes','trash','all'];
+  document.querySelectorAll('#sidebar .s-item[data-folder]').forEach(el => {
+    const id = el.dataset.folder;
+    if (id && !_fixedCount.includes(id)) {
       const sc = el.querySelector('.s-count');
       if (sc) sc.textContent = live.filter(n => n.folder === id).length;
     }
@@ -3874,7 +3875,7 @@ async function checkOnboarding() {
     const horaInput = document.getElementById('briefing-hora-input');
     if (horaInput) horaInput.value = data.briefing_hora || '08:00';
     // aplica ordem salva das gavetas
-    const ordem = data.gavetas_ordem || [];
+    const ordem = [...new Set(data.gavetas_ordem || [])];
     if (ordem.length > 0) {
       const sidebar = document.getElementById('sidebar');
       ordem.forEach(id => {
@@ -3895,11 +3896,15 @@ async function checkOnboarding() {
 
 function loadGavetasFromPrefs(gavetas) {
   const container = document.getElementById('extra-gavetas');
+  document.querySelectorAll('#sidebar .s-item[data-folder]').forEach(el => {
+    const fid = el.dataset.folder;
+    if (fid && !['inbox','projetos','decisoes','reunioes'].includes(fid)) el.remove();
+  });
   container.innerHTML = '';
   const colors  = { trabalho:'#7c6ef0', pessoal:'#BA7517', projetos:'#1D9E75', viagem:'#D4537E', estudos:'#D85A30', financeiro:'#534AB7' };
   const labels  = { trabalho:'💼 Trabalho', pessoal:'🏠 Pessoal', projetos:'🚀 Projetos', viagem:'✈️ Viagem', estudos:'📚 Estudos', financeiro:'💰 Financeiro' };
   const defaultFolders = ['inbox','projetos','decisoes','reunioes'];
-  gavetas.forEach(id => {
+  [...new Set(gavetas)].forEach(id => {
     if (defaultFolders.includes(id)) return;
     const color = colors[id] || '#7c6ef0';
     const el = document.createElement('div');
@@ -4150,9 +4155,9 @@ function makeDraggable(el, id) {
 }
 
 async function saveGavetasOrdem() {
-  const ordem = [...document.querySelectorAll('#sidebar .s-item[data-folder]')]
+  const ordem = [...new Set([...document.querySelectorAll('#sidebar .s-item[data-folder]')]
     .map(el => el.dataset.folder)
-    .filter(id => id && id !== 'trash');
+    .filter(id => id && id !== 'trash'))];
   if (currentUser && _supabase) {
     await _supabase.from('user_preferences')
       .upsert({ user_id: currentUser.id, gavetas_ordem: ordem, updated_at: new Date().toISOString() });
