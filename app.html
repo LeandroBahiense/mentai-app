@@ -453,6 +453,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       </div>
     </div>
 
+    <div id="consent-section" style="display:none; margin-top:16px;">
+      <label style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:var(--text-muted, #aaa); cursor:pointer; line-height:1.4;">
+        <input type="checkbox" id="consent-checkbox" style="margin-top:3px; cursor:pointer;" onchange="updateAuthButtonState()"/>
+        <span>
+          Li e concordo com os
+          <a href="/termos" target="_blank" rel="noopener noreferrer" style="color:var(--accent2); text-decoration:underline;">Termos de Uso</a>
+          e a
+          <a href="/privacidade" target="_blank" rel="noopener noreferrer" style="color:var(--accent2); text-decoration:underline;">Política de Privacidade</a>,
+          incluindo o tratamento dos meus dados pessoais conforme a LGPD.
+        </span>
+      </label>
+    </div>
     <div class="auth-err" id="auth-err"></div>
     <button class="auth-btn" id="auth-action-btn" onclick="authAction()">Entrar</button>
     <div class="auth-toggle" id="auth-toggle-text">
@@ -4376,6 +4388,32 @@ function toggleAuthMode() {
     tog.innerHTML    = 'Não tem conta? <span onclick="toggleAuthMode()">Criar conta</span>';
   }
   document.getElementById('auth-err').textContent = '';
+  const consentSection = document.getElementById('consent-section');
+  const consentCheckbox = document.getElementById('consent-checkbox');
+  if (consentSection && consentCheckbox) {
+    if (_authMode === 'signup') {
+      consentSection.style.display = 'block';
+      consentCheckbox.checked = false;
+    } else {
+      consentSection.style.display = 'none';
+    }
+    updateAuthButtonState();
+  }
+}
+function updateAuthButtonState() {
+  const btn = document.getElementById('auth-action-btn');
+  if (!btn) return;
+  if (_authMode === 'signup') {
+    const checkbox = document.getElementById('consent-checkbox');
+    const accepted = checkbox && checkbox.checked;
+    btn.disabled = !accepted;
+    btn.style.opacity = accepted ? '1' : '0.5';
+    btn.style.cursor = accepted ? 'pointer' : 'not-allowed';
+  } else {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  }
 }
 async function authAction() {
   const email    = document.getElementById('auth-email').value.trim();
@@ -4388,10 +4426,26 @@ async function authAction() {
   try {
     let result;
     if (_authMode === 'signup') {
-      result = await _supabase.auth.signUp({ email, password });
-      if (result.error) throw result.error;
+      const checkbox = document.getElementById('consent-checkbox');
+      if (!checkbox || !checkbox.checked) {
+        throw new Error('Você precisa aceitar os Termos de Uso e a Política de Privacidade para criar a conta.');
+      }
+      const resp = await fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          acceptTerms:   true,
+          acceptPrivacy: true,
+        }),
+      });
+      const respData = await resp.json();
+      if (!resp.ok) {
+        throw new Error(respData.error || 'Falha ao criar conta');
+      }
       errEl.style.color = 'var(--green)';
-      errEl.textContent = 'Conta criada! Verifique seu e-mail para confirmar.';
+      errEl.textContent = respData.message || 'Conta criada! Verifique seu e-mail para confirmar.';
     } else {
       result = await _supabase.auth.signInWithPassword({ email, password });
       if (result.error) throw result.error;
