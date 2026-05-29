@@ -3,7 +3,12 @@
  * Fonte primária : payment.externalReference = "userId|sku"
  * Fallback       : parsePlanFromDescription(payment.description)
  * Atualiza user_preferences.plano + plano_validade
+ *
+ * Validação do token é fail-closed: se ASAAS_WEBHOOK_TOKEN não estiver
+ * configurada, todas as requisições são recusadas com 500.
  */
+
+import { timingSafeEqual } from 'crypto';
 
 const SUPABASE_URL        = process.env.SUPABASE_URL;
 const SUPABASE_SVC_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -15,6 +20,14 @@ function svcHeaders() {
     'apikey':        SUPABASE_SVC_KEY,
     'Authorization': 'Bearer ' + SUPABASE_SVC_KEY,
   };
+}
+
+function safeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  try { return timingSafeEqual(bufA, bufB); } catch { return false; }
 }
 
 // ── Parser primário: externalReference = "userId|sku" ─────────────────────────
@@ -149,12 +162,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  if (ASAAS_WEBHOOK_TOKEN) {
-    const token = req.headers['asaas-access-token'] || req.headers['x-asaas-token'];
-    if (token !== ASAAS_WEBHOOK_TOKEN) {
-      console.warn('ASAAS WEBHOOK: token inválido');
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+  if (!ASAAS_WEBHOOK_TOKEN) {
+    console.error('ASAAS WEBHOOK: ASAAS_WEBHOOK_TOKEN não configurada — recusando todas as requisições');
+    return res.status(500).json({ error: 'Webhook misconfigured' });
+  }
+
+  const token = req.headers['asaas-access-token'];
+  if (!token || !safeEqual(token, ASAAS_WEBHOOK_TOKEN)) {
+    console.warn('ASAAS WEBHOOK: token ausente ou inválido');
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const event = req.body;

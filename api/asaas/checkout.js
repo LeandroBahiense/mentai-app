@@ -3,12 +3,43 @@
  * Usa o produto "Asaas Checkout" — link de pagamento hospedado.
  * O Asaas coleta CPF e dados de pagamento diretamente.
  * 24 SKUs: Companion | Segundo Cérebro | Coletivo | Duo — mensal/anual
+ *
+ * Identidade do usuário derivada do cookie de sessão (readSession),
+ * não do corpo da requisição — evita forjamento de userId.
  */
+
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const ASAAS_API_KEY  = process.env.ASAAS_API_KEY;
 const ASAAS_BASE_URL = process.env.ASAAS_ENV === 'production'
   ? 'https://api.asaas.com/v3'
   : 'https://sandbox.asaas.com/api/v3';
+
+function toBase64url(buf) {
+  return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function readSession(req) {
+  const cookieHeader = req.headers['cookie'] || '';
+  const match = cookieHeader.match(/(?:^|;\s*)pallyum_session=([^;]+)/);
+  if (!match) return null;
+  const cookieVal = match[1];
+  const dot = cookieVal.lastIndexOf('.');
+  if (dot === -1) return null;
+  const payloadB64  = cookieVal.slice(0, dot);
+  const sigReceived = cookieVal.slice(dot + 1);
+  const expectedSig = toBase64url(createHmac('sha256', process.env.SESSION_SECRET).update(payloadB64).digest());
+  try {
+    const a = Buffer.from(sigReceived);
+    const b = Buffer.from(expectedSig);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  } catch { return null; }
+  let payload;
+  try { payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')); } catch { return null; }
+  if (!payload.uid || typeof payload.uid !== 'string') return null;
+  if (!payload.exp || Date.now() > payload.exp) return null;
+  return payload.uid;
+}
 
 // ── Tabela de SKUs ─────────────────────────────────────────────────────────────
 // Chave: "{produto}-{tier}-{periodo}"
@@ -81,7 +112,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { userId, sku } = req.body || {};
+  const uid = readSession(req);
+  if (!uid) {
+    return res.status(401).json({ error: 'sessão inválida' });
+  }
+
+  const { sku } = req.body || {};
 
   // Fallback: aceita {plano, ciclo} legado
   let skuKey = sku;
@@ -89,8 +125,8 @@ export default async function handler(req, res) {
     skuKey = `companion-${req.body.plano}-${req.body.ciclo}`;
   }
 
-  if (!userId || !skuKey) {
-    return res.status(400).json({ error: 'Campos obrigatórios: userId, sku' });
+  if (!skuKey) {
+    return res.status(400).json({ error: 'Campo obrigatório: sku' });
   }
 
   const skuData = SKUS[skuKey];
@@ -102,7 +138,7 @@ export default async function handler(req, res) {
 
   const itemName = SKU_NAMES[skuKey] || skuKey;
 
-  console.log(`CHECKOUT: userId=${userId} | sku=${skuKey} | valor=R$${skuData.value}`);
+  console.log(`CHECKOUT: uid=${uid} | sku=${skuKey} | valor=R$${skuData.value}`);
 
   const checkoutBody = {
     billingTypes:    ['CREDIT_CARD'],  // só cartão para teste inicial
@@ -120,7 +156,7 @@ export default async function handler(req, res) {
         quantity: 1,
       },
     ],
-    externalReference: userId + '|' + skuKey,
+    externalReference: uid + '|' + skuKey,
   };
 
   try {
