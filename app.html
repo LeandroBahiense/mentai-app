@@ -424,6 +424,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .auth-toggle{font-size:11px;color:var(--text3);text-align:center;cursor:pointer;}
 .auth-toggle span{color:var(--accent2);cursor:pointer;}
 .auth-toggle span:hover{text-decoration:underline;}
+.checkout-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--bg3, #2a2a2a);
+  border-top-color: var(--accent2, #6b7fe8);
+  border-radius: 50%;
+  animation: checkout-spin 0.8s linear infinite;
+}
+@keyframes checkout-spin {
+  to { transform: rotate(360deg); }
+}
 </style>
 </head>
 <body>
@@ -1102,6 +1113,58 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <button onclick="confirmNewNote()" class="ss-btn primary" style="flex:1;">Criar nota</button>
       <button onclick="closeNewNoteModal()" class="ss-btn" style="flex:1;">Cancelar</button>
     </div>
+  </div>
+</div>
+
+<!-- Modal: resultado do checkout Asaas -->
+<div id="checkout-result-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:420px;display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center;">
+
+    <!-- Estado: confirming -->
+    <div id="checkout-state-confirming" style="display:none;flex-direction:column;gap:14px;align-items:center;">
+      <div class="checkout-spinner"></div>
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Confirmando pagamento</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;">Estamos validando seu pagamento com a Asaas. Isso costuma levar alguns segundos.</div>
+    </div>
+
+    <!-- Estado: confirmed -->
+    <div id="checkout-state-confirmed" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%;">
+      <div style="font-size:48px;line-height:1;">✓</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--green);">Pagamento confirmado!</div>
+      <div id="checkout-confirmed-text" style="font-size:14px;color:var(--text);line-height:1.5;"></div>
+      <button onclick="closeCheckoutResultModal(true)" class="ss-btn primary" style="width:100%;margin-top:6px;">Continuar</button>
+    </div>
+
+    <!-- Estado: timeout -->
+    <div id="checkout-state-timeout" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%;">
+      <div style="font-size:40px;line-height:1;">⏳</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Estamos processando seu pagamento</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;">Você receberá uma confirmação por e-mail em alguns minutos. Se em até 10 minutos não receber, entre em contato com o suporte.</div>
+      <button onclick="closeCheckoutResultModal(false)" class="ss-btn" style="width:100%;margin-top:6px;">OK</button>
+    </div>
+
+    <!-- Estado: cancel -->
+    <div id="checkout-state-cancel" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%;">
+      <div style="font-size:40px;line-height:1;">⚠️</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Pagamento cancelado</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;">Você cancelou o pagamento antes de finalizar. Quando estiver pronto, é só voltar aos planos.</div>
+      <div style="display:flex;gap:8px;width:100%;margin-top:6px;">
+        <button onclick="closeCheckoutResultModal(false); navigate('planos');" class="ss-btn primary" style="flex:1;">Voltar aos planos</button>
+        <button onclick="closeCheckoutResultModal(false)" class="ss-btn" style="flex:1;">Fechar</button>
+      </div>
+    </div>
+
+    <!-- Estado: expired -->
+    <div id="checkout-state-expired" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%;">
+      <div style="font-size:40px;line-height:1;">⌛</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Link de pagamento expirado</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;">O link de pagamento expirou (validade de 60 minutos). Gere um novo voltando aos planos.</div>
+      <div style="display:flex;gap:8px;width:100%;margin-top:6px;">
+        <button onclick="closeCheckoutResultModal(false); navigate('planos');" class="ss-btn primary" style="flex:1;">Voltar aos planos</button>
+        <button onclick="closeCheckoutResultModal(false)" class="ss-btn" style="flex:1;">Fechar</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -2588,6 +2651,131 @@ function newNote() {
 
 function closeNewNoteModal() {
   document.getElementById('new-note-modal').style.display = 'none';
+}
+
+// ────────────────────────────────────────────────────────────────
+// Checkout result modal — detecta retorno do Asaas e mostra status
+// ────────────────────────────────────────────────────────────────
+
+let _checkoutPollInterval = null;
+
+function showCheckoutResultModal(state, payload) {
+  const modal = document.getElementById('checkout-result-modal');
+  if (!modal) return;
+  // Esconde todos os estados
+  ['confirming','confirmed','timeout','cancel','expired'].forEach(s => {
+    const el = document.getElementById('checkout-state-' + s);
+    if (el) el.style.display = 'none';
+  });
+  // Mostra o estado pedido
+  const target = document.getElementById('checkout-state-' + state);
+  if (target) target.style.display = 'flex';
+  // Preenche o estado confirmed se aplicável
+  if (state === 'confirmed' && payload) {
+    const txtEl = document.getElementById('checkout-confirmed-text');
+    if (txtEl) {
+      const planMeta = (typeof PLAN_LABELS !== 'undefined' && PLAN_LABELS[payload.plano])
+        ? PLAN_LABELS[payload.plano]
+        : { label: payload.plano || 'seu plano', icon: '⭐' };
+      let validadeStr = '';
+      if (payload.plano_validade) {
+        try {
+          validadeStr = ' Válido até ' + new Date(payload.plano_validade).toLocaleDateString('pt-BR') + '.';
+        } catch {}
+      }
+      txtEl.innerHTML = 'Bem-vindo ao plano <strong style="color:var(--text);">' + planMeta.icon + ' ' + planMeta.label + '</strong>.' + validadeStr;
+    }
+  }
+  modal.style.display = 'flex';
+}
+
+function closeCheckoutResultModal(refresh) {
+  const modal = document.getElementById('checkout-result-modal');
+  if (modal) modal.style.display = 'none';
+  if (_checkoutPollInterval) {
+    clearInterval(_checkoutPollInterval);
+    _checkoutPollInterval = null;
+  }
+  if (refresh) {
+    // Recarrega bloco de plano (caso esteja em Configurações) e força reload se quiser garantir UI 100% atualizada
+    try { if (typeof loadPlanInfo === 'function') loadPlanInfo(); } catch {}
+  }
+}
+
+async function _fetchUserPlanSnapshot() {
+  if (!currentUser || !_supabase) return null;
+  try {
+    const { data, error } = await _supabase
+      .from('user_preferences')
+      .select('plano, plano_validade')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+    if (error) {
+      console.warn('_fetchUserPlanSnapshot error:', error.message);
+      return null;
+    }
+    return data || null;
+  } catch (e) {
+    console.warn('_fetchUserPlanSnapshot exception:', e);
+    return null;
+  }
+}
+
+function _isPlanPaidAndValid(prefs) {
+  if (!prefs) return false;
+  if (!prefs.plano || prefs.plano === 'companion-teste') return false;
+  if (!prefs.plano_validade) return false;
+  try {
+    return new Date(prefs.plano_validade).getTime() > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+async function detectCheckoutResult() {
+  const params = new URLSearchParams(window.location.search);
+  const result = params.get('checkout');
+  if (!result) return;
+
+  // Limpa o query param da URL imediatamente pra não disparar de novo no refresh
+  try {
+    const cleanUrl = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, '', cleanUrl);
+  } catch {}
+
+  if (result === 'cancel')  { showCheckoutResultModal('cancel');  return; }
+  if (result === 'expired') { showCheckoutResultModal('expired'); return; }
+  if (result !== 'success') return;
+
+  // success: mostrar loading + iniciar polling
+  showCheckoutResultModal('confirming');
+
+  // Tentativa imediata (caso webhook já tenha processado antes do redirect)
+  const initial = await _fetchUserPlanSnapshot();
+  if (_isPlanPaidAndValid(initial)) {
+    showCheckoutResultModal('confirmed', initial);
+    return;
+  }
+
+  // Polling
+  const startedAt = Date.now();
+  const POLL_INTERVAL_MS = 1500;
+  const POLL_TIMEOUT_MS  = 30000;
+
+  _checkoutPollInterval = setInterval(async () => {
+    if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+      clearInterval(_checkoutPollInterval);
+      _checkoutPollInterval = null;
+      showCheckoutResultModal('timeout');
+      return;
+    }
+    const current = await _fetchUserPlanSnapshot();
+    if (_isPlanPaidAndValid(current)) {
+      clearInterval(_checkoutPollInterval);
+      _checkoutPollInterval = null;
+      showCheckoutResultModal('confirmed', current);
+    }
+  }, POLL_INTERVAL_MS);
 }
 
 function confirmNewNote() {
@@ -4560,6 +4748,7 @@ function initSupabaseAuth() {
       await loadFromSupabase();
 
       navigate('home');
+      detectCheckoutResult();
       setupRealtime(session.user.id);
 
     } else {
@@ -4601,6 +4790,29 @@ document.getElementById('new-note-title-input')?.addEventListener('keydown', e =
 });
 document.getElementById('new-note-modal')?.addEventListener('click', function(e) {
   if (e.target === this) closeNewNoteModal();
+});
+
+// ── Modal checkout result ─────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const checkoutModal = document.getElementById('checkout-result-modal');
+    if (checkoutModal && checkoutModal.style.display !== 'none') {
+      // Só fecha estados não-confirmando (não interromper o polling)
+      const confirming = document.getElementById('checkout-state-confirming');
+      if (!confirming || confirming.style.display === 'none') {
+        closeCheckoutResultModal(false);
+      }
+    }
+  }
+});
+document.getElementById('checkout-result-modal')?.addEventListener('click', function(e) {
+  if (e.target === this) {
+    // Só fecha clicando fora se NÃO estiver no estado confirming (não interromper o polling)
+    const confirming = document.getElementById('checkout-state-confirming');
+    if (!confirming || confirming.style.display === 'none') {
+      closeCheckoutResultModal(false);
+    }
+  }
 });
 </script>
 </body>
