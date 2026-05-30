@@ -168,14 +168,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `SKU "${skuKey}" não tem ciclo derivável` });
   }
 
-  // nextDueDate = hoje + 1 ciclo (primeira cobrança automática após o pagamento do checkout).
+  // nextDueDate = HOJE: no Checkout RECURRENT, é a data da PRIMEIRA cobrança (não a próxima).
+  // Setar como hoje faz o Asaas cobrar no ato do pagamento e renovar automaticamente conforme o cycle.
   // endDate = 10 anos no futuro (assinatura "sem fim" — Asaas exige o campo).
   const nextDue = new Date();
-  if (cycleInfo.cycle === 'MONTHLY') {
-    nextDue.setMonth(nextDue.getMonth() + 1);
-  } else {
-    nextDue.setFullYear(nextDue.getFullYear() + 1);
-  }
   const endDate = new Date();
   endDate.setFullYear(endDate.getFullYear() + 10);
 
