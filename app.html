@@ -1168,6 +1168,49 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   </div>
 </div>
 
+<!-- Modal: confirmação de cancelamento de assinatura -->
+<div id="cancel-subscription-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:14px;text-align:center;">
+
+    <!-- Estado: confirm -->
+    <div id="cancel-state-confirm" style="display:flex;flex-direction:column;gap:14px;align-items:center;">
+      <div style="font-size:40px;line-height:1;">⚠️</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Cancelar assinatura?</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;">Sua assinatura será cancelada e nenhuma cobrança futura será feita. Você continuará tendo acesso até o fim do período já pago.</div>
+      <div style="display:flex;gap:8px;width:100%;margin-top:4px;">
+        <button onclick="cancelSubscription()" class="ss-btn" style="flex:1;color:var(--coral,#e87b7b);border-color:rgba(232,123,123,0.3);">Sim, cancelar</button>
+        <button onclick="closeCancelSubscriptionModal()" class="ss-btn primary" style="flex:1;">Manter assinatura</button>
+      </div>
+    </div>
+
+    <!-- Estado: loading -->
+    <div id="cancel-state-loading" style="display:none;flex-direction:column;gap:14px;align-items:center;">
+      <div class="checkout-spinner"></div>
+      <div style="font-size:14px;color:var(--text2);">Cancelando assinatura…</div>
+    </div>
+
+    <!-- Estado: success -->
+    <div id="cancel-state-success" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%;">
+      <div style="font-size:48px;line-height:1;">✓</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Assinatura cancelada</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;">Sua assinatura foi cancelada com sucesso. Você ainda tem acesso até <strong style="color:var(--text);" id="cancel-access-until">o fim do ciclo</strong>. Nenhuma cobrança futura será feita.</div>
+      <button onclick="closeCancelSubscriptionModal()" class="ss-btn primary" style="width:100%;margin-top:4px;">Fechar</button>
+    </div>
+
+    <!-- Estado: error -->
+    <div id="cancel-state-error" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%;">
+      <div style="font-size:40px;line-height:1;">❌</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Erro ao cancelar</div>
+      <div id="cancel-error-message" style="font-size:13px;color:var(--text2);line-height:1.5;"></div>
+      <div style="display:flex;gap:8px;width:100%;margin-top:4px;">
+        <button onclick="closeCancelSubscriptionModal()" class="ss-btn" style="flex:1;">Fechar</button>
+        <button onclick="cancelSubscription()" class="ss-btn primary" style="flex:1;">Tentar novamente</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════
@@ -1964,7 +2007,7 @@ async function loadPlanInfo() {
     // Buscar dados do plano (com timeout de 4s)
     const prefsQuery = _supabase
       .from('user_preferences')
-      .select('plano, plano_validade, current_cooldown_ms')
+      .select('plano, plano_validade, current_cooldown_ms, asaas_subscription_id, subscription_canceled_at')
       .eq('user_id', currentUser.id)
       .maybeSingle();
     const prefsTimeout = new Promise((_, reject) =>
@@ -2022,6 +2065,8 @@ async function loadPlanInfo() {
     } else {
       validadeEl.textContent = plano.includes('teste') ? 'Período de teste' : 'Plano ativo';
     }
+    // Estado da assinatura (cancelada ou ativa)
+    renderSubscriptionStatus(prefs);
 
     // Barras de uso
     const barsEl = document.getElementById('plan-usage-bars');
@@ -2066,6 +2111,78 @@ async function loadPlanInfo() {
   } catch (e) {
     console.warn('loadPlanInfo error:', e);
     if (loadingEl) loadingEl.textContent = 'Erro ao carregar plano.';
+  }
+}
+
+function renderSubscriptionStatus(prefs) {
+  const old = document.getElementById('subscription-status');
+  if (old) old.remove();
+  const contentEl = document.getElementById('plan-info-content');
+  if (!contentEl || !prefs) return;
+  const wrapper = document.createElement('div');
+  wrapper.id = 'subscription-status';
+  wrapper.style.cssText = 'margin-top:10px; padding:10px 14px; border-radius:8px; font-size:12px; line-height:1.5;';
+  if (prefs.subscription_canceled_at) {
+    const validade = prefs.plano_validade ? new Date(prefs.plano_validade) : null;
+    const validadeStr = validade ? validade.toLocaleDateString('pt-BR') : 'fim do ciclo';
+    wrapper.style.background = 'rgba(255, 180, 80, 0.08)';
+    wrapper.style.border = '1px solid rgba(255, 180, 80, 0.25)';
+    wrapper.style.color = 'var(--text2)';
+    wrapper.innerHTML = `⚠️ Sua assinatura foi cancelada. Você tem acesso até <strong style="color:var(--text);">${validadeStr}</strong>. Nenhuma cobrança futura será feita.`;
+    contentEl.appendChild(wrapper);
+  } else if (prefs.asaas_subscription_id) {
+    wrapper.style.display = 'flex';
+    wrapper.style.justifyContent = 'flex-end';
+    wrapper.innerHTML = `<button onclick="openCancelSubscriptionModal()" class="ss-btn" style="font-size:11px; color:var(--coral, #e87b7b); border-color:rgba(232,123,123,0.3);">Cancelar assinatura</button>`;
+    contentEl.appendChild(wrapper);
+  }
+}
+
+function openCancelSubscriptionModal() {
+  const modal = document.getElementById('cancel-subscription-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeCancelSubscriptionModal() {
+  const modal = document.getElementById('cancel-subscription-modal');
+  if (modal) modal.style.display = 'none';
+  ['confirm','loading','success','error'].forEach(s => {
+    const el = document.getElementById('cancel-state-' + s);
+    if (el) el.style.display = 'none';
+  });
+  const confirmState = document.getElementById('cancel-state-confirm');
+  if (confirmState) confirmState.style.display = 'flex';
+}
+
+async function cancelSubscription() {
+  ['confirm','loading','success','error'].forEach(s => {
+    const el = document.getElementById('cancel-state-' + s);
+    if (el) el.style.display = 'none';
+  });
+  const loadingEl = document.getElementById('cancel-state-loading');
+  if (loadingEl) loadingEl.style.display = 'flex';
+  try {
+    const resp = await fetch('/api/asaas/cancel-subscription', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Falha ao cancelar assinatura');
+    if (loadingEl) loadingEl.style.display = 'none';
+    const successEl = document.getElementById('cancel-state-success');
+    if (successEl) {
+      const accessEl = document.getElementById('cancel-access-until');
+      if (accessEl && data.accessUntil) {
+        try { accessEl.textContent = new Date(data.accessUntil).toLocaleDateString('pt-BR'); } catch { accessEl.textContent = 'o fim do ciclo'; }
+      }
+      successEl.style.display = 'flex';
+    }
+    if (typeof loadPlanInfo === 'function') loadPlanInfo();
+  } catch (e) {
+    if (loadingEl) loadingEl.style.display = 'none';
+    const errorEl = document.getElementById('cancel-state-error');
+    if (errorEl) {
+      const msgEl = document.getElementById('cancel-error-message');
+      if (msgEl) msgEl.textContent = e.message || 'Erro desconhecido';
+      errorEl.style.display = 'flex';
+    }
   }
 }
 
@@ -4811,6 +4928,28 @@ document.getElementById('checkout-result-modal')?.addEventListener('click', func
     const confirming = document.getElementById('checkout-state-confirming');
     if (!confirming || confirming.style.display === 'none') {
       closeCheckoutResultModal(false);
+    }
+  }
+});
+
+// ── Modal cancelamento de assinatura ─────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const cancelModal = document.getElementById('cancel-subscription-modal');
+    if (cancelModal && cancelModal.style.display !== 'none') {
+      // Não fechar durante loading
+      const loading = document.getElementById('cancel-state-loading');
+      if (!loading || loading.style.display === 'none') {
+        closeCancelSubscriptionModal();
+      }
+    }
+  }
+});
+document.getElementById('cancel-subscription-modal')?.addEventListener('click', function(e) {
+  if (e.target === this) {
+    const loading = document.getElementById('cancel-state-loading');
+    if (!loading || loading.style.display === 'none') {
+      closeCancelSubscriptionModal();
     }
   }
 });
