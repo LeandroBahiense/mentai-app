@@ -9,6 +9,7 @@
  */
 
 import { timingSafeEqual } from 'crypto';
+import { sendPlanoAtivadoByUserId, sendPlanoAtivadoByCustomerId } from '../_lib/email.js';
 
 const SUPABASE_URL        = process.env.SUPABASE_URL;
 const SUPABASE_SVC_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -214,6 +215,18 @@ export default async function handler(req, res) {
         const { plano, meses } = parsed;
         const subscriptionId = payment.subscription || null;
         const validade = await updateUserPlanByUserId(refUserId, plano, meses, subscriptionId);
+        // Dispara email transacional. Não-bloqueante — webhook ainda responde 200 mesmo se Resend falhar.
+        try {
+          await sendPlanoAtivadoByUserId({
+            userId:        refUserId,
+            planoSlug:     plano,
+            planoValidade: validade,
+            valor:         payment.value,
+          });
+          console.log('[webhook] email "plano ativado" enviado | userId=' + refUserId);
+        } catch (emailErr) {
+          console.error('[webhook] falha ao enviar email para userId=' + refUserId + ':', emailErr.message);
+        }
         console.log(`ASAAS WEBHOOK: [externalRef] plano atualizado | userId=${refUserId} | plano=${plano} | meses=${meses} | validade=${validade}`);
         return res.status(200).json({ ok: true, source: 'externalReference', plano, meses, validade });
       }
@@ -237,6 +250,17 @@ export default async function handler(req, res) {
     const { plano, meses } = parsed;
     const subscriptionId = payment.subscription || null;
     const validade = await updateUserPlanByCustomer(customerId, plano, meses, subscriptionId);
+    try {
+      await sendPlanoAtivadoByCustomerId({
+        customerId:    customerId,
+        planoSlug:     plano,
+        planoValidade: validade,
+        valor:         payment.value,
+      });
+      console.log('[webhook] email "plano ativado" enviado | customerId=' + customerId);
+    } catch (emailErr) {
+      console.error('[webhook] falha ao enviar email para customerId=' + customerId + ':', emailErr.message);
+    }
     console.log(`ASAAS WEBHOOK: [description fallback] plano atualizado | customer=${customerId} | plano=${plano} | meses=${meses} | validade=${validade}`);
     return res.status(200).json({ ok: true, source: 'description_fallback', plano, meses, validade });
 
