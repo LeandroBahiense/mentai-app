@@ -106,6 +106,23 @@ const SKU_NAMES = {
   'duo-ultra-anual':                  'Duo Ultra Anual',
 };
 
+// ── Helpers de assinatura recorrente ──────────────────────────────────────────
+function deriveCycle(skuKey) {
+  if (skuKey.endsWith('-mensal')) return { cycle: 'MONTHLY', months: 1 };
+  if (skuKey.endsWith('-anual'))  return { cycle: 'YEARLY',  months: 12 };
+  return null;
+}
+
+function formatAsaasDate(date) {
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(date.getUTCDate()).padStart(2, '0');
+  const hh = String(date.getUTCHours()).padStart(2, '0');
+  const mi = String(date.getUTCMinutes()).padStart(2, '0');
+  const ss = String(date.getUTCSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
 // ── Handler ────────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -140,14 +157,33 @@ export default async function handler(req, res) {
 
   console.log(`CHECKOUT: uid=${uid} | sku=${skuKey} | valor=R$${skuData.value}`);
 
+  // Modelo de cobrança: RECURRENT (assinatura).
+  // Asaas cobra hoje (no checkout) e gera cobranças automáticas a cada ciclo.
+  const cycleInfo = deriveCycle(skuKey);
+  if (!cycleInfo) {
+    console.error(`CHECKOUT ERR: SKU "${skuKey}" não termina em -mensal nem -anual`);
+    return res.status(400).json({ error: `SKU "${skuKey}" não tem ciclo derivável` });
+  }
+
+  // nextDueDate = hoje + 1 ciclo (primeira cobrança automática após o pagamento do checkout).
+  // endDate = 10 anos no futuro (assinatura "sem fim" — Asaas exige o campo).
+  const nextDue = new Date();
+  if (cycleInfo.cycle === 'MONTHLY') {
+    nextDue.setMonth(nextDue.getMonth() + 1);
+  } else {
+    nextDue.setFullYear(nextDue.getFullYear() + 1);
+  }
+  const endDate = new Date();
+  endDate.setFullYear(endDate.getFullYear() + 10);
+
   const checkoutBody = {
-    billingTypes:    ['CREDIT_CARD'],  // só cartão para teste inicial
-    chargeTypes:     ['DETACHED'],
+    billingTypes:    ['CREDIT_CARD'],  // assinatura recorrente: cartão only
+    chargeTypes:     ['RECURRENT'],
     minutesToExpire: 60,
     callback: {
       successUrl: 'https://pallyum.com/app?checkout=success',
-      expiredUrl:  'https://pallyum.com/app?checkout=expired',
-      cancelUrl:   'https://pallyum.com/app?checkout=cancel',
+      expiredUrl: 'https://pallyum.com/app?checkout=expired',
+      cancelUrl:  'https://pallyum.com/app?checkout=cancel',
     },
     items: [
       {
@@ -156,6 +192,11 @@ export default async function handler(req, res) {
         quantity: 1,
       },
     ],
+    subscription: {
+      cycle:       cycleInfo.cycle,
+      nextDueDate: formatAsaasDate(nextDue),
+      endDate:     formatAsaasDate(endDate),
+    },
     externalReference: uid + '|' + skuKey,
   };
 

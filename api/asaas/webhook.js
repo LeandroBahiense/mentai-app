@@ -2,7 +2,7 @@
  * Pallyum — Webhook Asaas
  * Fonte primária : payment.externalReference = "userId|sku"
  * Fallback       : parsePlanFromDescription(payment.description)
- * Atualiza user_preferences.plano + plano_validade
+ * Atualiza user_preferences.plano + plano_validade + asaas_subscription_id (se vier)
  *
  * Validação do token é fail-closed: se ASAAS_WEBHOOK_TOKEN não estiver
  * configurada, todas as requisições são recusadas com 500.
@@ -105,20 +105,26 @@ function parsePlanFromDescription(description) {
 }
 
 // ── Atualiza plano por userId (fonte primária) ─────────────────────────────────
-async function updateUserPlanByUserId(userId, plano, meses) {
+async function updateUserPlanByUserId(userId, plano, meses, subscriptionId) {
   const validade = new Date();
   validade.setMonth(validade.getMonth() + meses);
+
+  const patchBody = {
+    plano,
+    plano_validade: validade.toISOString(),
+    updated_at:     new Date().toISOString(),
+  };
+  if (subscriptionId) {
+    patchBody.asaas_subscription_id    = subscriptionId;
+    patchBody.subscription_canceled_at = null; // nova cobrança = reativação
+  }
 
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(userId)}`,
     {
       method:  'PATCH',
       headers: svcHeaders(),
-      body: JSON.stringify({
-        plano,
-        plano_validade: validade.toISOString(),
-        updated_at:     new Date().toISOString(),
-      }),
+      body: JSON.stringify(patchBody),
     }
   );
 
@@ -131,20 +137,26 @@ async function updateUserPlanByUserId(userId, plano, meses) {
 }
 
 // ── Atualiza plano por asaas_customer_id (fallback para pagamentos antigos) ────
-async function updateUserPlanByCustomer(customerId, plano, meses) {
+async function updateUserPlanByCustomer(customerId, plano, meses, subscriptionId) {
   const validade = new Date();
   validade.setMonth(validade.getMonth() + meses);
+
+  const patchBody = {
+    plano,
+    plano_validade: validade.toISOString(),
+    updated_at:     new Date().toISOString(),
+  };
+  if (subscriptionId) {
+    patchBody.asaas_subscription_id    = subscriptionId;
+    patchBody.subscription_canceled_at = null;
+  }
 
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/user_preferences?asaas_customer_id=eq.${encodeURIComponent(customerId)}`,
     {
       method:  'PATCH',
       headers: svcHeaders(),
-      body: JSON.stringify({
-        plano,
-        plano_validade: validade.toISOString(),
-        updated_at:     new Date().toISOString(),
-      }),
+      body: JSON.stringify(patchBody),
     }
   );
 
@@ -200,7 +212,8 @@ export default async function handler(req, res) {
 
       if (parsed) {
         const { plano, meses } = parsed;
-        const validade = await updateUserPlanByUserId(refUserId, plano, meses);
+        const subscriptionId = payment.subscription || null;
+        const validade = await updateUserPlanByUserId(refUserId, plano, meses, subscriptionId);
         console.log(`ASAAS WEBHOOK: [externalRef] plano atualizado | userId=${refUserId} | plano=${plano} | meses=${meses} | validade=${validade}`);
         return res.status(200).json({ ok: true, source: 'externalReference', plano, meses, validade });
       }
@@ -222,7 +235,8 @@ export default async function handler(req, res) {
     }
 
     const { plano, meses } = parsed;
-    const validade = await updateUserPlanByCustomer(customerId, plano, meses);
+    const subscriptionId = payment.subscription || null;
+    const validade = await updateUserPlanByCustomer(customerId, plano, meses, subscriptionId);
     console.log(`ASAAS WEBHOOK: [description fallback] plano atualizado | customer=${customerId} | plano=${plano} | meses=${meses} | validade=${validade}`);
     return res.status(200).json({ ok: true, source: 'description_fallback', plano, meses, validade });
 
