@@ -45,7 +45,7 @@ function readSession(req) {
 // Chave: "{produto}-{tier}-{periodo}"
 const SKUS = {
   // ── TEMPORÁRIO: SKU de teste para validação de fluxo recorrente. Remover após teste. ──
-  'teste-recorrente-mensal':          { value: 1.00,    plano: 'companion-essencial'       },
+  'teste-recorrente-mensal':          { value: 5.00,    plano: 'companion-essencial'       },
   // Companion (mensal)
   'companion-essencial-mensal':       { value: 29.00,   plano: 'companion-essencial'       },
   'companion-pro-mensal':             { value: 59.00,   plano: 'companion-pro'             },
@@ -84,7 +84,7 @@ const SKUS = {
 
 // ── Nomes curtos por SKU (max 30 chars — limite Asaas) ────────────────────────
 const SKU_NAMES = {
-  'teste-recorrente-mensal':          'Teste Recorrente R$1',
+  'teste-recorrente-mensal':          'Teste Recorrente R$5',
   'companion-essencial-mensal':       'Companion Essencial Mensal',
   'companion-pro-mensal':             'Companion Pro Mensal',
   'companion-ultra-mensal':           'Companion Ultra Mensal',
