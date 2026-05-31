@@ -1137,10 +1137,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 
     <!-- Estado: timeout -->
     <div id="checkout-state-timeout" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%;">
-      <div style="font-size:40px;line-height:1;">⏳</div>
-      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Estamos processando seu pagamento</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.5;">Você receberá uma confirmação por e-mail em alguns minutos. Se em até 10 minutos não receber, entre em contato com o suporte.</div>
-      <button onclick="closeCheckoutResultModal(false)" class="ss-btn" style="width:100%;margin-top:6px;">OK</button>
+      <div style="font-size:40px;line-height:1;">✓</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Recebemos seu pagamento</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;">Sua assinatura foi criada e está em processamento. Você vai receber um e-mail assim que seu plano for ativado (em até algumas horas, normalmente até 24h). Pode fechar essa janela com tranquilidade.</div>
+      <button onclick="closeCheckoutResultModal(false)" class="ss-btn primary" style="width:100%;margin-top:6px;">Entendi</button>
     </div>
 
     <!-- Estado: cancel -->
@@ -2491,7 +2491,7 @@ async function loadUserEmails() {
   if (!currentUser || !_supabase) return;
   const { data } = await _supabase
     .from('user_emails')
-    .select('*')
+    .select('id, email, label, is_primary, created_at, confirmed_at, confirmation_token_expires_at')
     .eq('user_id', currentUser.id)
     .order('created_at', { ascending: true });
 
@@ -2507,21 +2507,46 @@ async function loadUserEmails() {
       <span style="padding:3px 10px;border-radius:100px;background:rgba(124,58,237,.15);color:var(--accent2);font-size:11px;border:1px solid rgba(124,58,237,.2);">Principal</span>
     </div>`;
 
-  const emailsHtml = (data || []).map(e => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;transition:border-color .15s;"
-      onmouseover="this.style.borderColor='var(--border2)'"
-      onmouseout="this.style.borderColor='var(--border)'">
-      <div style="flex:1;">
+  const nowMs = Date.now();
+
+  const emailsHtml = (data || []).map(e => {
+    const isConfirmed = !!e.confirmed_at;
+    const expiresMs = e.confirmation_token_expires_at ? new Date(e.confirmation_token_expires_at).getTime() : 0;
+    const isExpired = !isConfirmed && expiresMs > 0 && expiresMs < nowMs;
+    const isPending = !isConfirmed && !isExpired;
+
+    // Badge de status
+    let badgeHtml = '';
+    if (isConfirmed) {
+      badgeHtml = `<span style="padding:3px 10px;border-radius:100px;background:rgba(58,157,106,.15);color:#3a9d6a;font-size:11px;border:1px solid rgba(58,157,106,.25);">Confirmado</span>`;
+    } else if (isPending) {
+      badgeHtml = `<span style="padding:3px 10px;border-radius:100px;background:rgba(255,180,80,.12);color:#a87000;font-size:11px;border:1px solid rgba(255,180,80,.3);">Aguardando confirmação</span>`;
+    } else {
+      badgeHtml = `<span style="padding:3px 10px;border-radius:100px;background:rgba(128,128,128,.12);color:var(--text3);font-size:11px;border:1px solid rgba(128,128,128,.25);">Expirado</span>`;
+    }
+
+    // Botão "Reenviar" só para pendentes (não expirados, não confirmados)
+    const resendBtn = isPending ? `
+      <button onclick="resendUserEmailConfirmation('${e.id}')"
+        style="padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;"
+        title="Reenviar email de confirmação">
+        Reenviar
+      </button>` : '';
+
+    return `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:160px;">
         <div style="font-size:13px;color:var(--text);">${e.email}</div>
         <div style="font-size:11px;color:var(--text3);">${e.label || 'Sem etiqueta'}</div>
       </div>
+      ${badgeHtml}
+      ${resendBtn}
       <button onclick="removeUserEmail('${e.id}')"
-        style="padding:4px 10px;border-radius:6px;border:1px solid rgba(216,90,48,.3);background:transparent;color:var(--coral);font-size:11px;cursor:pointer;transition:all .15s;"
-        onmouseover="this.style.background='rgba(216,90,48,.1)'"
-        onmouseout="this.style.background='transparent'">
+        style="padding:4px 10px;border-radius:6px;border:1px solid rgba(216,90,48,.3);background:transparent;color:var(--coral);font-size:11px;cursor:pointer;">
         Remover
       </button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   list.innerHTML = primaryHtml + emailsHtml;
 
@@ -2539,54 +2564,64 @@ async function addUserEmail() {
 
   statusEl.style.display = 'none';
 
+  // Validação básica no client (UX) — backend valida de novo
   if (!email || !email.includes('@')) {
     emailInput.focus();
-    return;
-  }
-
-  if (email === currentUser.email) {
     statusEl.style.display = 'block';
     statusEl.className = 'ss-status err';
-    statusEl.textContent = 'Este é seu email principal.';
+    statusEl.textContent = 'Informe um email válido.';
     return;
   }
 
-  const { data: existing } = await _supabase
-    .from('user_emails')
-    .select('id')
-    .eq('user_id', currentUser.id)
-    .eq('email', email)
-    .maybeSingle();
+  // Desabilita botão durante a chamada pra evitar duplo clique
+  const submitBtn = document.querySelector('#section-emails button.ss-btn.primary');
+  const originalText = submitBtn ? submitBtn.textContent : null;
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enviando...';
+  }
 
-  if (existing) {
+  try {
+    const resp = await fetch('/api/user-emails/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, label: label || null }),
+    });
+    const data = await resp.json().catch(() => ({}));
+
+    if (!resp.ok) {
+      statusEl.style.display = 'block';
+      statusEl.className = 'ss-status err';
+      if (resp.status === 401) {
+        statusEl.textContent = 'Sessão expirada. Recarregue a página.';
+      } else if (resp.status === 502) {
+        statusEl.textContent = 'Não conseguimos enviar o email de confirmação agora. Tente novamente em alguns minutos.';
+      } else {
+        statusEl.textContent = data.error || 'Erro ao adicionar email.';
+      }
+      return;
+    }
+
+    // Sucesso — limpa inputs e mostra mensagem informativa
+    emailInput.value = '';
+    labelInput.value = '';
+    statusEl.style.display = 'block';
+    statusEl.className = 'ss-status ok';
+    statusEl.innerHTML = `Enviamos um link de confirmação para <strong>${email}</strong>. Tem 24h para confirmar.`;
+    // Mensagem fica visível por 8s (caso de uso pede tempo pro user ler)
+    setTimeout(() => { statusEl.style.display = 'none'; }, 8000);
+
+    loadUserEmails();
+  } catch (e) {
     statusEl.style.display = 'block';
     statusEl.className = 'ss-status err';
-    statusEl.textContent = 'Este email já está cadastrado.';
-    return;
+    statusEl.textContent = 'Falha de rede. Tente novamente.';
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText || '+ Adicionar';
+    }
   }
-
-  const { error } = await _supabase.from('user_emails').insert({
-    user_id:    currentUser.id,
-    email,
-    label:      label || null,
-    is_primary: false,
-    created_at: new Date().toISOString(),
-  });
-
-  if (error) {
-    statusEl.style.display = 'block';
-    statusEl.className = 'ss-status err';
-    statusEl.textContent = 'Erro ao adicionar: ' + error.message;
-    return;
-  }
-
-  emailInput.value = '';
-  labelInput.value = '';
-  statusEl.style.display = 'block';
-  statusEl.className = 'ss-status ok';
-  statusEl.textContent = 'Email adicionado ✓';
-  setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
-  loadUserEmails();
 }
 
 async function removeUserEmail(id) {
@@ -2597,6 +2632,40 @@ async function removeUserEmail(id) {
     .eq('id', id)
     .eq('user_id', currentUser.id);
   if (!error) loadUserEmails();
+}
+
+async function resendUserEmailConfirmation(emailId) {
+  const statusEl = document.getElementById('email-status');
+  statusEl.style.display = 'none';
+
+  try {
+    const resp = await fetch('/api/user-emails/resend-confirmation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emailId }),
+    });
+    const data = await resp.json().catch(() => ({}));
+
+    if (!resp.ok) {
+      statusEl.style.display = 'block';
+      statusEl.className = 'ss-status err';
+      statusEl.textContent = data.error || 'Não conseguimos reenviar agora. Tente novamente.';
+      setTimeout(() => { statusEl.style.display = 'none'; }, 6000);
+      return;
+    }
+
+    statusEl.style.display = 'block';
+    statusEl.className = 'ss-status ok';
+    statusEl.textContent = 'Novo link de confirmação enviado. Tem 24h para confirmar.';
+    setTimeout(() => { statusEl.style.display = 'none'; }, 8000);
+
+    loadUserEmails();
+  } catch (e) {
+    statusEl.style.display = 'block';
+    statusEl.className = 'ss-status err';
+    statusEl.textContent = 'Falha de rede. Tente novamente.';
+    setTimeout(() => { statusEl.style.display = 'none'; }, 6000);
+  }
 }
 
 function navigate(view) {
