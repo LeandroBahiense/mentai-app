@@ -15,19 +15,29 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const FROM_ADDRESS = 'Pallyum <noreply@pallyum.com>';
 
 // Mapa de slug do plano para nome amigável (espelho do PLAN_LABELS do frontend)
+// Catálogo ativo desde 01/06/2026: essencial, pro, ultra, design_partner.
+// Entradas legadas mantidas (comentadas) para não quebrar e-mails históricos.
 const PLAN_DISPLAY_NAMES = {
-  'companion-teste':           'Companion Teste',
-  'companion-essencial':       'Companion Essencial',
-  'companion-pro':             'Companion Pro',
-  'companion-ultra':           'Companion Ultra',
-  'segundo-cerebro-essencial': 'Segundo Cérebro Essencial',
-  'segundo-cerebro-pro':       'Segundo Cérebro Pro',
-  'segundo-cerebro-ultra':     'Segundo Cérebro Ultra',
-  'coletivo-team':             'Coletivo Team',
-  'coletivo-business':         'Coletivo Business',
-  'duo-essencial':             'Duo Essencial',
-  'duo-pro':                   'Duo Pro',
-  'duo-ultra':                 'Duo Ultra',
+  // ── Planos ativos ──────────────────────────────────────────
+  'essencial':      'Essencial',
+  'pro':            'Pro',
+  'ultra':          'Ultra',
+  'design_partner': 'Design Partner',
+
+  // === Planos legados desativados em 01/06/2026 — manter pra e-mails históricos ===
+  // 'companion-teste':           'Companion Teste',
+  // 'companion-essencial':       'Companion Essencial',
+  // 'companion-pro':             'Companion Pro',
+  // 'companion-ultra':           'Companion Ultra',
+  // 'segundo-cerebro-essencial': 'Segundo Cérebro Essencial',
+  // 'segundo-cerebro-pro':       'Segundo Cérebro Pro',
+  // 'segundo-cerebro-ultra':     'Segundo Cérebro Ultra',
+  // 'coletivo-team':             'Coletivo Team',
+  // 'coletivo-business':         'Coletivo Business',
+  // 'duo-essencial':             'Duo Essencial',
+  // 'duo-pro':                   'Duo Pro',
+  // 'duo-ultra':                 'Duo Ultra',
+  // ============================================================================
 };
 
 function svcHeaders() {

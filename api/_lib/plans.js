@@ -1,45 +1,78 @@
 /**
  * Pallyum — Roteamento de planos, modelos e fair use
  * Fonte da verdade: Pallyum-Planos-e-Precos.md v1.0
+ *
+ * Catálogo reduzido em 01/06/2026: 4 planos ativos.
+ * SKUs legados mantidos comentados abaixo de cada mapa — não remover.
  */
 
 // ── Mapeamento de plano → modelo Claude ──────────────────────
+//
+// Nota: 'pro', 'ultra' e 'design_partner' são planos de modelo dual:
+//   - Haiku 4.5 para mensagens de rotina
+//   - Sonnet 4.6 para raciocínio crítico
+// MODEL_MAP registra o teto (Sonnet); o roteamento fino por tipo de tarefa
+// é responsabilidade do MCP server que chama getModelForUser().
 export const MODEL_MAP = {
-  'companion-teste':           'claude-sonnet-4-6',
-  'companion-essencial':       'claude-haiku-4-5',
-  'companion-pro':             'claude-sonnet-4-6',
-  'companion-ultra':           'claude-sonnet-4-6',
-  'segundo-cerebro-essencial': 'claude-haiku-4-5',
-  'segundo-cerebro-pro':       'claude-sonnet-4-6',
-  'segundo-cerebro-ultra':     'claude-opus-4-7',
-  'coletivo-team':             'claude-sonnet-4-6',
-  'coletivo-business':         'claude-opus-4-7',
-  'coletivo-enterprise':       'claude-opus-4-7',
-  'duo-essencial':             'claude-haiku-4-5',
-  'duo-pro':                   'claude-sonnet-4-6',
-  'duo-ultra':                 'claude-opus-4-7',
+  'essencial':      'claude-haiku-4-5',
+  'pro':            'claude-sonnet-4-6',
+  'ultra':          'claude-sonnet-4-6',
+  'design_partner': 'claude-sonnet-4-6', // interno — features idênticas ao pro
 };
 const DEFAULT_MODEL = 'claude-haiku-4-5';
 
+// === SKUs legados desativados em 01/06/2026 — manter pra reativação futura ===
+// 'companion-teste':           'claude-sonnet-4-6',
+// 'companion-essencial':       'claude-haiku-4-5',
+// 'companion-pro':             'claude-sonnet-4-6',
+// 'companion-ultra':           'claude-sonnet-4-6',
+// 'segundo-cerebro-essencial': 'claude-haiku-4-5',
+// 'segundo-cerebro-pro':       'claude-sonnet-4-6',
+// 'segundo-cerebro-ultra':     'claude-opus-4-7',
+// 'coletivo-team':             'claude-sonnet-4-6',
+// 'coletivo-business':         'claude-opus-4-7',
+// 'coletivo-enterprise':       'claude-opus-4-7',
+// 'duo-essencial':             'claude-haiku-4-5',
+// 'duo-pro':                   'claude-sonnet-4-6',
+// 'duo-ultra':                 'claude-opus-4-7',
+// =============================================================================
+
 // ── Mapeamento de plano → features ───────────────────────────
-// audio  = Whisper habilitado
-// vision = análise de imagem habilitada
+//
+// audio    = Whisper habilitado
+// vision   = análise de imagem habilitada
+// briefing = briefing matinal habilitado          ← adicionado em 01/06/2026
+// priority = prioridade de fila habilitada        ← adicionado em 01/06/2026
+// internal = plano interno, não vendido via Asaas ← adicionado em 01/06/2026
+//
+// Storage e memória são quotas de infra, não flags booleanas:
+//   essencial      → 2 GB  / memória 90 dias
+//   pro            → 10 GB / memória permanente
+//   ultra          → 25 GB / memória permanente
+//   design_partner → 10 GB / memória permanente (igual ao pro)
 export const FEATURE_MAP = {
-  'companion-teste':           { audio: false, vision: false },
-  'companion-essencial':       { audio: false, vision: false },
-  'companion-pro':             { audio: true,  vision: false },
-  'companion-ultra':           { audio: true,  vision: true  },
-  'segundo-cerebro-essencial': { audio: true,  vision: false },
-  'segundo-cerebro-pro':       { audio: true,  vision: true  },
-  'segundo-cerebro-ultra':     { audio: true,  vision: true  },
-  'coletivo-team':             { audio: true,  vision: true  },
-  'coletivo-business':         { audio: true,  vision: true  },
-  'coletivo-enterprise':       { audio: true,  vision: true  },
-  'duo-essencial':             { audio: true,  vision: false },
-  'duo-pro':                   { audio: true,  vision: true  },
-  'duo-ultra':                 { audio: true,  vision: true  },
+  'essencial':      { audio: false, vision: false, briefing: false, priority: false, internal: false },
+  'pro':            { audio: true,  vision: false, briefing: true,  priority: false, internal: false },
+  'ultra':          { audio: true,  vision: true,  briefing: true,  priority: true,  internal: false },
+  'design_partner': { audio: true,  vision: false, briefing: true,  priority: false, internal: true  },
 };
-const DEFAULT_FEATURES = { audio: false, vision: false };
+const DEFAULT_FEATURES = { audio: false, vision: false, briefing: false, priority: false, internal: false };
+
+// === SKUs legados desativados em 01/06/2026 — manter pra reativação futura ===
+// 'companion-teste':           { audio: false, vision: false },
+// 'companion-essencial':       { audio: false, vision: false },
+// 'companion-pro':             { audio: true,  vision: false },
+// 'companion-ultra':           { audio: true,  vision: true  },
+// 'segundo-cerebro-essencial': { audio: true,  vision: false },
+// 'segundo-cerebro-pro':       { audio: true,  vision: true  },
+// 'segundo-cerebro-ultra':     { audio: true,  vision: true  },
+// 'coletivo-team':             { audio: true,  vision: true  },
+// 'coletivo-business':         { audio: true,  vision: true  },
+// 'coletivo-enterprise':       { audio: true,  vision: true  },
+// 'duo-essencial':             { audio: true,  vision: false },
+// 'duo-pro':                   { audio: true,  vision: true  },
+// 'duo-ultra':                 { audio: true,  vision: true  },
+// =============================================================================
 
 // ── Tabela de cooldown por faixa de uso (seção 9.2) ──────────
 // [ limiteInferior, limiteExclusivo, delayMs ]
@@ -93,7 +126,7 @@ export async function getModelForUser(userId) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// getFeaturesForUser(userId) → { audio: bool, vision: bool }
+// getFeaturesForUser(userId) → { audio, vision, briefing, priority, internal }
 // ─────────────────────────────────────────────────────────────
 export async function getFeaturesForUser(userId) {
   try {
