@@ -170,3 +170,86 @@ export async function sendPlanoAtivadoByCustomerId({ customerId, planoSlug, plan
   }
   return sendPlanoAtivadoEmail({ toEmail: email, planoSlug, planoValidade, valor });
 }
+
+// ── Template: "Confirme seu email secundário" ────────────────────────────────
+
+function buildConfirmacaoEmailSecundarioHtml({ confirmationUrl, primaryEmailMascarado }) {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adicionaram seu e-mail no Pallyum</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f4f0;padding:40px 20px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;">
+<tr><td style="padding:32px 32px 0 32px;">
+<div style="font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:600;color:#7c5cdb;letter-spacing:-0.5px;">Pallyum</div>
+</td></tr>
+<tr><td style="padding:24px 32px 8px 32px;">
+<h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:600;line-height:1.3;color:#1a1a1a;">Adicionaram seu e-mail no Pallyum</h1>
+<p style="margin:16px 0 0 0;font-size:15px;color:#444;line-height:1.6;">A pessoa logada como <strong style="color:#1a1a1a;">${primaryEmailMascarado}</strong> adicionou este endereço de e-mail à conta dela no Pallyum. Foi você?</p>
+</td></tr>
+<tr><td style="padding:24px 32px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fff8e6;border:1px solid #f0d97b;border-radius:10px;padding:18px;">
+<tr><td style="font-size:13px;color:#7a5e00;line-height:1.55;">
+<strong style="color:#5a4400;">Se foi você</strong>, clique no botão abaixo para confirmar. O link expira em <strong>24 horas</strong>.<br><br>
+<strong style="color:#5a4400;">Se não foi você</strong>, simplesmente ignore este e-mail. Nada será vinculado à sua conta sem essa confirmação.
+</td></tr>
+</table>
+</td></tr>
+<tr><td style="padding:8px 32px 32px 32px;text-align:center;">
+<a href="${confirmationUrl}" target="_blank" style="display:inline-block;padding:14px 36px;background:#7c5cdb;color:#ffffff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:500;">Confirmar e-mail</a>
+</td></tr>
+<tr><td style="padding:24px 32px 32px 32px;font-size:12px;color:#888;line-height:1.6;border-top:1px solid #ebe9e3;">
+Pallyum é um produto da Somos Vast LTDA · <a href="https://pallyum.com" style="color:#888;text-decoration:underline;">pallyum.com</a>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+function mascaraEmail(email) {
+  if (!email || typeof email !== 'string') return '***';
+  const [user, domain] = email.split('@');
+  if (!domain) return '***';
+  const userVisible = user.length <= 2 ? user[0] + '*' : user.slice(0, 2) + '*'.repeat(Math.max(1, user.length - 2));
+  return userVisible + '@' + domain;
+}
+
+export async function sendConfirmacaoEmailSecundario({ toEmail, confirmationUrl, primaryEmail }) {
+  if (!RESEND_API_KEY) {
+    throw new Error('[email] RESEND_API_KEY não configurada');
+  }
+  if (!toEmail || !confirmationUrl) {
+    throw new Error('[email] toEmail e confirmationUrl obrigatórios');
+  }
+
+  const primaryEmailMascarado = mascaraEmail(primaryEmail);
+  const html = buildConfirmacaoEmailSecundarioHtml({ confirmationUrl, primaryEmailMascarado });
+
+  const resp = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${RESEND_API_KEY}`,
+      'Content-Type':  'application/json',
+    },
+    body: JSON.stringify({
+      from:    FROM_ADDRESS,
+      to:      [toEmail],
+      subject: 'Adicionaram seu e-mail no Pallyum · confirme se foi você',
+      html,
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error('[email] Resend API error (' + resp.status + '): ' + err);
+  }
+
+  return await resp.json();
+}
