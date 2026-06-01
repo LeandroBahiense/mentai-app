@@ -558,7 +558,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <button class="nav-btn active" id="nav-kanban"  onclick="navigate('kanban')">✎ Notas</button>
   <button class="nav-btn"        id="nav-graph"   onclick="navigate('graph')">⬡ Graph</button>
   <button class="nav-btn"        id="nav-chat"    onclick="navigate('chat')">◎ Chat IA</button>
-  <button class="nav-btn"        id="nav-voice"   onclick="navigate('voice')">🎙 Voz</button>
+  <button class="nav-btn"        id="nav-voice"      onclick="navigate('voice')">🎙 Voz</button>
+  <button class="nav-btn"        id="nav-whatsapp"  onclick="navigate('whatsapp')">💬 WhatsApp</button>
   <button class="nav-btn"        id="nav-planos"  onclick="navigate('planos')">⭐ Planos</button>
   <button class="nav-btn"        id="nav-admin"   onclick="navigate('admin')"  style="display:none;">🛡 Admin</button>
   <div class="nav-sep"></div>
@@ -1073,11 +1074,95 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       </div>
     </div>
 
+    <!-- WHATSAPP ACTIVATION ──────────────────────────────────── -->
+    <div class="view" id="view-whatsapp">
+      <div style="max-width:520px;width:100%;margin:0 auto;padding:32px 24px;overflow-y:auto;">
+        <h2 style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);margin-bottom:6px;">Ativar WhatsApp</h2>
+        <p style="color:var(--text2);font-size:13px;margin-bottom:28px;line-height:1.6;">Conecte seu WhatsApp para usar o Pallyum por mensagem — criar notas, marcar eventos e receber seu briefing.</p>
+
+        <!-- Estado: já conectado -->
+        <div id="wa-connected-area" style="display:none;">
+          <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:20px;">✅</span>
+              <div>
+                <div style="font-size:14px;font-weight:600;color:var(--text);font-family:'DM Sans',sans-serif;">WhatsApp conectado</div>
+                <div id="wa-connected-phone" style="font-size:12px;color:var(--text2);margin-top:2px;font-family:'DM Sans',sans-serif;"></div>
+              </div>
+            </div>
+            <button onclick="showWhatsAppForm()" style="background:none;border:none;color:var(--text3);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;text-decoration:underline;padding:0;text-align:left;">Reativar / trocar número</button>
+          </div>
+        </div>
+
+        <!-- Formulário de geração de código -->
+        <div id="wa-form-area" style="display:none;">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <input id="wa-phone-input" class="auth-input" type="tel" placeholder="+55 11 99999-9999" style="max-width:320px;"/>
+            <div id="wa-form-error" style="display:none;color:var(--coral,#e87b7b);font-size:12px;"></div>
+            <button class="ss-btn primary" onclick="activateWhatsApp()" style="max-width:200px;">Gerar código</button>
+          </div>
+        </div>
+
+        <!-- Resultado após gerar o código -->
+        <div id="wa-result-area" style="display:none;flex-direction:column;gap:0;">
+          <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px;">
+            <div style="font-size:11px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-family:'DM Sans',sans-serif;">Seu código de ativação</div>
+            <div id="wa-code-display" style="font-family:'DM Serif Display',serif;font-size:48px;letter-spacing:10px;color:var(--accent);text-align:center;padding:8px 0;"></div>
+            <a id="wa-link-btn" href="#" target="_blank" rel="noopener noreferrer"
+               style="display:flex;align-items:center;justify-content:center;gap:8px;background:#25D366;color:#fff;border:none;border-radius:8px;padding:11px 20px;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:600;text-decoration:none;cursor:pointer;">
+              💬 Enviar pelo WhatsApp
+            </a>
+            <p style="font-size:12px;color:var(--text2);line-height:1.65;margin:0;">
+              Toque no botão acima (ou envie o código para o nosso WhatsApp).<br>
+              Você receberá a confirmação <strong style="color:var(--text);">✅ WhatsApp ativado!</strong> no próprio WhatsApp.<br>
+              O código vale <strong style="color:var(--text);">15 minutos</strong>.
+            </p>
+            <button onclick="resetWhatsAppForm()" style="background:none;border:none;color:var(--text3);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;text-decoration:underline;padding:0;text-align:left;">Gerar outro código</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /main-area -->
 </div><!-- /app-body -->
 
 <!-- ADMIN TOAST -->
 <div id="admin-toast"></div>
+
+<!-- GOOGLE WARNING MODAL ──────────────────────────────────────── -->
+<div id="google-warning-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:460px;display:flex;flex-direction:column;gap:16px;">
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Aviso do Google na próxima tela</div>
+    <p style="font-size:13px;color:var(--text2);line-height:1.65;margin:0;">
+      O Pallyum está em verificação junto ao Google. Na próxima tela vai aparecer um aviso de <strong style="color:var(--text);">"app não verificado"</strong> — é esperado e seguro continuar.<br><br>
+      Clique em <strong style="color:var(--text);">"Avançado"</strong> e depois em <strong style="color:var(--text);">"Acessar pallyum.com"</strong>.
+    </p>
+    <!-- Prévia visual do aviso do Google -->
+    <div style="background:#1a1a2e;border:1px solid #383850;border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;font-family:Roboto,'DM Sans',sans-serif;">
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <span style="font-size:26px;line-height:1;flex-shrink:0;">⚠️</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#e0e0e0;margin-bottom:3px;">O Google não verificou este app</div>
+          <div style="font-size:11px;color:#9a9ab0;line-height:1.5;">O app solicitou acesso a informações confidenciais da sua Conta do Google. Recomendamos que prossiga somente se você confiar no app.</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #2e2e46;padding-top:12px;display:flex;align-items:center;gap:10px;">
+        <div style="position:relative;display:inline-flex;align-items:center;">
+          <span style="font-size:12px;color:#8ab4f8;cursor:pointer;padding:2px 4px;">Avançado</span>
+          <!-- elipse amarela circulando "Avançado" -->
+          <svg style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;" width="90" height="28" viewBox="0 0 90 28">
+            <ellipse cx="45" cy="14" rx="40" ry="12" fill="none" stroke="#f4b942" stroke-width="1.8" stroke-dasharray="5 2"/>
+          </svg>
+        </div>
+        <span style="font-size:11px;color:#9a9ab0;">← clique aqui primeiro</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="ss-btn primary" onclick="confirmConnectGoogle()" style="flex:1;">Continuar</button>
+      <button class="ss-btn" onclick="document.getElementById('google-warning-modal').style.display='none'" style="flex:1;">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <!-- STATUS BAR -->
 <div id="statusbar">
@@ -2446,6 +2531,8 @@ async function checkGoogleConnection() {
   }
 }
 
+let _pendingGoogleUrl = null;
+
 async function connectGoogle() {
   if (!currentUser) return;
   sessionStorage.setItem('pallyum-return-to', 'settings');
@@ -2459,8 +2546,17 @@ async function connectGoogle() {
       .maybeSingle();
     phone = prefs?.whatsapp_phone || '';
   } catch(_) {}
-  const url = '/api/auth/google' + (phone ? '?phone=' + encodeURIComponent(phone) : '');
-  window.location.href = url;
+  _pendingGoogleUrl = '/api/auth/google' + (phone ? '?phone=' + encodeURIComponent(phone) : '');
+  // Mostra aviso sobre tela de "app não verificado" antes de redirecionar
+  document.getElementById('google-warning-modal').style.display = 'flex';
+}
+
+function confirmConnectGoogle() {
+  document.getElementById('google-warning-modal').style.display = 'none';
+  if (_pendingGoogleUrl) {
+    window.location.href = _pendingGoogleUrl;
+    _pendingGoogleUrl = null;
+  }
 }
 
 async function setPrimaryAccount(id) {
@@ -2703,6 +2799,9 @@ function navigate(view) {
   if (view === 'admin') {
     loadAdminUsers();
   }
+  if (view === 'whatsapp') {
+    loadWhatsAppStatus();
+  }
   if (view === 'graph') {
     setTimeout(() => {
       const wrap = document.getElementById('graph-canvas-wrap');
@@ -2732,7 +2831,8 @@ function navigate(view) {
     voice:    'Chrome/Edge para reconhecimento de voz real',
     settings: 'Configure Supabase e API para ativar todas as funções',
     planos:   '7 dias grátis em qualquer plano · Cancele quando quiser',
-    admin:    'Gerencie planos e usuários · apenas para admin',
+    admin:      'Gerencie planos e usuários · apenas para admin',
+    whatsapp:   'Conecte seu número e use o Pallyum direto pelo WhatsApp',
   }[view] || '';
 }
 
@@ -5166,6 +5266,108 @@ async function adminGrantDP(userId) {
     }
     await loadAdminUsers();
   } catch (e) { showAdminToast('Falha de rede: ' + e.message, 'err'); }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// WHATSAPP ACTIVATION
+// ══════════════════════════════════════════════════════════════════
+
+/** Chamada pelo navigate('whatsapp'): verifica status e exibe o estado certo. */
+async function loadWhatsAppStatus() {
+  // Parte de baixo: esconde tudo, mostra formulário como fallback seguro
+  _waShowOnly('form');
+  try {
+    const resp = await fetch('/api/whatsapp/status', { credentials: 'include' });
+    if (!resp.ok) return; // silêncio — mostra formulário
+    const data = await resp.json().catch(() => null);
+    if (!data) return;
+    if (data.connected && data.phone) {
+      document.getElementById('wa-connected-phone').textContent = _waMaskPhone(data.phone);
+      _waShowOnly('connected');
+    }
+    // connected = false → formulário já visível (estado padrão)
+  } catch (_) { /* silêncio — formulário já visível */ }
+}
+
+/** Mostra apenas a área solicitada; esconde as outras. */
+function _waShowOnly(area) {
+  document.getElementById('wa-connected-area').style.display = area === 'connected' ? 'block' : 'none';
+  document.getElementById('wa-form-area').style.display      = area === 'form'      ? 'block' : 'none';
+  document.getElementById('wa-result-area').style.display    = area === 'result'    ? 'flex'  : 'none';
+}
+
+/** Mascara o miolo do número: +5511•••••4321 */
+function _waMaskPhone(phone) {
+  if (!phone || phone.length < 8) return phone;
+  return phone.slice(0, 5) + '•••••' + phone.slice(-4);
+}
+
+/** Botão "Reativar / trocar número" — exibe o formulário limpo. */
+function showWhatsAppForm() {
+  const errEl      = document.getElementById('wa-form-error');
+  const phoneInput = document.getElementById('wa-phone-input');
+  if (errEl)      { errEl.style.display = 'none'; errEl.textContent = ''; }
+  if (phoneInput) phoneInput.value = '';
+  _waShowOnly('form');
+}
+
+/** Chamada pelo link "Gerar outro código" — volta ao formulário limpo. */
+function resetWhatsAppForm() {
+  showWhatsAppForm();
+}
+
+async function activateWhatsApp() {
+  const phoneInput = document.getElementById('wa-phone-input');
+  const errEl      = document.getElementById('wa-form-error');
+  const phone      = (phoneInput?.value || '').trim();
+
+  errEl.style.display = 'none';
+  errEl.textContent   = '';
+
+  if (!phone) {
+    errEl.textContent   = 'Informe seu número de telefone.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.querySelector('#wa-form-area .ss-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Gerando…'; }
+
+  try {
+    const resp = await fetch('/api/whatsapp/activate', {
+      method:      'POST',
+      headers:     { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body:        JSON.stringify({ phone }),
+    });
+    const data = await resp.json().catch(() => ({}));
+
+    if (resp.ok) {
+      document.getElementById('wa-code-display').textContent = data.code || '';
+      const linkBtn = document.getElementById('wa-link-btn');
+      if (data.waLink) {
+        linkBtn.href          = data.waLink;
+        linkBtn.style.display = 'flex';
+      } else {
+        linkBtn.style.display = 'none';
+      }
+      _waShowOnly('result');
+    } else if (resp.status === 401) {
+      errEl.textContent   = 'Faça login novamente.';
+      errEl.style.display = 'block';
+    } else if (resp.status === 400) {
+      errEl.textContent   = data.error || 'Número inválido.';
+      errEl.style.display = 'block';
+    } else {
+      errEl.textContent   = 'Não consegui gerar o código, tente de novo.';
+      errEl.style.display = 'block';
+    }
+  } catch (e) {
+    errEl.textContent   = 'Não consegui gerar o código, tente de novo.';
+    errEl.style.display = 'block';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Gerar código'; }
+  }
 }
 </script>
 </body>
