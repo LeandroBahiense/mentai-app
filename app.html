@@ -1990,19 +1990,20 @@ const PLAN_LABELS = {
   'pro':            { label: 'Pro',            icon: '💜', color: 'var(--accent2)' },
   'ultra':          { label: 'Ultra',          icon: '🌟', color: 'var(--gold)'   },
   'design_partner': { label: 'Design Partner', icon: '🎨', color: 'var(--accent2)' },
-  // ── Planos legados ─────────────────────────────────────────────────────────
-  'companion-teste':           { label: 'Companion Teste',            icon: '🔍', color: 'var(--text2)' },
-  'companion-essencial':       { label: 'Companion Essencial',        icon: '💛', color: '#f59e0b'      },
-  'companion-pro':             { label: 'Companion Pro',              icon: '💜', color: 'var(--accent2)'},
-  'companion-ultra':           { label: 'Companion Ultra',            icon: '🌟', color: 'var(--gold)'  },
-  'segundo-cerebro-essencial': { label: 'Segundo Cérebro Essencial',  icon: '🧠', color: '#f59e0b'      },
-  'segundo-cerebro-pro':       { label: 'Segundo Cérebro Pro',        icon: '🧠', color: 'var(--accent2)'},
-  'segundo-cerebro-ultra':     { label: 'Segundo Cérebro Ultra',      icon: '🧠', color: 'var(--gold)'  },
-  'coletivo-team':             { label: 'Cérebro Coletivo Team',      icon: '🏢', color: 'var(--green)' },
-  'coletivo-business':         { label: 'Cérebro Coletivo Business',  icon: '🏢', color: 'var(--gold)'  },
-  'duo-essencial':             { label: 'Duo Essencial',              icon: '✨', color: '#f59e0b'      },
-  'duo-pro':                   { label: 'Duo Pro',                    icon: '✨', color: 'var(--accent2)'},
-  'duo-ultra':                 { label: 'Duo Ultra',                  icon: '✨', color: 'var(--gold)'  },
+  // === Planos legados desativados em 01/06/2026 — manter pra histórico =========
+  // 'companion-teste':           { label: 'Companion Teste',            icon: '🔍', color: 'var(--text2)' },
+  // 'companion-essencial':       { label: 'Companion Essencial',        icon: '💛', color: '#f59e0b'      },
+  // 'companion-pro':             { label: 'Companion Pro',              icon: '💜', color: 'var(--accent2)'},
+  // 'companion-ultra':           { label: 'Companion Ultra',            icon: '🌟', color: 'var(--gold)'  },
+  // 'segundo-cerebro-essencial': { label: 'Segundo Cérebro Essencial',  icon: '🧠', color: '#f59e0b'      },
+  // 'segundo-cerebro-pro':       { label: 'Segundo Cérebro Pro',        icon: '🧠', color: 'var(--accent2)'},
+  // 'segundo-cerebro-ultra':     { label: 'Segundo Cérebro Ultra',      icon: '🧠', color: 'var(--gold)'  },
+  // 'coletivo-team':             { label: 'Cérebro Coletivo Team',      icon: '🏢', color: 'var(--green)' },
+  // 'coletivo-business':         { label: 'Cérebro Coletivo Business',  icon: '🏢', color: 'var(--gold)'  },
+  // 'duo-essencial':             { label: 'Duo Essencial',              icon: '✨', color: '#f59e0b'      },
+  // 'duo-pro':                   { label: 'Duo Pro',                    icon: '✨', color: 'var(--accent2)'},
+  // 'duo-ultra':                 { label: 'Duo Ultra',                  icon: '✨', color: 'var(--gold)'  },
+  // =============================================================================
 };
 
 async function loadPlanInfo() {
@@ -2056,8 +2057,8 @@ async function loadPlanInfo() {
     contentEl.style.display = 'block';
 
     // Info do plano
-    const plano     = prefs?.plano || 'companion-teste';
-    const planMeta  = PLAN_LABELS[plano] || { label: plano, icon: '📦', color: 'var(--text2)' };
+    const plano     = prefs?.plano || '';
+    const planMeta  = PLAN_LABELS[plano] || (plano ? { label: plano, icon: '📦', color: 'var(--text2)' } : { label: 'Sem plano ativo', icon: '📦', color: 'var(--text2)' });
     const validade  = prefs?.plano_validade ? new Date(prefs.plano_validade) : null;
 
     document.getElementById('plan-icon').textContent = planMeta.icon;
@@ -2072,7 +2073,7 @@ async function loadPlanInfo() {
         : `Expirado em ${validade.toLocaleDateString('pt-BR')}`;
       validadeEl.style.color = diff <= 7 ? 'var(--coral)' : 'var(--text2)';
     } else {
-      validadeEl.textContent = plano.includes('teste') ? 'Período de teste' : 'Plano ativo';
+      validadeEl.textContent = plano ? 'Plano ativo' : '';
     }
     // Estado da assinatura (cancelada ou ativa)
     renderSubscriptionStatus(prefs);
