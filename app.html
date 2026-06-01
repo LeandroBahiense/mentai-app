@@ -435,6 +435,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 @keyframes checkout-spin {
   to { transform: rotate(360deg); }
 }
+/* ── Admin panel ─────────────────────────────────────────────── */
+.adm-th{padding:8px 12px;text-align:left;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);font-family:'DM Sans',sans-serif;font-weight:500;white-space:nowrap;}
+.adm-td{padding:8px 12px;border-top:1px solid var(--border);font-size:12px;color:var(--text);vertical-align:middle;}
+.adm-row:hover .adm-td{background:rgba(107,127,232,.04);}
+.adm-select,.adm-date{background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:3px 7px;font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;outline:none;}
+.adm-select:focus,.adm-date:focus{border-color:var(--accent);}
+#admin-toast{display:none;position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:9999;padding:10px 22px;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg2);border:1px solid var(--border2);color:var(--text);box-shadow:0 4px 24px rgba(0,0,0,.4);min-width:260px;text-align:center;pointer-events:none;}
 </style>
 </head>
 <body>
@@ -553,6 +560,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <button class="nav-btn"        id="nav-chat"    onclick="navigate('chat')">◎ Chat IA</button>
   <button class="nav-btn"        id="nav-voice"   onclick="navigate('voice')">🎙 Voz</button>
   <button class="nav-btn"        id="nav-planos"  onclick="navigate('planos')">⭐ Planos</button>
+  <button class="nav-btn"        id="nav-admin"   onclick="navigate('admin')"  style="display:none;">🛡 Admin</button>
   <div class="nav-sep"></div>
   <div id="topbar-right">
     <button id="theme-toggle" onclick="toggleTheme()" title="Alternar tema">🌙</button>
@@ -1054,8 +1062,42 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       </div>
     </div>
 
+    <!-- ADMIN PANEL ─────────────────────────────────────── -->
+    <div class="view" id="view-admin">
+      <div style="max-width:1140px;width:100%;margin:0 auto;padding:32px 24px;overflow-y:auto;">
+        <h2 style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);margin-bottom:6px;">Painel Admin</h2>
+        <p style="color:var(--text2);font-size:13px;margin-bottom:24px;">Usuários cadastrados · dados ao vivo.</p>
+
+        <div id="admin-loading" style="display:flex;align-items:center;gap:8px;color:var(--text2);font-size:13px;padding:24px 0;">
+          <span style="display:inline-block;animation:checkout-spin .8s linear infinite;font-size:16px;">⟳</span> Carregando usuários…
+        </div>
+        <div id="admin-empty"  style="display:none;color:var(--text2);font-size:13px;padding:24px 0;">Nenhum usuário encontrado.</div>
+        <div id="admin-error"  style="display:none;color:var(--coral,#e87b7b);font-size:13px;padding:24px 0;"></div>
+
+        <div id="admin-table-wrap" style="display:none;overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th class="adm-th">Email</th>
+                <th class="adm-th">Telefone</th>
+                <th class="adm-th">Plano</th>
+                <th class="adm-th">Validade</th>
+                <th class="adm-th">Último acesso</th>
+                <th class="adm-th" style="text-align:center;">Notas</th>
+                <th class="adm-th">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="admin-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /main-area -->
 </div><!-- /app-body -->
+
+<!-- ADMIN TOAST -->
+<div id="admin-toast"></div>
 
 <!-- STATUS BAR -->
 <div id="statusbar">
@@ -2690,6 +2732,9 @@ function navigate(view) {
     checkGoogleConnection();
     loadPlanInfo();
   }
+  if (view === 'admin') {
+    loadAdminUsers();
+  }
   if (view === 'graph') {
     setTimeout(() => {
       const wrap = document.getElementById('graph-canvas-wrap');
@@ -2719,6 +2764,7 @@ function navigate(view) {
     voice:    'Chrome/Edge para reconhecimento de voz real',
     settings: 'Configure Supabase e API para ativar todas as funções',
     planos:   '7 dias grátis em qualquer plano · Cancele quando quiser',
+    admin:    'Gerencie planos e usuários · apenas para admin',
   }[view] || '';
 }
 
@@ -4677,6 +4723,8 @@ function injectTopbarButtons() {
   if (badge) badge.style.display = isAdmin() ? 'flex' : 'none';
   const adminSettings = document.getElementById('admin-settings');
   if (adminSettings) adminSettings.style.display = isAdmin() ? 'block' : 'none';
+  const navAdmin = document.getElementById('nav-admin');
+  if (navAdmin) navAdmin.style.display = isAdmin() ? 'flex' : 'none';
   if (!isAdmin()) {
     const settingsDesc = document.querySelector('#view-settings > div > p');
     if (settingsDesc) settingsDesc.textContent = 'Personalize sua experiência no Pallyum.';
@@ -5022,6 +5070,135 @@ document.getElementById('cancel-subscription-modal')?.addEventListener('click', 
     }
   }
 });
+
+// ══════════════════════════════════════════════════════════════════
+// ADMIN PANEL
+// ══════════════════════════════════════════════════════════════════
+
+function showAdminToast(msg, type /* 'ok' | 'err' | 'warn' */) {
+  const t = document.getElementById('admin-toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.style.display = 'block';
+  t.style.borderColor = type === 'err'  ? 'rgba(216,90,48,.5)'
+                      : type === 'warn' ? 'rgba(255,159,28,.5)'
+                      :                  'rgba(124,110,240,.4)';
+  t.style.color = type === 'err'  ? 'var(--coral,#e87b7b)'
+                : type === 'warn' ? 'var(--gold,#FF9F1C)'
+                :                  'var(--accent2)';
+  clearTimeout(t._toastTimer);
+  t._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 4500);
+}
+
+async function loadAdminUsers() {
+  const loading = document.getElementById('admin-loading');
+  const empty   = document.getElementById('admin-empty');
+  const error   = document.getElementById('admin-error');
+  const wrap    = document.getElementById('admin-table-wrap');
+  if (loading) loading.style.display = 'flex';
+  if (empty)   empty.style.display   = 'none';
+  if (error)   error.style.display   = 'none';
+  if (wrap)    wrap.style.display    = 'none';
+
+  try {
+    const res  = await fetch('/api/admin/users', { credentials: 'same-origin' });
+    const data = await res.json().catch(() => ({}));
+    if (loading) loading.style.display = 'none';
+    if (!res.ok) {
+      if (error) { error.textContent = 'Erro ' + res.status + ': ' + (data.error || res.statusText); error.style.display = 'block'; }
+      return;
+    }
+    const users = data.users || [];
+    if (users.length === 0) { if (empty) empty.style.display = 'block'; return; }
+    renderAdminUsers(users);
+    if (wrap) wrap.style.display = 'block';
+  } catch (e) {
+    if (loading) loading.style.display = 'none';
+    if (error)   { error.textContent = 'Falha de rede: ' + e.message; error.style.display = 'block'; }
+  }
+}
+
+function renderAdminUsers(users) {
+  const tbody = document.getElementById('admin-tbody');
+  if (!tbody) return;
+  const PLANOS = ['essencial', 'pro', 'ultra', 'design_partner'];
+  tbody.innerHTML = users.map(u => {
+    const validadeVal = u.plano_validade ? u.plano_validade.slice(0, 10) : '';
+    const opts = PLANOS.map(p =>
+      `<option value="${p}"${u.plano === p ? ' selected' : ''}>${p}</option>`
+    ).join('');
+    return `<tr class="adm-row">
+      <td class="adm-td" style="max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${u.email||''}">${u.email || '<em style="color:var(--text3)">—</em>'}</td>
+      <td class="adm-td">${u.phone || '<em style="color:var(--text3)">—</em>'}</td>
+      <td class="adm-td"><select class="adm-select" onchange="adminChangePlano('${u.user_id}',this.value)">${opts}</select></td>
+      <td class="adm-td">
+        <input type="date" class="adm-date" value="${validadeVal}"
+          onchange="adminChangeValidade('${u.user_id}',this.value)">
+      </td>
+      <td class="adm-td" style="color:var(--text2);">${u.last_active || '<em style="color:var(--text3)">—</em>'}</td>
+      <td class="adm-td" style="text-align:center;">${u.note_count ?? 0}</td>
+      <td class="adm-td">
+        <button class="ss-btn" onclick="adminGrantDP('${u.user_id}')"
+          style="font-size:10px;padding:4px 10px;white-space:nowrap;">🎨 30d DP</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function adminChangePlano(userId, plano) {
+  try {
+    const res  = await fetch('/api/admin/users/' + encodeURIComponent(userId), {
+      method: 'PATCH', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plano }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { showAdminToast('Erro ao alterar plano: ' + (data.error || res.status), 'err'); return; }
+    if (data.audit_logged === false) {
+      showAdminToast('⚠️ Plano alterado para ' + plano + ', mas auditoria falhou — verifique os logs.', 'warn');
+    } else {
+      showAdminToast('✓ Plano alterado para ' + plano, 'ok');
+    }
+    await loadAdminUsers();
+  } catch (e) { showAdminToast('Falha de rede: ' + e.message, 'err'); }
+}
+
+async function adminChangeValidade(userId, dateStr) {
+  // input[type=date] retorna 'YYYY-MM-DD'; meio-dia UTC evita off-by-one de fuso
+  const plano_validade = dateStr ? (new Date(dateStr + 'T12:00:00Z').toISOString()) : null;
+  try {
+    const res  = await fetch('/api/admin/users/' + encodeURIComponent(userId), {
+      method: 'PATCH', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plano_validade }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { showAdminToast('Erro ao alterar validade: ' + (data.error || res.status), 'err'); return; }
+    if (data.audit_logged === false) {
+      showAdminToast('⚠️ Validade alterada, mas auditoria falhou — verifique os logs.', 'warn');
+    } else {
+      showAdminToast('✓ Validade atualizada', 'ok');
+    }
+    await loadAdminUsers();
+  } catch (e) { showAdminToast('Falha de rede: ' + e.message, 'err'); }
+}
+
+async function adminGrantDP(userId) {
+  try {
+    const res  = await fetch('/api/admin/users/' + encodeURIComponent(userId) + '/grant-design-partner', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { showAdminToast('Erro ao conceder Design Partner: ' + (data.error || res.status), 'err'); return; }
+    if (data.audit_logged === false) {
+      showAdminToast('⚠️ Design Partner concedido (30d), mas auditoria falhou — verifique os logs.', 'warn');
+    } else {
+      showAdminToast('✓ Design Partner concedido por 30 dias', 'ok');
+    }
+    await loadAdminUsers();
+  } catch (e) { showAdminToast('Falha de rede: ' + e.message, 'err'); }
+}
 </script>
 </body>
 </html>
