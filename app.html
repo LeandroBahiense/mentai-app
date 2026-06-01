@@ -857,34 +857,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 
     <!-- PLANOS -->
     <div class="view" id="view-planos">
-      <div style="max-width:1100px;width:100%;margin:0 auto;padding:32px 24px;overflow-y:auto;">
+      <div style="max-width:900px;width:100%;margin:0 auto;padding:32px 24px;overflow-y:auto;">
         <h2 style="font-family:'DM Serif Display',serif;font-size:28px;font-weight:400;margin-bottom:8px;">Escolha seu plano</h2>
-        <p style="color:var(--text2);font-size:14px;margin-bottom:20px;">7 dias grátis no Companion Teste. Cancele quando quiser.</p>
-
-        <!-- Tabs produto -->
-        <div style="display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;">
-          <button onclick="setPlanoTab('companion',this)" id="pt-companion" class="planos-tab" style="padding:8px 18px;border-radius:100px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;font-weight:500;">💜 Companion</button>
-          <button onclick="setPlanoTab('segundo-cerebro',this)" id="pt-segundo-cerebro" class="planos-tab" style="padding:8px 18px;border-radius:100px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;">🧠 Segundo Cérebro</button>
-          <button onclick="setPlanoTab('coletivo',this)" id="pt-coletivo" class="planos-tab" style="padding:8px 18px;border-radius:100px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;">🏢 Cérebro Coletivo</button>
-        </div>
-
-        <!-- Toggle ciclo -->
-        <div style="display:flex;gap:6px;margin-bottom:28px;">
-          <button onclick="setCiclo('mensal',this)" id="ciclo-mensal" style="padding:6px 16px;border-radius:100px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;">Mensal</button>
-          <button onclick="setCiclo('anual',this)" id="ciclo-anual" style="padding:6px 16px;border-radius:100px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;">Anual <span style="color:var(--green);font-size:10px;">~16% off</span></button>
-        </div>
+        <p style="color:var(--text2);font-size:14px;margin-bottom:28px;">7 dias grátis em qualquer plano. Cancele antes pra não ser cobrado.</p>
 
         <!-- Grid de planos -->
         <div id="planos-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;"></div>
 
-        <!-- Combos (só na tab Companion ou Segundo Cérebro) -->
-        <div id="planos-combos-section" style="margin-top:40px;">
-          <h3 style="font-family:'DM Serif Display',serif;font-size:20px;font-weight:400;margin-bottom:6px;">Combos individuais</h3>
-          <p style="color:var(--text2);font-size:13px;margin-bottom:18px;">Companion + Segundo Cérebro juntos, com desconto.</p>
-          <div id="planos-combos-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;"></div>
-        </div>
-
-        <p style="font-size:11px;color:var(--text3);text-align:center;margin-top:32px;">Pagamento via Pix, Boleto ou Cartão de crédito · Mensagens ilimitadas em todos os planos pagos</p>
+        <p style="font-size:11px;color:var(--text3);text-align:center;margin-top:32px;">Pagamento via Cartão de crédito · Assinatura mensal recorrente · Cancele quando quiser</p>
       </div>
     </div>
 
@@ -1870,29 +1850,13 @@ let _cicloAtual = 'mensal';
 let _planoTabAtual = 'companion';
 
 const PLANOS_NOVO = {
+  // Catálogo ativo desde 01/06/2026: 3 tiers, mensal, cartão de crédito.
   companion: [
-    { id:'companion-teste',     nome:'Teste',     cor:'#9ca3af',         precos:{mensal:0,  anual:0   }, ctaText:'Começar 7 dias grátis', recursos:['Acesso por 7 dias','Mensagens limitadas','Modelo Sonnet 4.6 (premium)','Sem cartão para começar'] },
-    { id:'companion-essencial', nome:'Essencial', cor:'#f59e0b',         precos:{mensal:29, anual:300 }, recursos:['Mensagens ilimitadas','Modelo Haiku 4.5','Storage 2 GB','Memória 90 dias','App + WhatsApp'] },
-    { id:'companion-pro',       nome:'Pro',       cor:'var(--accent2)', destaque:true, precos:{mensal:59, anual:600 }, recursos:['Mensagens ilimitadas','Modelo Sonnet 4.6','Storage 10 GB','Memória permanente','Áudio (Whisper) 🎙','Briefing matinal','Tudo do Essencial'] },
-    { id:'companion-ultra',     nome:'Ultra',     cor:'var(--gold)',     precos:{mensal:89, anual:900 }, recursos:['Mensagens ilimitadas','Modelo Sonnet 4.6','Storage 25 GB','Análise de imagem (Vision) 🖼','Prioridade na fila','Tudo do Pro'] },
-  ],
-  'segundo-cerebro': [
-    { id:'segundo-cerebro-essencial', nome:'Essencial', cor:'#f59e0b',         precos:{mensal:59,  anual:600  }, recursos:['Mensagens ilimitadas','Modelo Haiku 4.5','Storage 5 GB','Vault semântico básico','Google Calendar + Gmail','20 transcrições/mês','Áudio (Whisper) 🎙'] },
-    { id:'segundo-cerebro-pro',       nome:'Pro',       cor:'var(--accent2)', destaque:true, precos:{mensal:99,  anual:1000 }, recursos:['Mensagens ilimitadas','Modelo Sonnet 4.6','Storage 20 GB','Vault completo','Integração financeira (114 bancos)','Transcrições ilimitadas','Vision 🖼','Tudo do Essencial'] },
-    { id:'segundo-cerebro-ultra',     nome:'Ultra',     cor:'var(--gold)',     precos:{mensal:169, anual:1700 }, recursos:['Mensagens ilimitadas','Modelo Opus 4.7','Storage 50 GB','Vault + Graph view','API pessoal (webhooks)','Suporte prioritário','Tudo do Pro'] },
-  ],
-  coletivo: [
-    { id:'coletivo-team',       nome:'Team',       cor:'var(--green)', precos:{mensal:399, anual:4000 }, recursos:['5 usuários inclusos (+R$19 por extra)','Modelo Sonnet 4.6','Storage 100 GB compartilhado','3 agentes setoriais','Vault central','WhatsApp por usuário','Permissões por papel'] },
-    { id:'coletivo-business',   nome:'Business',   cor:'var(--gold)', destaque:true, precos:{mensal:699, anual:7000 }, recursos:['15 usuários inclusos (+R$25 por extra)','Modelo Opus 4.7','Storage 500 GB','Agentes setoriais ilimitados','API de integração (ERP/CRM)','Relatórios por setor','Onboarding dedicado'] },
-    { id:'coletivo-enterprise', nome:'Enterprise', cor:'#a855f7',     precos:'consulta', ctaText:'Falar com vendas', recursos:['50+ usuários','Modelo Opus 4.7','Storage dedicado','Agentes customizados','SLA garantido','LGPD compliance dedicado','Gerente de conta exclusivo'] },
+    { id:'essencial', nome:'Essencial', cor:'#f59e0b',         precos:{mensal:39}, recursos:['Mensagens ilimitadas','Modelo Haiku 4.5','Storage 2 GB','Memória 90 dias','App + WhatsApp'] },
+    { id:'pro',       nome:'Pro',       cor:'var(--accent2)', destaque:true, precos:{mensal:69}, recursos:['Mensagens ilimitadas','Modelo Sonnet 4.6','Storage 10 GB','Memória permanente','Áudio (Whisper) 🎙','Briefing matinal','Tudo do Essencial'] },
+    { id:'ultra',     nome:'Ultra',     cor:'var(--gold)',     precos:{mensal:99}, recursos:['Mensagens ilimitadas','Modelo Sonnet 4.6','Storage 25 GB','Análise de imagem (Vision) 🖼','Prioridade na fila','Tudo do Pro'] },
   ],
 };
-
-const COMBOS_NOVO = [
-  { id:'duo-essencial', nome:'Duo Essencial', cor:'#f59e0b',         precos:{mensal:79,  anual:800  }, equivale:'Companion Ess. + Seg. Cérebro Ess.', economia:9,  recursos:['Companion Essencial','Segundo Cérebro Essencial','Economia mensal de R$9'] },
-  { id:'duo-pro',       nome:'Duo Pro',       cor:'var(--accent2)', destaque:true, precos:{mensal:139, anual:1400 }, equivale:'Companion Pro + Seg. Cérebro Pro', economia:19, recursos:['Companion Pro','Segundo Cérebro Pro','Economia mensal de R$19'] },
-  { id:'duo-ultra',     nome:'Duo Ultra',     cor:'var(--gold)',     precos:{mensal:229, anual:2300 }, equivale:'Companion Ultra + Seg. Cérebro Ultra', economia:29, recursos:['Companion Ultra','Segundo Cérebro Ultra','Economia mensal de R$29'] },
-];
 
 function setPlanoTab(tab, btn) {
   _planoTabAtual = tab;
@@ -1928,15 +1892,8 @@ function setCiclo(ciclo, btn) {
 }
 
 function _formatPreco(p) {
-  if (p === 'consulta') return { display: 'Sob consulta', sub: 'Vamos conversar' };
   if (typeof p === 'object') {
-    const valor = p[_cicloAtual] || 0;
-    if (valor === 0) return { display: 'Grátis', sub: '7 dias' };
-    if (_cicloAtual === 'anual') {
-      const mensalEq = Math.round(valor / 12);
-      return { display: 'R$' + mensalEq, sub: 'R$' + valor + '/ano (~16% off)' };
-    }
-    return { display: 'R$' + valor, sub: '/mês' };
+    return { display: 'R$' + (p.mensal || 0), sub: '/mês' };
   }
   return { display: '—', sub: '' };
 }
@@ -1944,19 +1901,17 @@ function _formatPreco(p) {
 function _cardHtml(p) {
   const preco = _formatPreco(p.precos);
   const cor = p.cor || 'var(--accent)';
-  const isConsulta = p.precos === 'consulta';
-  const isGratis = !isConsulta && p.precos && p.precos[_cicloAtual] === 0;
-  const cta = p.ctaText || (isGratis ? 'Começar grátis' : 'Começar 7 dias grátis');
+  const cta = p.ctaText || 'Começar 7 dias grátis';
   return `
     <div style="background:var(--bg2);border:${p.destaque ? '2px solid '+cor : '1px solid var(--border)'};border-radius:16px;padding:24px 22px;position:relative;display:flex;flex-direction:column;">
       ${p.destaque ? `<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);padding:4px 14px;border-radius:100px;background:${cor};color:#fff;font-size:11px;font-weight:500;white-space:nowrap;">Mais popular</div>` : ''}
       <div style="width:10px;height:10px;border-radius:50%;background:${cor};margin-bottom:10px;"></div>
-      <div style="font-size:17px;font-weight:500;color:var(--text);margin-bottom:12px;">${p.nome}</div>
-      <div style="margin-bottom:4px;">
-        <span style="font-family:'DM Serif Display',serif;font-size:${isConsulta ? '24px' : '32px'};color:var(--text);">${preco.display}</span>
-        ${isConsulta ? '' : `<span style="font-size:13px;color:var(--text2);">${_cicloAtual === 'mensal' ? '/mês' : ''}</span>`}
+      <div style="font-size:17px;font-weight:500;color:var(--text);margin-bottom:6px;">${p.nome}</div>
+      <div style="display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:100px;background:rgba(124,110,240,.1);border:1px solid rgba(124,110,240,.22);font-size:10px;color:var(--accent2);font-weight:500;margin-bottom:14px;width:fit-content;">✦ 7 dias grátis no início</div>
+      <div style="margin-bottom:18px;">
+        <span style="font-family:'DM Serif Display',serif;font-size:32px;color:var(--text);">${preco.display}</span>
+        <span style="font-size:13px;color:var(--text2);">/mês</span>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:18px;min-height:14px;">${preco.sub}</div>
       <button onclick="iniciarCheckout('${p.id}', event)" style="width:100%;padding:11px;border-radius:10px;background:${cor};color:#fff;border:none;font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;margin-bottom:18px;transition:opacity .2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
         ${cta}
       </button>
@@ -1968,11 +1923,9 @@ function _cardHtml(p) {
 
 function renderPlanos() {
   const grid = document.getElementById('planos-grid');
-  const combosGrid = document.getElementById('planos-combos-grid');
   if (!grid) return;
-  const planos = PLANOS_NOVO[_planoTabAtual] || [];
+  const planos = PLANOS_NOVO[_planoTabAtual] || PLANOS_NOVO['companion'] || [];
   grid.innerHTML = planos.map(_cardHtml).join('');
-  if (combosGrid) combosGrid.innerHTML = COMBOS_NOVO.map(_cardHtml).join('');
 }
 
 async function iniciarCheckout(planoId, ev) {
@@ -2024,6 +1977,12 @@ async function iniciarCheckout(planoId, ev) {
 // ══════════════════════════════════════════════════════════════════
 
 const PLAN_LABELS = {
+  // ── Planos ativos ──────────────────────────────────────────────────────────
+  'essencial':      { label: 'Essencial',      icon: '💛', color: '#f59e0b'       },
+  'pro':            { label: 'Pro',            icon: '💜', color: 'var(--accent2)' },
+  'ultra':          { label: 'Ultra',          icon: '🌟', color: 'var(--gold)'   },
+  'design_partner': { label: 'Design Partner', icon: '🎨', color: 'var(--accent2)' },
+  // ── Planos legados ─────────────────────────────────────────────────────────
   'companion-teste':           { label: 'Companion Teste',            icon: '🔍', color: 'var(--text2)' },
   'companion-essencial':       { label: 'Companion Essencial',        icon: '💛', color: '#f59e0b'      },
   'companion-pro':             { label: 'Companion Pro',              icon: '💜', color: 'var(--accent2)'},
