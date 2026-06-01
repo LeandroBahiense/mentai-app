@@ -985,7 +985,7 @@ export default async function handler(req, res) {
         }
       }
       // Número desconhecido sem código válido → instrução de ativação
-      await sendWhatsApp(phone, 'Olá! Para ativar o WhatsApp no Pallyum, abra o app → Configurações → Ativar WhatsApp e siga as instruções. 📱');
+      await sendWhatsApp(phone, 'Olá! Para ativar o WhatsApp no Pallyum, abra o app → aba WhatsApp e siga as instruções. 📱');
       return res.status(200).send('OK');
     }
 
