@@ -1429,23 +1429,31 @@ function openNoteFromKanban(id) {
   openNotePanel(id);
 }
 
-function deleteKbCard(e, noteId) {
+async function deleteKbCard(e, noteId) {
   e.stopPropagation();
   const note = APP.notes.find(n => n.id === noteId);
   if (!note) return;
-  if (!confirm('Apagar a nota "' + note.title + '"?')) return;
-  APP.notes = APP.notes.filter(n => n.id !== noteId);
-  deleteFromSupabase(noteId);
+  if (!confirm('Mover a nota "' + note.title + '" para a lixeira?')) return;
+  const now = new Date().toISOString();
+  note.in_trash   = true;
+  note.deleted_at = now;
+  note.updated_at = now;
   saveNotes();
+  await pushNoteToBackend(note);
   renderKanban();
   renderSidebar();
 }
 
-function deleteNoteFromKanban(noteId, title) {
-  if (!confirm('Apagar a nota "' + title + '"?')) return;
-  APP.notes = APP.notes.filter(n => n.id !== noteId);
-  deleteFromSupabase(noteId);
+async function deleteNoteFromKanban(noteId, title) {
+  if (!confirm('Mover a nota "' + title + '" para a lixeira?')) return;
+  const note = APP.notes.find(n => n.id === noteId);
+  if (!note) return;
+  const now = new Date().toISOString();
+  note.in_trash   = true;
+  note.deleted_at = now;
+  note.updated_at = now;
   saveNotes();
+  await pushNoteToBackend(note);
   renderKanban();
   renderSidebar();
 }
