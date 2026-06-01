@@ -3925,11 +3925,21 @@ async function loadFromSupabase(){
       signal: AbortSignal.timeout(12000),
     });
     if(!res.ok) throw new Error('HTTP '+res.status);
-    const rows = await res.json();
-    const bankIds = new Set((rows || []).map(function(r) { return r.id; }));
+    const payload    = await res.json();
+    // Suporte ao novo formato { notes, deleted } e ao formato antigo (array puro)
+    const rows       = Array.isArray(payload) ? payload : (payload.notes || []);
+    const deletedIds = new Set(Array.isArray(payload) ? [] : (payload.deleted || []));
+    const bankIds    = new Set(rows.map(function(r) { return r.id; }));
+
+    // ── 0. Purge local: remove notas que foram apagadas definitivamente ──
+    // Garante que o cache de outro dispositivo não ressuscite notas já deletadas.
+    if (deletedIds.size > 0) {
+      APP.notes = APP.notes.filter(function(n) { return !deletedIds.has(n.id); });
+    }
 
     // ── 1. Banco → local: banco é fonte da verdade ───────────────
     (rows || []).forEach(function(r) {
+      if (deletedIds.has(r.id)) return; // lápide manda: não re-insere nem atualiza
       const localNote = APP.notes.find(function(n) { return n.id === r.id; });
       if (localNote) {
         const bankDate  = new Date(r.updated_at  || 0).getTime();
@@ -3967,7 +3977,10 @@ async function loadFromSupabase(){
     });
 
     // ── 2. Local → banco: notas que não estão no banco ainda ─────
-    const localOnly = APP.notes.filter(function(n) { return !bankIds.has(n.id); });
+    // Lápides são excluídas: não re-empurra nota apagada de propósito em outro dispositivo.
+    const localOnly = APP.notes.filter(function(n) {
+      return !bankIds.has(n.id) && !deletedIds.has(n.id);
+    });
     for (const note of localOnly) {
       await pushNoteToBackend(note);
     }
@@ -4514,7 +4527,7 @@ async function permanentlyDeleteNote(id) {
   saveNotes();
   renderSidebar();
   renderKanban();
-  if (APP.supabaseConnected) await deleteFromSupabase(id);
+  await deleteFromSupabase(id); // SEMPRE — sem gatear em APP.supabaseConnected
 }
 
 async function showAllGavetas() {
