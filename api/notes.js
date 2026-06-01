@@ -40,20 +40,27 @@ export default async function handler(req, res) {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // ── GET: lista notas do usuário ─────────────────────────────────
+  // ── GET: lista notas + ids de lápides do usuário ───────────────
   if (req.method === 'GET') {
-    const { data, error } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('user_id', uid)
-      .order('updated_at', { ascending: false });
+    const [notesResult, deletedResult] = await Promise.all([
+      supabase
+        .from('notes')
+        .select('*')
+        .eq('user_id', uid)
+        .order('updated_at', { ascending: false }),
+      supabase
+        .from('deleted_notes')
+        .select('note_id')
+        .eq('user_id', uid),
+    ]);
 
-    if (error) {
-      console.error('[api/notes GET] supabase error:', error.message);
-      return res.status(500).json({ error: error.message });
+    if (notesResult.error) {
+      console.error('[api/notes GET] supabase error:', notesResult.error.message);
+      return res.status(500).json({ error: notesResult.error.message });
     }
 
-    return res.status(200).json(data);
+    const deleted = (deletedResult.data || []).map(r => r.note_id);
+    return res.status(200).json({ notes: notesResult.data, deleted });
   }
 
   // ── POST: upsert de uma nota ────────────────────────────────────
@@ -80,7 +87,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
-  // ── DELETE: apaga nota do dono ──────────────────────────────────
+  // ── DELETE: apaga nota do dono + grava lápide ──────────────────
   if (req.method === 'DELETE') {
     const id = req.query && req.query.id;
     if (!id) {
@@ -96,6 +103,18 @@ export default async function handler(req, res) {
     if (error) {
       console.error('[api/notes DELETE] supabase error:', error.message);
       return res.status(500).json({ error: error.message });
+    }
+
+    // Lápide: registra exclusão definitiva para sincronizar outros dispositivos.
+    // Falha não bloqueia o 200 — a nota já sumiu do banco.
+    const { error: tombErr } = await supabase
+      .from('deleted_notes')
+      .upsert(
+        { note_id: id, user_id: uid, deleted_at: new Date().toISOString() },
+        { onConflict: 'note_id' }
+      );
+    if (tombErr) {
+      console.error('[api/notes DELETE] tombstone falhou (não crítico):', tombErr.message);
     }
 
     return res.status(200).json({ ok: true });
