@@ -945,6 +945,50 @@ export default async function handler(req, res) {
     userId = resolvedUserId;
     console.log('USER ID:', userId);
 
+    // ── Ativação self-serve: número desconhecido tenta enviar código ──────
+    if (!userId) {
+      const msgTrimmed = userMessage.trim();
+      // Trata como tentativa de ativação apenas se a mensagem for exatamente 6 dígitos
+      if (/^\d{6}$/.test(msgTrimmed)) {
+        try {
+          // Busca só pelo código — ignora o telefone digitado (nono dígito BR).
+          // O número verdadeiro é o que chegou do Twilio (variável `phone`).
+          const pendingResp = await fetch(
+            `${SUPABASE_URL}/rest/v1/whatsapp_pending?code=eq.${encodeURIComponent(msgTrimmed)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=user_id`,
+            { headers: googleSbHeaders() }
+          );
+          if (pendingResp.ok) {
+            const rows = await pendingResp.json();
+            if (rows.length > 0) {
+              const activationUserId = rows[0].user_id;
+              // Vincula o número REAL (Twilio) ao userId — não o que o usuário digitou no app
+              await fetch(
+                `${SUPABASE_URL}/rest/v1/phone_users`,
+                {
+                  method:  'POST',
+                  headers: { ...googleSbHeaders(), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+                  body:    JSON.stringify({ phone, user_id: activationUserId }),
+                }
+              );
+              // Remove a pendência pelo código (PK natural pós-migração)
+              await fetch(
+                `${SUPABASE_URL}/rest/v1/whatsapp_pending?code=eq.${encodeURIComponent(msgTrimmed)}`,
+                { method: 'DELETE', headers: googleSbHeaders() }
+              );
+              console.log('[whatsapp] ATIVAÇÃO OK | phone=' + phone + ' | userId=' + activationUserId);
+              await sendWhatsApp(phone, '✅ WhatsApp ativado! Pode começar a usar o Pallyum por aqui.');
+              return res.status(200).send('OK');
+            }
+          }
+        } catch (e) {
+          console.error('[whatsapp] erro ao processar ativação:', e.message);
+        }
+      }
+      // Número desconhecido sem código válido → instrução de ativação
+      await sendWhatsApp(phone, 'Olá! Para ativar o WhatsApp no Pallyum, abra o app → Configurações → Ativar WhatsApp e siga as instruções. 📱');
+      return res.status(200).send('OK');
+    }
+
     // ── Modelo e cooldown por plano ───────────────────────────────────────
     if (userId) {
       const [userModel, cooldown] = await Promise.all([
