@@ -56,6 +56,19 @@ function googleSbHeaders() {
   };
 }
 
+// Normaliza telefone para o formato canônico BR E.164: +55 + DDD + 9 + 8 dígitos.
+// Obs: regra BR-cêntrica (DDD + nono dígito). Números internacionais precisariam
+// de tratamento próprio no futuro — hoje todos os usuários são BR.
+function normalizePhone(raw) {
+  let d = String(raw || '').replace(/\D/g, '');   // só dígitos
+  if (!d) return '';
+  if (!d.startsWith('55')) d = '55' + d;          // garante o código do país
+  const ddd = d.slice(2, 4);
+  let sub = d.slice(4);
+  if (sub.length === 8) sub = '9' + sub;          // insere o 9 do celular se faltar
+  return '+55' + ddd + sub;                        // ex.: +5547997443333
+}
+
 async function sendWhatsApp(to, body) {
   const toFormatted = to.startsWith('whatsapp:') ? to : 'whatsapp:' + to;
   const auth = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');
@@ -894,7 +907,7 @@ export default async function handler(req, res) {
   // ─────────────────────────────────────────────────────────────────────────
 
   const body      = req.body || {};
-  const phone     = (body.From || '').replace('whatsapp:', '');
+  const phone     = normalizePhone((body.From || '').replace('whatsapp:', ''));
   const mediaUrl  = body.MediaUrl0 || '';
   const mediaType = (body.MediaContentType0 || '').toLowerCase();
   const hasAudio  = mediaType.startsWith('audio/') && mediaUrl;
@@ -945,46 +958,44 @@ export default async function handler(req, res) {
     userId = resolvedUserId;
     console.log('USER ID:', userId);
 
-    // ── Ativação self-serve: número desconhecido tenta enviar código ──────
-    if (!userId) {
-      const msgTrimmed = userMessage.trim();
-      // Trata como tentativa de ativação apenas se a mensagem for exatamente 6 dígitos
-      if (/^\d{6}$/.test(msgTrimmed)) {
-        try {
-          // Busca só pelo código — ignora o telefone digitado (nono dígito BR).
-          // O número verdadeiro é o que chegou do Twilio (variável `phone`).
-          const pendingResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/whatsapp_pending?code=eq.${encodeURIComponent(msgTrimmed)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=user_id`,
-            { headers: googleSbHeaders() }
-          );
-          if (pendingResp.ok) {
-            const rows = await pendingResp.json();
-            if (rows.length > 0) {
-              const activationUserId = rows[0].user_id;
-              // Vincula o número REAL (Twilio) ao userId — não o que o usuário digitou no app
-              await fetch(
-                `${SUPABASE_URL}/rest/v1/phone_users`,
-                {
-                  method:  'POST',
-                  headers: { ...googleSbHeaders(), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-                  body:    JSON.stringify({ phone, user_id: activationUserId }),
-                }
-              );
-              // Remove a pendência pelo código (PK natural pós-migração)
-              await fetch(
-                `${SUPABASE_URL}/rest/v1/whatsapp_pending?code=eq.${encodeURIComponent(msgTrimmed)}`,
-                { method: 'DELETE', headers: googleSbHeaders() }
-              );
-              console.log('[whatsapp] ATIVAÇÃO OK | phone=' + phone + ' | userId=' + activationUserId);
-              await sendWhatsApp(phone, '✅ WhatsApp ativado! Pode começar a usar o Pallyum por aqui.');
-              return res.status(200).send('OK');
-            }
+    // ── Código de ativação/reativação — verifica SEMPRE, independente de userId ──
+    // Permite trocar número mesmo quando já vinculado: sobrescreve o vínculo anterior.
+    const msgTrimmed = userMessage.trim();
+    if (/^\d{6}$/.test(msgTrimmed)) {
+      try {
+        const pendingResp = await fetch(
+          `${SUPABASE_URL}/rest/v1/whatsapp_pending?code=eq.${encodeURIComponent(msgTrimmed)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=user_id`,
+          { headers: googleSbHeaders() }
+        );
+        if (pendingResp.ok) {
+          const pendingRows = await pendingResp.json();
+          if (pendingRows.length > 0) {
+            const activationUserId = pendingRows[0].user_id;
+            // Upsert com o número REAL do Twilio (já normalizado) — sobrescreve vínculo anterior
+            await fetch(
+              `${SUPABASE_URL}/rest/v1/phone_users`,
+              {
+                method:  'POST',
+                headers: { ...googleSbHeaders(), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+                body:    JSON.stringify({ phone, user_id: activationUserId }),
+              }
+            );
+            await fetch(
+              `${SUPABASE_URL}/rest/v1/whatsapp_pending?code=eq.${encodeURIComponent(msgTrimmed)}`,
+              { method: 'DELETE', headers: googleSbHeaders() }
+            );
+            console.log('[whatsapp] ATIVAÇÃO OK | phone=' + phone + ' | userId=' + activationUserId);
+            await sendWhatsApp(phone, '✅ WhatsApp vinculado a esta conta.');
+            return res.status(200).send('OK');
           }
-        } catch (e) {
-          console.error('[whatsapp] erro ao processar ativação:', e.message);
         }
+      } catch (e) {
+        console.error('[whatsapp] erro ao processar ativação:', e.message);
       }
-      // Número desconhecido sem código válido → instrução de ativação
+    }
+
+    // ── Número desconhecido sem código válido → instrução de ativação ─────────
+    if (!userId) {
       await sendWhatsApp(phone, 'Olá! Para ativar o WhatsApp no Pallyum, abra o app → aba WhatsApp e siga as instruções. 📱');
       return res.status(200).send('OK');
     }
