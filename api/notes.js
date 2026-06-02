@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     }
 
     const deleted = (deletedResult.data || []).map(r => r.note_id);
-    return res.status(200).json({ notes: notesResult.data, deleted });
+    return res.status(200).json({ notes: notesResult.data, deleted, user_id: uid });
   }
 
   // ── POST: upsert de uma nota ────────────────────────────────────
