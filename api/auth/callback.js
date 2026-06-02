@@ -4,6 +4,17 @@ function toBase64url(buf) {
   return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+// Mesma regra de normalização do api/whatsapp.js — mantém canonical BR E.164.
+function normalizePhone(raw) {
+  let d = String(raw || '').replace(/\D/g, '');
+  if (!d) return '';
+  if (!d.startsWith('55')) d = '55' + d;
+  const ddd = d.slice(2, 4);
+  let sub = d.slice(4);
+  if (sub.length === 8) sub = '9' + sub;
+  return '+55' + ddd + sub;
+}
+
 function verifyState(state) {
   if (!state || typeof state !== 'string') return null;
   const dot = state.lastIndexOf('.');
@@ -33,7 +44,7 @@ export default async function handler(req, res) {
   const st = verifyState(stateParam);
   if (!st) return res.redirect('https://pallyum.com/app?google=error&msg=bad_state');
   let userId = st.user_id || null;
-  let phone  = st.phone  || null;
+  let phone  = st.phone ? normalizePhone(st.phone) : null; // canoniza antes de qualquer gravação
   const cameFromWeb = !!st.web;
 
   console.log('CALLBACK: userId=' + userId + ' | phone=' + phone + ' | web=' + cameFromWeb);
