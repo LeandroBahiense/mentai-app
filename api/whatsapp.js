@@ -1038,8 +1038,12 @@ export default async function handler(req, res) {
     accounts = await getAllGoogleAccounts(userId, phone);
     if (accounts.length > 0) {
       googleConnected = true;
-      const primary = accounts.find(function(a){ return a.is_primary; }) || accounts[0];
-      accessToken = await ensureAccountToken(primary);   // escrita usa a conta principal
+      // Tenta a principal primeiro; se o refresh dela falhar, cai pra próxima conta saudável.
+      const ordered = accounts.slice().sort(function(a, b) { return (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0); });
+      for (const acc of ordered) {
+        try { accessToken = await ensureAccountToken(acc); break; }
+        catch (e) { console.error('TOKEN FAIL (' + acc.email + '):', e.message); }
+      }
       if (needsCalendar) {
         for (const acc of accounts) {
           try {
@@ -1198,11 +1202,23 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── Helper: resolve token da conta-alvo (account do JSON) ou da principal ─
+    // ── Helper: resolve token da conta-alvo ou da principal; fallback sequencial ─
+    // Se a conta-alvo falhar no refresh, tenta as demais em ordem (principal primeiro).
+    // Retorna null se nenhuma conta tiver token renovável — o loop de actions
+    // detecta null e usa a mensagem de "conexão expirou".
     const resolverContaToken = async (emailAlvo) => {
       const principal = accounts.find(a => a.is_primary) || accounts[0];
-      const conta = (emailAlvo && accounts.find(a => a.email === emailAlvo)) || principal;
-      return await ensureAccountToken(conta);
+      const contaAlvo = (emailAlvo && accounts.find(a => a.email === emailAlvo)) || principal;
+      // Tenta a conta solicitada primeiro; depois as demais em ordem principal-primeiro
+      const candidatos = [contaAlvo, ...accounts.filter(a => a !== contaAlvo)]
+        .sort(function(a, b) { return (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0); });
+      // Garante que contaAlvo é o primeiro (sort é estável só se os valores diferem)
+      const ordenados = [contaAlvo, ...candidatos.filter(a => a !== contaAlvo)];
+      for (const acc of ordenados) {
+        try { return await ensureAccountToken(acc); }
+        catch (e) { console.error('resolverContaToken FAIL (' + acc.email + '):', e.message); }
+      }
+      return null; // todas falharam
     };
 
     // ── Executa ações via tool use (notas + agenda) ───────────────────────
@@ -1221,7 +1237,14 @@ export default async function handler(req, res) {
           await deleteNote(inp.title);
           actionConfirm += '🗑️ Nota "' + inp.title + '" apagada.\n';
         } else if (tu.name === 'criar_evento' || tu.name === 'atualizar_evento' || tu.name === 'apagar_evento') {
-          if (!accessToken) { actionConfirm += '⚠️ Conecte sua agenda Google primeiro.\n'; continue; }
+          if (!accessToken) {
+            if (accounts.length === 0) {
+              actionConfirm += '⚠️ Conecte sua agenda Google primeiro (app → Configurações).\n';
+            } else {
+              actionConfirm += '⚠️ Sua conexão com o Google expirou. Reconecte no app em Configurações → Conexões externas.\n';
+            }
+            continue;
+          }
           const tk = await resolverContaToken(inp.account);
           if (tu.name === 'criar_evento') {
             const r = await createCalendarEvent(tk, inp.title, inp.datetime, inp.description || '');
