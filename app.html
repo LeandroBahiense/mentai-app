@@ -3926,10 +3926,22 @@ async function loadFromSupabase(){
     });
     if(!res.ok) throw new Error('HTTP '+res.status);
     const payload    = await res.json();
-    // Suporte ao novo formato { notes, deleted } e ao formato antigo (array puro)
+    // Suporte ao novo formato { notes, deleted, user_id } e ao formato antigo (array puro)
     const rows       = Array.isArray(payload) ? payload : (payload.notes || []);
     const deletedIds = new Set(Array.isArray(payload) ? [] : (payload.deleted || []));
     const bankIds    = new Set(rows.map(function(r) { return r.id; }));
+
+    // ── Guard de identidade: cache local não pertence a este usuário ──────
+    // Cenário: navegador logou com conta A, agora logou com conta B antes do
+    // onAuthStateChange limpar o localStorage. Sem este guard, a seção 2
+    // empurraria as notas de A para a conta B via pushNoteToBackend.
+    const bankUserId   = Array.isArray(payload) ? null : (payload.user_id || null);
+    const cachedUserId = localStorage.getItem('koreo-user-id');
+    if (bankUserId && cachedUserId !== bankUserId) {
+      APP.notes = [];
+      localStorage.removeItem('mentai-notes');
+      localStorage.setItem('koreo-user-id', bankUserId);
+    }
 
     // ── 0. Purge local: remove notas que foram apagadas definitivamente ──
     // Garante que o cache de outro dispositivo não ressuscite notas já deletadas.
