@@ -4347,7 +4347,7 @@ async function checkOnboarding() {
     return;
   }
   const { data } = await _supabase.from('user_preferences')
-    .select('onboarding_done, gavetas, gavetas_ocultas, gavetas_ordem, assistant_name, display_name')
+    .select('onboarding_done, gavetas, gavetas_ocultas, gavetas_ordem, assistant_name, display_name, briefing_hora')
     .eq('user_id', currentUser.id)
     .maybeSingle();
   // garante que Inbox nunca foi removida do DOM
