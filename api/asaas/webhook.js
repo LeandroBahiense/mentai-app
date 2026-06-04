@@ -2,7 +2,8 @@
  * Pallyum — Webhook Asaas
  * Fonte primária : payment.externalReference = "userId|sku"
  * Fallback       : parsePlanFromDescription(payment.description)
- * Atualiza user_preferences.plano + plano_validade + asaas_subscription_id (se vier)
+ * Atualiza user_preferences.plano + plano_validade; grava asaas_customer_id +
+ * asaas_subscription_id em subscriptions (tabela dedicada, não em user_preferences)
  *
  * Validação do token é fail-closed: se ASAAS_WEBHOOK_TOKEN não estiver
  * configurada, todas as requisições são recusadas com 500.
@@ -106,32 +107,51 @@ function parsePlanFromDescription(description) {
 }
 
 // ── Atualiza plano por userId (fonte primária) ─────────────────────────────────
-async function updateUserPlanByUserId(userId, plano, meses, subscriptionId) {
+async function updateUserPlanByUserId(userId, plano, meses, subscriptionId, customerId) {
   const validade = new Date();
   validade.setMonth(validade.getMonth() + meses);
 
+  // Plano e validade ficam em user_preferences (não mudou)
   const patchBody = {
     plano,
-    plano_validade: validade.toISOString(),
-    updated_at:     new Date().toISOString(),
+    plano_validade:           validade.toISOString(),
+    subscription_canceled_at: null, // nova cobrança = reativação
+    updated_at:               new Date().toISOString(),
   };
-  if (subscriptionId) {
-    patchBody.asaas_subscription_id    = subscriptionId;
-    patchBody.subscription_canceled_at = null; // nova cobrança = reativação
-  }
 
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(userId)}`,
-    {
-      method:  'PATCH',
-      headers: svcHeaders(),
-      body: JSON.stringify(patchBody),
-    }
+    { method: 'PATCH', headers: svcHeaders(), body: JSON.stringify(patchBody) }
   );
-
   if (!res.ok) {
     const err = await res.text();
-    throw new Error('Supabase PATCH falhou: ' + err);
+    throw new Error('Supabase PATCH user_preferences falhou: ' + err);
+  }
+
+  // Grava asaas_customer_id + asaas_subscription_id em subscriptions.
+  // ?on_conflict=user_id mira a constraint UNIQUE simples — sem isso o PostgREST
+  // usaria a PK (uuid gerado) e criaria linhas duplicadas a cada webhook.
+  const subBody = {
+    user_id:    userId,
+    updated_at: new Date().toISOString(),
+  };
+  if (customerId)     subBody.asaas_customer_id     = customerId;
+  if (subscriptionId) subBody.asaas_subscription_id = subscriptionId;
+
+  if (customerId || subscriptionId) {
+    const subRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`,
+      {
+        method:  'POST',
+        headers: { ...svcHeaders(), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        body:    JSON.stringify(subBody),
+      }
+    );
+    if (!subRes.ok) {
+      const err = await subRes.text();
+      // Não bloqueia o 200 — plan já foi atualizado; loga para reconciliação
+      console.error('[webhook] upsert subscriptions falhou (não crítico):', err);
+    }
   }
 
   return validade.toISOString();
@@ -142,28 +162,60 @@ async function updateUserPlanByCustomer(customerId, plano, meses, subscriptionId
   const validade = new Date();
   validade.setMonth(validade.getMonth() + meses);
 
-  const patchBody = {
-    plano,
-    plano_validade: validade.toISOString(),
-    updated_at:     new Date().toISOString(),
-  };
-  if (subscriptionId) {
-    patchBody.asaas_subscription_id    = subscriptionId;
-    patchBody.subscription_canceled_at = null;
+  // 1. Resolve user_id a partir de subscriptions (migrado de user_preferences)
+  const lookupRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/subscriptions?asaas_customer_id=eq.${encodeURIComponent(customerId)}&select=user_id`,
+    { headers: svcHeaders() }
+  );
+  if (!lookupRes.ok) {
+    const err = await lookupRes.text();
+    throw new Error('Supabase lookup subscriptions falhou: ' + err);
+  }
+  const lookupRows = await lookupRes.json();
+  const userId = lookupRows?.[0]?.user_id;
+  if (!userId) {
+    throw new Error('customer_id não encontrado em subscriptions: ' + customerId);
   }
 
+  // 2. Atualiza plano em user_preferences por user_id
+  const patchBody = {
+    plano,
+    plano_validade:           validade.toISOString(),
+    subscription_canceled_at: null,
+    updated_at:               new Date().toISOString(),
+  };
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_preferences?asaas_customer_id=eq.${encodeURIComponent(customerId)}`,
-    {
-      method:  'PATCH',
-      headers: svcHeaders(),
-      body: JSON.stringify(patchBody),
-    }
+    `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(userId)}`,
+    { method: 'PATCH', headers: svcHeaders(), body: JSON.stringify(patchBody) }
   );
-
   if (!res.ok) {
     const err = await res.text();
-    throw new Error('Supabase PATCH falhou: ' + err);
+    throw new Error('Supabase PATCH user_preferences falhou: ' + err);
+  }
+
+  // 3. Grava asaas_customer_id + asaas_subscription_id em subscriptions.
+  //    Chaves omitidas quando falsy — merge-duplicates do PostgREST preserva
+  //    o valor já gravado se a chave não estiver no JSON (nunca apaga com null).
+  {
+    const subBody = {
+      user_id:    userId,
+      updated_at: new Date().toISOString(),
+    };
+    if (customerId)     subBody.asaas_customer_id     = customerId;
+    if (subscriptionId) subBody.asaas_subscription_id = subscriptionId;
+
+    const subRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`,
+      {
+        method:  'POST',
+        headers: { ...svcHeaders(), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        body:    JSON.stringify(subBody),
+      }
+    );
+    if (!subRes.ok) {
+      const err = await subRes.text();
+      console.error('[webhook] upsert subscriptions (fallback) falhou (não crítico):', err);
+    }
   }
 
   return validade.toISOString();
@@ -214,7 +266,7 @@ export default async function handler(req, res) {
       if (parsed) {
         const { plano, meses } = parsed;
         const subscriptionId = payment.subscription || null;
-        const validade = await updateUserPlanByUserId(refUserId, plano, meses, subscriptionId);
+        const validade = await updateUserPlanByUserId(refUserId, plano, meses, subscriptionId, customerId);
         // Dispara email transacional. Não-bloqueante — webhook ainda responde 200 mesmo se Resend falhar.
         try {
           await sendPlanoAtivadoByUserId({

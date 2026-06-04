@@ -64,23 +64,33 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'sessão inválida' });
   }
 
-  // 1. Buscar asaas_subscription_id do user
+  // 1. Buscar dados da assinatura: subscription_id vem de subscriptions,
+  //    plano_validade e subscription_canceled_at continuam em user_preferences
   let subscriptionId = null;
-  let planoValidade = null;
+  let planoValidade  = null;
   try {
-    const getRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}&select=asaas_subscription_id,plano_validade,subscription_canceled_at`,
-      { headers: svcHeaders() }
-    );
-    const rows = await getRes.json();
-    if (!Array.isArray(rows) || rows.length === 0) {
+    const [prefsRes, subRes] = await Promise.all([
+      fetch(
+        `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}&select=plano_validade,subscription_canceled_at`,
+        { headers: svcHeaders() }
+      ),
+      fetch(
+        `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(uid)}&select=asaas_subscription_id`,
+        { headers: svcHeaders() }
+      ),
+    ]);
+
+    const prefsRows = await prefsRes.json();
+    if (!Array.isArray(prefsRows) || prefsRows.length === 0) {
       return res.status(404).json({ error: 'Preferências de usuário não encontradas' });
     }
-    if (rows[0].subscription_canceled_at) {
+    if (prefsRows[0].subscription_canceled_at) {
       return res.status(400).json({ error: 'Assinatura já cancelada anteriormente' });
     }
-    subscriptionId = rows[0].asaas_subscription_id;
-    planoValidade  = rows[0].plano_validade;
+    planoValidade = prefsRows[0].plano_validade;
+
+    const subRows = await subRes.json();
+    subscriptionId = subRows?.[0]?.asaas_subscription_id || null;
   } catch (e) {
     console.error('[cancel-subscription] erro lendo Supabase:', e.message);
     return res.status(500).json({ error: 'Erro ao consultar dados da assinatura' });
@@ -111,26 +121,40 @@ export default async function handler(req, res) {
     return res.status(502).json({ error: 'Erro de comunicação com Asaas' });
   }
 
-  // 3. Marcar como cancelado no Supabase
+  // 3. Marcar como cancelado no Supabase (duas tabelas, em paralelo)
   try {
-    const patchRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}`,
-      {
-        method:  'PATCH',
-        headers: svcHeaders(),
-        body: JSON.stringify({
-          subscription_canceled_at: new Date().toISOString(),
-          asaas_subscription_id:    null,
-          updated_at:               new Date().toISOString(),
-        }),
-      }
-    );
-    if (!patchRes.ok) {
-      const err = await patchRes.text();
-      console.error('[cancel-subscription] Supabase PATCH falhou:', err);
-      // Asaas já cancelou — log crítico pra reconciliação manual
+    const now = new Date().toISOString();
+    const [patchPrefsRes, patchSubRes] = await Promise.all([
+      // user_preferences: marca cancelamento (subscription_canceled_at)
+      fetch(
+        `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}`,
+        {
+          method:  'PATCH',
+          headers: svcHeaders(),
+          body: JSON.stringify({ subscription_canceled_at: now, updated_at: now }),
+        }
+      ),
+      // subscriptions: zera asaas_subscription_id (não há mais assinatura ativa)
+      fetch(
+        `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(uid)}`,
+        {
+          method:  'PATCH',
+          headers: svcHeaders(),
+          body: JSON.stringify({ asaas_subscription_id: null, updated_at: now }),
+        }
+      ),
+    ]);
+
+    if (!patchPrefsRes.ok) {
+      const err = await patchPrefsRes.text();
+      console.error('[cancel-subscription] PATCH user_preferences falhou:', err);
       console.error(`[cancel-subscription] CRÍTICO: Asaas cancelou subscription=${subscriptionId} mas Supabase falhou. uid=${uid}`);
       return res.status(500).json({ error: 'Cancelamento parcial — entre em contato com suporte' });
+    }
+    if (!patchSubRes.ok) {
+      // Não crítico: Asaas cancelou e prefs foi atualizado; apenas loga para reconciliação
+      const err = await patchSubRes.text();
+      console.error('[cancel-subscription] PATCH subscriptions falhou (não crítico):', err);
     }
   } catch (e) {
     console.error('[cancel-subscription] erro atualizando Supabase:', e.message);
