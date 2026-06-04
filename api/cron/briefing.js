@@ -316,14 +316,18 @@ export default async function handler(req, res) {
 
   // hora atual em Brasília no formato "HH:MM"
   const now = new Date();
-  const horaAtual = new Intl.DateTimeFormat('pt-BR', {
+  // Só a HORA cheia em Brasília (00–23). hourCycle 'h23' + formatToParts
+  // evita o bug "24:00" da meia-noite e ruído de locale. Ignoramos o minuto
+  // de propósito: o cron da Vercel pode disparar minutos após o :00, e
+  // briefing_hora é sempre hora cheia ("HH:00").
+  const hh = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'America/Sao_Paulo',
     hour:     '2-digit',
-    minute:   '2-digit',
-    hour12:   false,
-  }).format(now).substring(0, 5);
+    hourCycle: 'h23',
+  }).formatToParts(now).find(p => p.type === 'hour').value;
+  const horaAtual = hh + ':00';   // ex.: "07:00"
 
-  console.log('BRIEFING: hora Brasília:', horaAtual);
+  console.log('BRIEFING: hora Brasília (cheia):', horaAtual);
 
   // usuários cujo briefing_hora bate com a hora atual
   const prefs = await getPrefsForHour(horaAtual);
