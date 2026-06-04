@@ -1090,7 +1090,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
                 <div id="wa-connected-phone" style="font-size:12px;color:var(--text2);margin-top:2px;font-family:'DM Sans',sans-serif;"></div>
               </div>
             </div>
-            <button onclick="showWhatsAppForm()" style="background:none;border:none;color:var(--text3);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;text-decoration:underline;padding:0;text-align:left;">Reativar / trocar número</button>
+            <button onclick="showWhatsAppForm()" style="background:none;border:none;color:var(--text2);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;text-decoration:underline;padding:0;text-align:left;">Reativar / trocar número</button>
           </div>
         </div>
 
@@ -1106,7 +1106,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
         <!-- Resultado após gerar o código -->
         <div id="wa-result-area" style="display:none;flex-direction:column;gap:0;">
           <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px;">
-            <div style="font-size:11px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-family:'DM Sans',sans-serif;">Seu código de ativação</div>
+            <div style="font-size:11px;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;font-family:'DM Sans',sans-serif;">Seu código de ativação</div>
             <div id="wa-code-display" style="font-family:'DM Serif Display',serif;font-size:48px;letter-spacing:10px;color:var(--accent);text-align:center;padding:8px 0;"></div>
             <a id="wa-link-btn" href="#" target="_blank" rel="noopener noreferrer"
                style="display:flex;align-items:center;justify-content:center;gap:8px;background:#25D366;color:#fff;border:none;border-radius:8px;padding:11px 20px;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:600;text-decoration:none;cursor:pointer;">
@@ -1117,7 +1117,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
               Você receberá a confirmação <strong style="color:var(--text);">✅ WhatsApp ativado!</strong> no próprio WhatsApp.<br>
               O código vale <strong style="color:var(--text);">15 minutos</strong>.
             </p>
-            <button onclick="resetWhatsAppForm()" style="background:none;border:none;color:var(--text3);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;text-decoration:underline;padding:0;text-align:left;">Gerar outro código</button>
+            <button onclick="resetWhatsAppForm()" style="background:none;border:none;color:var(--text2);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;text-decoration:underline;padding:0;text-align:left;">Gerar outro código</button>
           </div>
         </div>
       </div>
@@ -2086,19 +2086,31 @@ async function loadPlanInfo() {
   if (!loadingEl || !contentEl) return;
 
   try {
-    // Buscar dados do plano (com timeout de 4s)
+    // Buscar dados do plano (timeout 4s) + canCancel do backend em paralelo.
+    // canCancel vem de /api/asaas/subscription-status (service_role, não expõe o id).
+    // O navegador não consulta a tabela subscriptions diretamente.
     const prefsQuery = _supabase
       .from('user_preferences')
-      .select('plano, plano_validade, current_cooldown_ms, asaas_subscription_id, subscription_canceled_at')
+      .select('plano, plano_validade, current_cooldown_ms, subscription_canceled_at')
       .eq('user_id', currentUser.id)
       .maybeSingle();
-    const prefsTimeout = new Promise((_, reject) =>
+    const timeout4s = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('timeout prefs')), 4000)
     );
-    let prefs = null;
+    let prefs     = null;
+    let canCancel = false; // falha segura: default não mostra o botão
     try {
-      const result = await Promise.race([prefsQuery, prefsTimeout]);
-      prefs = result?.data;
+      const [prefsResult, statusResp] = await Promise.race([
+        Promise.all([
+          prefsQuery,
+          fetch('/api/asaas/subscription-status', { credentials: 'include' })
+            .then(r => r.ok ? r.json() : { canCancel: false })
+            .catch(() => ({ canCancel: false })),
+        ]),
+        timeout4s.then(() => { throw new Error('timeout prefs'); }),
+      ]);
+      prefs     = prefsResult?.data;
+      canCancel = !!(statusResp?.canCancel);
     } catch(e) {
       console.warn('loadPlanInfo prefs timeout:', e.message);
     }
@@ -2148,7 +2160,7 @@ async function loadPlanInfo() {
       validadeEl.textContent = plano ? 'Plano ativo' : '';
     }
     // Estado da assinatura (cancelada ou ativa)
-    renderSubscriptionStatus(prefs);
+    renderSubscriptionStatus(prefs, canCancel);
 
     // Barras de uso
     const barsEl = document.getElementById('plan-usage-bars');
@@ -2196,7 +2208,7 @@ async function loadPlanInfo() {
   }
 }
 
-function renderSubscriptionStatus(prefs) {
+function renderSubscriptionStatus(prefs, canCancel) {
   const old = document.getElementById('subscription-status');
   if (old) old.remove();
   const contentEl = document.getElementById('plan-info-content');
@@ -2212,7 +2224,7 @@ function renderSubscriptionStatus(prefs) {
     wrapper.style.color = 'var(--text2)';
     wrapper.innerHTML = `⚠️ Sua assinatura foi cancelada. Você tem acesso até <strong style="color:var(--text);">${validadeStr}</strong>. Nenhuma cobrança futura será feita.`;
     contentEl.appendChild(wrapper);
-  } else if (prefs.asaas_subscription_id) {
+  } else if (canCancel) {
     wrapper.style.display = 'flex';
     wrapper.style.justifyContent = 'flex-end';
     wrapper.innerHTML = `<button onclick="openCancelSubscriptionModal()" class="ss-btn" style="font-size:11px; color:var(--coral, #e87b7b); border-color:rgba(232,123,123,0.3);">Cancelar assinatura</button>`;
