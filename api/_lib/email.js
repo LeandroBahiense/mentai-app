@@ -64,14 +64,14 @@ async function getUserEmailByUserId(userId) {
 }
 
 async function getUserEmailByCustomerId(customerId) {
-  // Resolve customer_id → user_id via user_preferences, depois busca email no auth.users
+  // Resolve customer_id → user_id via subscriptions (migrado de user_preferences)
   const resp = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_preferences?asaas_customer_id=eq.${encodeURIComponent(customerId)}&select=user_id`,
+    `${SUPABASE_URL}/rest/v1/subscriptions?asaas_customer_id=eq.${encodeURIComponent(customerId)}&select=user_id`,
     { headers: svcHeaders() }
   );
   if (!resp.ok) {
     const err = await resp.text();
-    throw new Error('[email] getUserEmailByCustomerId/preferences falhou: ' + err);
+    throw new Error('[email] getUserEmailByCustomerId/subscriptions falhou: ' + err);
   }
   const rows = await resp.json();
   const userId = rows?.[0]?.user_id;
