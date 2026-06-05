@@ -13,6 +13,14 @@ const SUPABASE_SVC_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const CRON_SECRET      = process.env.CRON_SECRET; // protege o endpoint
 const DIAS_RETENCAO_LAPIDE = 30;  // poda lápides de deleted_notes além disso
 
+function dataHojeSP() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+}
+function dataSPdiasAtras(dias) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })
+    .format(new Date(Date.now() - dias * 86400000));
+}
+
 function svcHeaders() {
   return {
     'Content-Type':  'application/json',
@@ -52,7 +60,7 @@ function cooldownFromAvg(avg) {
 
 // Busca todos os usuários que tiveram msg_count > 0 hoje
 async function getUsersWithActivityToday() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = dataHojeSP();
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/usage_logs?date=eq.${today}&msg_count=gt.0&select=user_id`,
     { headers: svcHeaders() }
@@ -65,9 +73,7 @@ async function getUsersWithActivityToday() {
 
 // Calcula daily_avg_7d para um usuário
 async function getDailyAvg7d(userId) {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const since = sevenDaysAgo.toISOString().split('T')[0];
+  const since = dataSPdiasAtras(7);
 
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/usage_logs?user_id=eq.${encodeURIComponent(userId)}&date=gte.${since}&select=msg_count,date`,
