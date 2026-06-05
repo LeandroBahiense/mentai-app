@@ -201,9 +201,10 @@ export default async function handler(req, res) {
       },
     ],
     subscription: {
-      cycle:       cycleInfo.cycle,
-      nextDueDate: formatAsaasDate(nextDue),
-      endDate:     formatAsaasDate(endDate),
+      cycle:             cycleInfo.cycle,
+      nextDueDate:       formatAsaasDate(nextDue),
+      endDate:           formatAsaasDate(endDate),
+      externalReference: uid + '|' + skuKey,   // propagado pra assinatura e suas cobranças
     },
     externalReference: uid + '|' + skuKey,
   };
