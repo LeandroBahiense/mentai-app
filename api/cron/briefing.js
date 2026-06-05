@@ -2,9 +2,10 @@ const SUPABASE_URL     = process.env.SUPABASE_URL;
 const SUPABASE_KEY     = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SVC_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ANTHROPIC_KEY    = process.env.ANTHROPIC_API_KEY;
-const TWILIO_SID       = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_TOKEN     = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_FROM      = process.env.TWILIO_WHATSAPP_FROM;
+const TWILIO_SID              = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_TOKEN            = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_FROM             = process.env.TWILIO_WHATSAPP_FROM;
+const BRIEFING_TEMPLATE_SID   = process.env.TWILIO_BRIEFING_TEMPLATE_SID;
 
 function anonHeaders() {
   return {
@@ -83,6 +84,16 @@ async function getPhoneByUserId(userId) {
   );
   const data = await res.json();
   return Array.isArray(data) && data.length > 0 ? data[0].phone : null;
+}
+
+async function getPhoneRow(userId) {
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/phone_users?user_id=eq.' +
+      encodeURIComponent(userId) + '&select=phone,last_inbound_at&limit=1',
+    { headers: svcHeaders() }
+  );
+  const data = await res.json();
+  return Array.isArray(data) && data.length > 0 ? data[0] : null;
 }
 
 // ─── Google Calendar ──────────────────────────────────────────────────────────
@@ -303,6 +314,44 @@ async function sendWhatsApp(to, body) {
   return res.status === 201;
 }
 
+async function sendWhatsAppTemplate(to, contentSid, variables) {
+  const toFormatted = to.startsWith('whatsapp:') ? to : 'whatsapp:' + to;
+  const auth = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');
+  const res = await fetch(
+    'https://api.twilio.com/2010-04-01/Accounts/' + TWILIO_SID + '/Messages.json',
+    {
+      method: 'POST',
+      headers: { 'Authorization': 'Basic ' + auth, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        From: TWILIO_FROM,
+        To: toFormatted,
+        ContentSid: contentSid,
+        ContentVariables: JSON.stringify(variables),
+      }),
+    }
+  );
+  const data = await res.json();
+  console.log('TWILIO TEMPLATE:', res.status, '| TO:', toFormatted, '| SID:', data.sid || data.code, '| ERR:', data.message || 'none');
+  return res.status === 201;
+}
+
+async function saveBriefingCache(userId, texto, nCompromissos, nUrgentes) {
+  try {
+    await fetch(
+      SUPABASE_URL + '/rest/v1/briefing_cache?on_conflict=user_id',
+      {
+        method: 'POST',
+        headers: { ...svcHeaders(), 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({
+          user_id: userId, texto,
+          n_compromissos: nCompromissos, n_urgentes: nUrgentes,
+          gerado_em: new Date().toISOString(),
+        }),
+      }
+    );
+  } catch (e) { console.error('saveBriefingCache err:', e.message); }
+}
+
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -345,13 +394,15 @@ export default async function handler(req, res) {
     try {
       console.log('BRIEFING: processando user_id', userId);
 
-      // phone do usuário via google_tokens
-      const phone = await getPhoneByUserId(userId);
-      if (!phone) {
+      // phone + last_inbound_at para decidir se a janela de 24h está aberta
+      const prow = await getPhoneRow(userId);
+      if (!prow || !prow.phone) {
         console.warn('BRIEFING: sem phone para user_id', userId);
         results.push({ userId, ok: false, reason: 'sem_phone' });
         continue;
       }
+      const phone          = prow.phone;
+      const lastInboundAt  = prow.last_inbound_at;
 
       // Google Calendar — agrega TODAS as contas do usuário (multi-conta)
       let calendarEvents = [];
@@ -382,12 +433,32 @@ export default async function handler(req, res) {
         displayName, assistantName || 'Jarvis', eventsText, urgentText
       );
 
-      // Monta e envia
+      // Monta mensagem completa
       const message = buildMessage(
         displayName, eventsText, urgentText, urgentNotes.length, jarvisLine
       );
-      const sent = await sendWhatsApp(phone, message);
-      results.push({ userId, phone, ok: sent });
+
+      // grava o cache sempre — o toque do botão VER_BRIEFING serve daqui
+      await saveBriefingCache(userId, message, calendarEvents.length, urgentNotes.length);
+
+      // janela de 24h: dentro → texto livre; fora / nunca interagiu → template fino
+      const within24h = lastInboundAt &&
+        (Date.now() - new Date(lastInboundAt).getTime() < 24 * 60 * 60 * 1000);
+      let sent;
+      if (within24h) {
+        sent = await sendWhatsApp(phone, message);
+      } else {
+        if (!BRIEFING_TEMPLATE_SID) {
+          console.error('BRIEFING: TWILIO_BRIEFING_TEMPLATE_SID ausente — fora da janela, não envia');
+          sent = false;
+        } else {
+          sent = await sendWhatsAppTemplate(phone, BRIEFING_TEMPLATE_SID, {
+            '1': String(calendarEvents.length),
+            '2': String(urgentNotes.length),
+          });
+        }
+      }
+      results.push({ userId, phone, ok: sent, mode: within24h ? 'freeform' : 'template' });
 
     } catch (err) {
       console.error('BRIEFING ERR:', userId, err.message);
