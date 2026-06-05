@@ -349,6 +349,31 @@ async function getUserIdByPhone(phone) {
   return Array.isArray(data) && data.length > 0 ? data[0].user_id : null;
 }
 
+async function getBriefingCache(userId) {
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/briefing_cache?user_id=eq.' +
+      encodeURIComponent(userId) + '&select=texto&limit=1',
+    { headers: googleSbHeaders() }
+  );
+  const data = await res.json();
+  return Array.isArray(data) && data.length > 0 ? data[0].texto : null;
+}
+
+async function touchLastInbound(phone) {
+  try {
+    await fetch(
+      SUPABASE_URL + '/rest/v1/phone_users?phone=eq.' + encodeURIComponent(phone),
+      {
+        method: 'PATCH',
+        headers: { ...googleSbHeaders(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ last_inbound_at: new Date().toISOString() }),
+      }
+    );
+  } catch (e) {
+    console.error('touchLastInbound err:', e.message);
+  }
+}
+
 async function getGoogleTokens(phone, userId) {
   const filter = userId
     ? 'user_id=eq.' + encodeURIComponent(userId)
@@ -916,6 +941,23 @@ export default async function handler(req, res) {
   let userMessage  = (body.Body || '').trim();
   let savedFileUrl = null; // URL assinada do arquivo salvo (se houver)
   console.log('FROM:', phone, '| MSG:', userMessage.substring(0, 80), '| MEDIA:', mediaType || 'none');
+
+  // Registra o último inbound (a janela de 24h do WhatsApp abre/renova a cada msg do usuário)
+  await touchLastInbound(phone);
+
+  // Toque no botão do template do briefing → entrega o briefing completo do cache e encerra
+  if (body.ButtonPayload === 'VER_BRIEFING') {
+    console.log('BRIEFING TAP | ButtonPayload:', body.ButtonPayload, '| ButtonText:', body.ButtonText || 'none', '| Body:', body.Body || 'none');
+    const uid = await getUserIdByPhone(phone);
+    if (uid) {
+      const cached = await getBriefingCache(uid);
+      await sendWhatsApp(
+        phone,
+        cached || 'Seu briefing ainda não está pronto. Você o recebe no horário configurado nas Configurações do Pallyum.'
+      );
+    }
+    return res.status(200).send('OK');
+  }
 
   // ── Transcrição de áudio ──────────────────────────────────────────────────
   if (hasAudio) {
