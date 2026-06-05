@@ -56,6 +56,10 @@ function googleSbHeaders() {
   };
 }
 
+function dataHojeSP() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+}
+
 // Normaliza telefone para o formato canônico BR E.164: +55 + DDD + 9 + 8 dígitos.
 // Obs: regra BR-cêntrica (DDD + nono dígito). Números internacionais precisariam
 // de tratamento próprio no futuro — hoje todos os usuários são BR.
@@ -269,7 +273,7 @@ async function createNote(note) {
       cluster:    note.cluster    || 'inbox',
       tags:       note.tags       || [],
       user_id:    note.user_id    || null,
-      date:       new Date().toISOString().split('T')[0],
+      date:       dataHojeSP(),
       updated_at: new Date().toISOString(),
     }),
   });
