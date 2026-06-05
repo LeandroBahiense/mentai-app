@@ -252,13 +252,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Payload inválido' });
   }
 
-  const externalRef  = payment.externalReference || '';
+  const externalRef  = (payment.externalReference || '').trim();
   const customerId   = payment.customer;
   const description  = payment.description || '';
 
   try {
     // ── Fonte primária: externalReference = "userId|sku" ──────────────────────
-    const [refUserId, refSku] = externalRef.split('|');
+    const refParts  = externalRef.split('|');
+    const refUserId = (refParts[0] || '').trim();
+    const refSku    = (refParts[1] || '').trim();
 
     if (refUserId && refSku) {
       const parsed = parsePlanFromSku(refSku);
