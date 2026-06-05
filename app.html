@@ -3928,48 +3928,67 @@ async function syncSupabase(){
   else     { ind.textContent = '⚠ salvo só localmente'; ind.style.color = 'var(--coral)'; }
 }
 
+let _loadInFlight = null;
 async function loadFromSupabase(){
-  try{
-    document.getElementById('save-indicator').textContent='◌ carregando do Supabase...';
-    const res = await fetch('/api/notes', {
-      credentials: 'include',
-      cache: 'no-store',
-      signal: AbortSignal.timeout(12000),
-    });
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const payload    = await res.json();
-    // Suporte ao novo formato { notes, deleted, user_id } e ao formato antigo (array puro)
-    const rows       = Array.isArray(payload) ? payload : (payload.notes || []);
-    const deletedIds = new Set(Array.isArray(payload) ? [] : (payload.deleted || []));
-    const bankIds    = new Set(rows.map(function(r) { return r.id; }));
+  if (_loadInFlight) return _loadInFlight;          // reusa o load em voo
+  _loadInFlight = (async () => {
+    try{
+      document.getElementById('save-indicator').textContent='◌ carregando do Supabase...';
+      const res = await fetch('/api/notes', {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(12000),
+      });
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const payload    = await res.json();
+      // Suporte ao novo formato { notes, deleted, user_id } e ao formato antigo (array puro)
+      const rows       = Array.isArray(payload) ? payload : (payload.notes || []);
+      const deletedIds = new Set(Array.isArray(payload) ? [] : (payload.deleted || []));
+      const bankIds    = new Set(rows.map(function(r) { return r.id; }));
 
-    // ── Guard de identidade: cache local não pertence a este usuário ──────
-    // Cenário: navegador logou com conta A, agora logou com conta B antes do
-    // onAuthStateChange limpar o localStorage. Sem este guard, a seção 2
-    // empurraria as notas de A para a conta B via pushNoteToBackend.
-    const bankUserId   = Array.isArray(payload) ? null : (payload.user_id || null);
-    const cachedUserId = localStorage.getItem('koreo-user-id');
-    if (bankUserId && cachedUserId !== bankUserId) {
-      APP.notes = [];
-      localStorage.removeItem('mentai-notes');
-      localStorage.setItem('koreo-user-id', bankUserId);
-    }
+      // ── Guard de identidade: cache local não pertence a este usuário ──────
+      // Cenário: navegador logou com conta A, agora logou com conta B antes do
+      // onAuthStateChange limpar o localStorage. Sem este guard, a seção 2
+      // empurraria as notas de A para a conta B via pushNoteToBackend.
+      const bankUserId   = Array.isArray(payload) ? null : (payload.user_id || null);
+      const cachedUserId = localStorage.getItem('koreo-user-id');
+      if (bankUserId && cachedUserId !== bankUserId) {
+        APP.notes = [];
+        localStorage.removeItem('mentai-notes');
+        localStorage.setItem('koreo-user-id', bankUserId);
+      }
 
-    // ── 0. Purge local: remove notas que foram apagadas definitivamente ──
-    // Garante que o cache de outro dispositivo não ressuscite notas já deletadas.
-    if (deletedIds.size > 0) {
-      APP.notes = APP.notes.filter(function(n) { return !deletedIds.has(n.id); });
-    }
+      // ── 0. Purge local: remove notas que foram apagadas definitivamente ──
+      // Garante que o cache de outro dispositivo não ressuscite notas já deletadas.
+      if (deletedIds.size > 0) {
+        APP.notes = APP.notes.filter(function(n) { return !deletedIds.has(n.id); });
+      }
 
-    // ── 1. Banco → local: banco é fonte da verdade ───────────────
-    (rows || []).forEach(function(r) {
-      if (deletedIds.has(r.id)) return; // lápide manda: não re-insere nem atualiza
-      const localNote = APP.notes.find(function(n) { return n.id === r.id; });
-      if (localNote) {
-        const bankDate  = new Date(r.updated_at  || 0).getTime();
-        const localDate = new Date(localNote.updated_at || 0).getTime();
-        if (bankDate >= localDate) {
-          Object.assign(localNote, {
+      // ── 1. Banco → local: banco é fonte da verdade ───────────────
+      (rows || []).forEach(function(r) {
+        if (deletedIds.has(r.id)) return; // lápide manda: não re-insere nem atualiza
+        const localNote = APP.notes.find(function(n) { return n.id === r.id; });
+        if (localNote) {
+          const bankDate  = new Date(r.updated_at  || 0).getTime();
+          const localDate = new Date(localNote.updated_at || 0).getTime();
+          if (bankDate >= localDate) {
+            Object.assign(localNote, {
+              title:      r.title,
+              content:    r.content  || '',
+              folder:     r.folder   || 'inbox',
+              cluster:    r.cluster  || 'produto',
+              tags:       r.tags     || [],
+              date:       r.date     || 'salvo',
+              status:     r.status   || 'inbox',
+              updated_at: r.updated_at,
+              in_trash:   r.in_trash   || false,
+              deleted_at: r.deleted_at || null,
+            });
+          }
+        } else {
+          // Nota que existe só no banco — adiciona localmente
+          APP.notes.push({
+            id:         r.id,
             title:      r.title,
             content:    r.content  || '',
             folder:     r.folder   || 'inbox',
@@ -3982,52 +4001,40 @@ async function loadFromSupabase(){
             deleted_at: r.deleted_at || null,
           });
         }
-      } else {
-        // Nota que existe só no banco — adiciona localmente
-        APP.notes.push({
-          id:         r.id,
-          title:      r.title,
-          content:    r.content  || '',
-          folder:     r.folder   || 'inbox',
-          cluster:    r.cluster  || 'produto',
-          tags:       r.tags     || [],
-          date:       r.date     || 'salvo',
-          status:     r.status   || 'inbox',
-          updated_at: r.updated_at,
-          in_trash:   r.in_trash   || false,
-          deleted_at: r.deleted_at || null,
-        });
+      });
+
+      // ── 2. Local → banco: notas que não estão no banco ainda ─────
+      // Lápides são excluídas: não re-empurra nota apagada de propósito em outro dispositivo.
+      const localOnly = APP.notes.filter(function(n) {
+        return !bankIds.has(n.id) && !deletedIds.has(n.id);
+      });
+      for (const note of localOnly) {
+        await pushNoteToBackend(note);
       }
-    });
 
-    // ── 2. Local → banco: notas que não estão no banco ainda ─────
-    // Lápides são excluídas: não re-empurra nota apagada de propósito em outro dispositivo.
-    const localOnly = APP.notes.filter(function(n) {
-      return !bankIds.has(n.id) && !deletedIds.has(n.id);
-    });
-    for (const note of localOnly) {
-      await pushNoteToBackend(note);
+      // ── 3. Persiste e renderiza ───────────────────────────────────
+      APP.activeNotes = new Set(APP.notes.map(function(n) { return n.id; }));
+      localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
+      document.getElementById('save-indicator').textContent='✓ notas sincronizadas';
+      document.getElementById('save-indicator').style.color='var(--green)';
+      const total = (rows || []).length;
+      showSBStatus(total + ' nota(s) sincronizada(s) ✓', 'ok');
+      try {
+        renderSidebar(); renderChatCtx(); buildGraphData(); updateStatusBar(); updateSystemStatus();
+        if (APP.currentView === 'home') renderHome(); else renderKanban();
+      } catch(re) { console.warn('render error:', re); }
+    }catch(e){
+      if (e.message === 'HTTP 401') {
+        // sem cookie (usuário não logado) — silencia, o app segue com o localStorage
+      } else {
+        document.getElementById('save-indicator').textContent='⚠ erro: ' + (e.message || e.name || 'desconhecido');
+        console.warn('Supabase load error:',e);
+      }
+    } finally {
+      _loadInFlight = null;
     }
-
-    // ── 3. Persiste e renderiza ───────────────────────────────────
-    APP.activeNotes = new Set(APP.notes.map(function(n) { return n.id; }));
-    localStorage.setItem('mentai-notes', JSON.stringify(APP.notes));
-    document.getElementById('save-indicator').textContent='✓ notas sincronizadas';
-    document.getElementById('save-indicator').style.color='var(--green)';
-    const total = (rows || []).length;
-    showSBStatus(total + ' nota(s) sincronizada(s) ✓', 'ok');
-    try {
-      renderSidebar(); renderChatCtx(); buildGraphData(); updateStatusBar(); updateSystemStatus();
-      if (APP.currentView === 'home') renderHome(); else renderKanban();
-    } catch(re) { console.warn('render error:', re); }
-  }catch(e){
-    if (e.message === 'HTTP 401') {
-      // sem cookie (usuário não logado) — silencia, o app segue com o localStorage
-    } else {
-      document.getElementById('save-indicator').textContent='⚠ erro: ' + (e.message || e.name || 'desconhecido');
-      console.warn('Supabase load error:',e);
-    }
-  }
+  })();
+  return _loadInFlight;
 }
 
 async function pushAllToSupabase() {
@@ -5019,6 +5026,8 @@ function initSupabaseAuth() {
       });
   }
 
+  let _bootedUserId = null;
+
   _supabase.auth.onAuthStateChange(async function(event, session) {
     if (session && session.user) {
       APP.accessToken = session.access_token;
@@ -5029,6 +5038,10 @@ function initSupabaseAuth() {
           credentials: 'include',
         });
       } catch(e) {}
+
+      if (_bootedUserId === session.user.id) return; // já inicializado neste load
+      _bootedUserId = session.user.id;
+
       const lastUserId = localStorage.getItem('koreo-user-id');
       if (lastUserId && lastUserId !== session.user.id) {
         localStorage.removeItem('mentai-notes');
@@ -5069,6 +5082,7 @@ function initSupabaseAuth() {
 
     } else {
       if (event === 'SIGNED_OUT') {
+        _bootedUserId = null;
         currentUser = null;
         APP.accessToken = null;
         _realtimeConfigured = false;
