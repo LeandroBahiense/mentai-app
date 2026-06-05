@@ -15,6 +15,7 @@ const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const TOKEN_TTL_HOURS = 24;
+const COOLDOWN_RESEND_MS = 60 * 1000;
 
 function toBase64url(buf) {
   return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -81,7 +82,7 @@ export default async function handler(req, res) {
   let row;
   try {
     const resp = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_emails?id=eq.${encodeURIComponent(emailId)}&user_id=eq.${encodeURIComponent(uid)}&select=email,confirmed_at`,
+      `${SUPABASE_URL}/rest/v1/user_emails?id=eq.${encodeURIComponent(emailId)}&user_id=eq.${encodeURIComponent(uid)}&select=email,confirmed_at,last_email_sent_at`,
       { headers: svcHeaders() }
     );
     const rows = await resp.json();
@@ -98,6 +99,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'este email já está confirmado' });
   }
 
+  // Rate limit: cooldown por email/linha
+  if (row.last_email_sent_at) {
+    const elapsed = Date.now() - new Date(row.last_email_sent_at).getTime();
+    if (elapsed < COOLDOWN_RESEND_MS) {
+      const retryAfter = Math.ceil((COOLDOWN_RESEND_MS - elapsed) / 1000);
+      res.setHeader('Retry-After', String(retryAfter));
+      return res.status(429).json({ error: 'Aguarde alguns segundos antes de reenviar.', retryAfter });
+    }
+  }
+
   // Regenera token
   const token = randomUUID();
   const expiresAt = new Date(Date.now() + TOKEN_TTL_HOURS * 60 * 60 * 1000).toISOString();
@@ -111,6 +122,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           confirmation_token:            token,
           confirmation_token_expires_at: expiresAt,
+          last_email_sent_at:            new Date().toISOString(),
         }),
       }
     );

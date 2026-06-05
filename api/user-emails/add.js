@@ -23,6 +23,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TOKEN_TTL_HOURS = 24;
+const COOLDOWN_ADD_MS = 20 * 1000;
 
 function toBase64url(buf) {
   return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -140,6 +141,26 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'falha ao consultar emails existentes' });
   }
 
+  // Rate limit: cooldown por usuário — verifica envio mais recente de qualquer email do user
+  try {
+    const rlRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_emails?user_id=eq.${encodeURIComponent(uid)}&last_email_sent_at=not.is.null&select=last_email_sent_at&order=last_email_sent_at.desc&limit=1`,
+      { headers: svcHeaders() }
+    );
+    const rlRows = await rlRes.json();
+    const last = Array.isArray(rlRows) && rlRows.length > 0 ? rlRows[0].last_email_sent_at : null;
+    if (last) {
+      const elapsed = Date.now() - new Date(last).getTime();
+      if (elapsed < COOLDOWN_ADD_MS) {
+        const retryAfter = Math.ceil((COOLDOWN_ADD_MS - elapsed) / 1000);
+        res.setHeader('Retry-After', String(retryAfter));
+        return res.status(429).json({ error: 'Aguarde alguns segundos antes de reenviar.', retryAfter });
+      }
+    }
+  } catch (e) {
+    console.error('[user-emails/add] rate limit check falhou (não bloqueante):', e.message);
+  }
+
   // Gera token e cria registro pendente
   const token = randomUUID();
   const expiresAt = new Date(Date.now() + TOKEN_TTL_HOURS * 60 * 60 * 1000).toISOString();
@@ -158,6 +179,7 @@ export default async function handler(req, res) {
           is_primary:                     false,
           confirmation_token:             token,
           confirmation_token_expires_at:  expiresAt,
+          last_email_sent_at:             new Date().toISOString(),
         }),
       }
     );
