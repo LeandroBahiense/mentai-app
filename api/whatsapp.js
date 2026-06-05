@@ -349,6 +349,22 @@ async function getUserIdByPhone(phone) {
   return Array.isArray(data) && data.length > 0 ? data[0].user_id : null;
 }
 
+async function getAssistantName(userId) {
+  try {
+    const res = await fetch(
+      SUPABASE_URL + '/rest/v1/user_preferences?user_id=eq.' +
+        encodeURIComponent(userId) + '&select=assistant_name&limit=1',
+      { headers: googleSbHeaders() }
+    );
+    const data = await res.json();
+    const name = Array.isArray(data) && data.length > 0 ? data[0].assistant_name : null;
+    return (name && name.trim()) ? name.trim() : 'Jarvis';
+  } catch (e) {
+    console.error('getAssistantName err:', e.message);
+    return 'Jarvis';
+  }
+}
+
 async function getBriefingCache(userId) {
   const res = await fetch(
     SUPABASE_URL + '/rest/v1/briefing_cache?user_id=eq.' +
@@ -1166,7 +1182,8 @@ export default async function handler(req, res) {
     }).format(new Date());
 
     // ── System Prompt ─────────────────────────────────────────────────────
-    let system = 'Você é o Jarvis, assistente pessoal via WhatsApp. Responda em português, de forma curta e direta.\n\n';
+    const assistantName = await getAssistantName(userId);
+    let system = 'Você é o ' + assistantName + ', assistente pessoal via WhatsApp. Responda em português, de forma curta e direta.\n\n';
     system += 'Data e hora atuais: ' + agoraTZ + '. Use isto para resolver "hoje", "amanhã", dias da semana e datas relativas.\n\n';
 
     let refDatas = 'Tabela de datas (use SEMPRE para converter dias da semana; NUNCA calcule de cabeça):\n';
