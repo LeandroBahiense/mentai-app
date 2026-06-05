@@ -44,8 +44,6 @@ function readSession(req) {
 // ── Tabela de SKUs ─────────────────────────────────────────────────────────────
 // Chave: "{produto}-{tier}-{periodo}"
 const SKUS = {
-  // ── TEMPORÁRIO: SKU de teste para validação de fluxo recorrente. Remover após teste. ──
-  'teste-recorrente-mensal':          { value: 5.00,    plano: 'companion-essencial'       },
   // Companion (mensal)
   'companion-essencial-mensal':       { value: 29.00,   plano: 'companion-essencial'       },
   'companion-pro-mensal':             { value: 59.00,   plano: 'companion-pro'             },
@@ -84,7 +82,6 @@ const SKUS = {
 
 // ── Nomes curtos por SKU (max 30 chars — limite Asaas) ────────────────────────
 const SKU_NAMES = {
-  'teste-recorrente-mensal':          'Teste Recorrente R$5',
   'companion-essencial-mensal':       'Companion Essencial Mensal',
   'companion-pro-mensal':             'Companion Pro Mensal',
   'companion-ultra-mensal':           'Companion Ultra Mensal',
@@ -117,13 +114,13 @@ function deriveCycle(skuKey) {
 }
 
 function formatAsaasDate(date) {
-  const yyyy = date.getUTCFullYear();
-  const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(date.getUTCDate()).padStart(2, '0');
-  const hh = String(date.getUTCHours()).padStart(2, '0');
-  const mi = String(date.getUTCMinutes()).padStart(2, '0');
-  const ss = String(date.getUTCSeconds()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(date);
+  const g = t => parts.find(p => p.type === t).value;
+  return `${g('year')}-${g('month')}-${g('day')} ${g('hour')}:${g('minute')}:${g('second')}`;
 }
 
 // ── Handler ────────────────────────────────────────────────────────────────────
