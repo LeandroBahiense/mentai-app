@@ -20,6 +20,15 @@ function svcHeaders() {
   };
 }
 
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function renderPage({ titulo, corpo, accentColor }) {
   const cor = accentColor || '#7c5cdb';
   return `<!DOCTYPE html>
@@ -107,7 +116,7 @@ export default async function handler(req, res) {
       corpo: `
         <div class="icon">✓</div>
         <h1>E-mail já confirmado</h1>
-        <p>O e-mail <strong>${row.email}</strong> já tinha sido confirmado anteriormente. Não precisa fazer nada.</p>
+        <p>O e-mail <strong>${escapeHtml(row.email)}</strong> já tinha sido confirmado anteriormente. Não precisa fazer nada.</p>
       `,
     }));
   }
@@ -165,7 +174,7 @@ export default async function handler(req, res) {
     }));
   }
 
-  console.log(`[user-emails/confirm] OK | email=${row.email}`);
+  console.log(`[user-emails/confirm] OK | email=${escapeHtml(row.email)}`);
 
   return res.status(200).send(renderPage({
     titulo: 'E-mail confirmado',
@@ -173,7 +182,7 @@ export default async function handler(req, res) {
     corpo: `
       <div class="icon">✓</div>
       <h1>E-mail confirmado</h1>
-      <p>O e-mail <strong>${row.email}</strong> foi confirmado com sucesso e já está vinculado à conta. Pode fechar essa janela.</p>
+      <p>O e-mail <strong>${escapeHtml(row.email)}</strong> foi confirmado com sucesso e já está vinculado à conta. Pode fechar essa janela.</p>
     `,
   }));
 }
