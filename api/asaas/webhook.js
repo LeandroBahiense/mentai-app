@@ -15,6 +15,10 @@ import { sendPlanoAtivadoByUserId, sendPlanoAtivadoByCustomerId } from '../_lib/
 const SUPABASE_URL        = process.env.SUPABASE_URL;
 const SUPABASE_SVC_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ASAAS_WEBHOOK_TOKEN = process.env.ASAAS_WEBHOOK_TOKEN;
+const ASAAS_API_KEY       = process.env.ASAAS_API_KEY;
+const ASAAS_BASE_URL      = process.env.ASAAS_ENV === 'production'
+  ? 'https://api.asaas.com/v3'
+  : 'https://sandbox.asaas.com/api/v3';
 
 function svcHeaders() {
   return {
@@ -323,27 +327,50 @@ export default async function handler(req, res) {
     }));
   }
 
-  const TRIAL_EVENTS    = ['PAYMENT_CREATED', 'SUBSCRIPTION_CREATED'];
-  const PAYMENT_EVENTS  = ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'];
+  // SUBSCRIPTION_CREATED não tem dueDate — cai em ignored abaixo.
+  const TRIAL_EVENTS   = ['PAYMENT_CREATED'];
+  const PAYMENT_EVENTS = ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'];
 
   // Evento de criação → trial-grant (acesso imediato antes da 1ª cobrança)
   if (TRIAL_EVENTS.includes(event?.event)) {
-    const payment = event.payment || {};
-    const externalRef = (payment.externalReference || '').trim();
-    const customerId  = payment.customer;
-    const refParts    = externalRef.split('|');
-    const refUserId   = (refParts[0] || '').trim();
-    const refSku      = (refParts[1] || '').trim();
+    const payment     = event.payment || {};
+    const subscriptionId = payment.subscription || null;
+    const customerId     = payment.customer;
+
+    // Resolve externalReference: (a) do payload; (b) da assinatura no Asaas; (c) falha silenciosa
+    let externalRef = (payment.externalReference || '').trim();
+    if (!externalRef && subscriptionId) {
+      try {
+        const subRes = await fetch(`${ASAAS_BASE_URL}/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+          headers: { 'Content-Type': 'application/json', 'access_token': ASAAS_API_KEY },
+        });
+        if (subRes.ok) {
+          const subData = await subRes.json();
+          externalRef = (subData.externalReference || '').trim();
+          if (externalRef) {
+            console.log(`ASAAS WEBHOOK trial-grant: externalReference resolvido via subscription ${subscriptionId} → "${externalRef}"`);
+          }
+        } else {
+          console.warn(`ASAAS WEBHOOK trial-grant: GET subscription ${subscriptionId} retornou ${subRes.status}`);
+        }
+      } catch (e) {
+        console.warn(`ASAAS WEBHOOK trial-grant: falha ao buscar subscription ${subscriptionId}:`, e.message);
+      }
+    }
+
+    const refParts  = externalRef.split('|');
+    const refUserId = (refParts[0] || '').trim();
+    const refSku    = (refParts[1] || '').trim();
 
     if (refUserId && refSku) {
       const parsed = parsePlanFromSku(refSku);
       if (parsed) {
         const { plano } = parsed;
         try {
-          await grantTrialIfInactive(refUserId, plano, payment.dueDate || null, customerId, payment.subscription || null);
+          await grantTrialIfInactive(refUserId, plano, payment.dueDate || null, customerId, subscriptionId);
         } catch (e) {
           console.error('ASAAS WEBHOOK trial-grant erro:', e.message);
-          // Erro interno — mas responde 200 pro Asaas (não retentar)
+          // Erro interno — responde 200 pro Asaas (não retentar)
         }
       } else {
         console.warn(`ASAAS WEBHOOK trial-grant: SKU não reconhecido (sku=${refSku})`);
