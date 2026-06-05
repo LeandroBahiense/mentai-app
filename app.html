@@ -1395,7 +1395,6 @@ function renderKanban() {
     board.style.overflowX = 'hidden';
     board.style.overflowY = 'auto';
     board.innerHTML = notes.map(n => {
-      const safeTitle = n.title.replace(/'/g, "\\'");
       return `<div style="position:relative;display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg2);transition:all .1s;"
           onclick="openNoteFromKanban('${n.id}')"
           oncontextmenu="showKbMenu(event,'${n.id}');return false;"
@@ -1407,7 +1406,7 @@ function renderKanban() {
           <div style="font-size:10px;color:var(--text3);margin-top:3px;">${n.date||''}</div>
         </div>
         <span style="position:absolute;bottom:8px;right:10px;font-size:10px;color:var(--text3);">${n.folder||'inbox'}</span>
-        <button class="btn-del" onclick="event.stopPropagation();deleteNoteFromKanban('${n.id}','${safeTitle}')"
+        <button class="btn-del" onclick="event.stopPropagation();deleteNoteFromKanban('${n.id}')"
           style="position:absolute;top:6px;right:8px;opacity:0;transition:opacity .15s;background:transparent;border:none;color:var(--coral);font-size:11px;cursor:pointer;padding:2px 4px;border-radius:4px;">🗑</button>
       </div>`;
     }).join('');
@@ -1425,7 +1424,7 @@ function renderKanban() {
       return `<div class="kb-card" draggable="true" data-note-id="${n.id}" style="border-left:3px solid ${col.color};"
           onclick="openNoteFromKanban('${n.id}')"
           oncontextmenu="showKbMenu(event,'${n.id}');return false;">
-        <button class="kb-del-btn" onclick="deleteKbCard(event,'${n.id}')">🗑</button>
+        <button class="kb-del-btn" onclick="event.stopPropagation();deleteNoteFromKanban('${n.id}')">🗑</button>
         <button class="kb-menu-btn" onclick="showKbMenu(event,'${n.id}')">⋮</button>
         <div class="kb-card-title">${n.title}</div>
         <div class="kb-card-tags">
@@ -1504,25 +1503,10 @@ function openNoteFromKanban(id) {
   openNotePanel(id);
 }
 
-async function deleteKbCard(e, noteId) {
-  e.stopPropagation();
+async function deleteNoteFromKanban(noteId) {
   const note = APP.notes.find(n => n.id === noteId);
   if (!note) return;
   if (!confirm('Mover a nota "' + note.title + '" para a lixeira?')) return;
-  const now = new Date().toISOString();
-  note.in_trash   = true;
-  note.deleted_at = now;
-  note.updated_at = now;
-  saveNotes();
-  await pushNoteToBackend(note);
-  renderKanban();
-  renderSidebar();
-}
-
-async function deleteNoteFromKanban(noteId, title) {
-  if (!confirm('Mover a nota "' + title + '" para a lixeira?')) return;
-  const note = APP.notes.find(n => n.id === noteId);
-  if (!note) return;
   const now = new Date().toISOString();
   note.in_trash   = true;
   note.deleted_at = now;
