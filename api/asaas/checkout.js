@@ -174,10 +174,13 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `SKU "${skuKey}" não tem ciclo derivável` });
   }
 
-  // nextDueDate = HOJE: no Checkout RECURRENT, é a data da PRIMEIRA cobrança (não a próxima).
-  // Setar como hoje faz o Asaas cobrar no ato do pagamento e renovar automaticamente conforme o cycle.
+  // nextDueDate = D+7 (horário de Brasília) = data da 1ª cobrança = fim do trial.
+  // Asaas cobra no D+7 e ancora o ciclo mensal a partir daí.
+  // O acesso ao tier é concedido pelo webhook no evento de CRIAÇÃO (PAYMENT_CREATED /
+  // SUBSCRIPTION_CREATED), antes de qualquer cobrança efetiva.
   // endDate = 10 anos no futuro (assinatura "sem fim" — Asaas exige o campo).
-  const nextDue = new Date();
+  // +7 dias em ms; formatAsaasDate extrai os componentes em horário SP — sem bug UTC.
+  const nextDue = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const endDate = new Date();
   endDate.setFullYear(endDate.getFullYear() + 10);
 

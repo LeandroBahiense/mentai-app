@@ -113,6 +113,66 @@ function parsePlanFromDescription(description) {
   return { plano, meses };
 }
 
+// Helper: "hoje SP + N dias" → ISO string (para fallback do dueDate)
+function dataSPplusDias(dias) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })
+    .format(new Date(Date.now() + dias * 86400000));
+}
+
+// ── Trial-grant: concede acesso imediato ao tier na CRIAÇÃO da assinatura ────────
+// Só age se o usuário estiver inativo (plano nulo/gratuito/teste OU validade expirada).
+// Se já tiver plano válido no futuro, ignora — impede que renovações sobrescrevam.
+async function grantTrialIfInactive(userId, plano, dueDate, customerId, subscriptionId) {
+  // 1. Lê estado atual do plano
+  const checkRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(userId)}&select=plano,plano_validade`,
+    { headers: svcHeaders() }
+  );
+  const rows = checkRes.ok ? await checkRes.json() : [];
+  const current = Array.isArray(rows) ? rows[0] : null;
+
+  const planoAtual    = current?.plano || null;
+  const validadeAtual = current?.plano_validade || null;
+
+  const inativo = !planoAtual
+    || planoAtual === 'gratuito'
+    || planoAtual === 'companion-teste'
+    || !validadeAtual
+    || new Date(validadeAtual).getTime() <= Date.now();
+
+  if (!inativo) {
+    console.log(`ASAAS WEBHOOK trial-grant IGNORADO (plano já ativo): userId=${userId} plano=${planoAtual} validade=${validadeAtual}`);
+    return;
+  }
+
+  // 2. plano_validade = dueDate do Asaas (= D+7) ou fallback hoje SP + 7 dias
+  let planoValidade;
+  if (dueDate && /^\d{4}-\d{2}-\d{2}/.test(dueDate)) {
+    // dueDate vem como "YYYY-MM-DD" do Asaas; converter para ISO fim-do-dia SP
+    planoValidade = dueDate + 'T23:59:59-03:00';
+  } else {
+    planoValidade = dataSPplusDias(7) + 'T23:59:59-03:00';
+  }
+
+  // 3. PATCH em user_preferences — CAMINHO DEDICADO (não usa updateUserPlanByUserId,
+  //    que calcula now + meses e é exclusivo para PAYMENT_CONFIRMED)
+  const patchBody = {
+    plano,
+    plano_validade:           planoValidade,
+    subscription_canceled_at: null,
+    updated_at:               new Date().toISOString(),
+  };
+  const patchRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(userId)}`,
+    { method: 'PATCH', headers: svcHeaders(), body: JSON.stringify(patchBody) }
+  );
+  if (!patchRes.ok) {
+    throw new Error('PATCH user_preferences falhou: ' + await patchRes.text());
+  }
+
+  console.log(`ASAAS WEBHOOK trial-grant OK | userId=${userId} | plano=${plano} | plano_validade=${planoValidade}`);
+}
+
 // ── Atualiza plano por userId (fonte primária) ─────────────────────────────────
 async function updateUserPlanByUserId(userId, plano, meses, subscriptionId, customerId) {
   const validade = new Date();
@@ -246,9 +306,54 @@ export default async function handler(req, res) {
   }
 
   const event = req.body;
-  console.log(`ASAAS WEBHOOK: event=${event?.event} | payment=${event?.payment?.id}`);
 
-  const PAYMENT_EVENTS = ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'];
+  // Log de todos os eventos — whitelist de campos, nunca payload cru (LGPD/segurança).
+  // Não logar: dados de cartão, tokens, PAN, objeto payment inteiro.
+  {
+    const p = event?.payment || {};
+    console.log('ASAAS WEBHOOK event:', JSON.stringify({
+      event_type:        event?.event,
+      payment_id:        p.id,
+      payment_status:    p.status,
+      payment_value:     p.value,
+      payment_dueDate:   p.dueDate,
+      payment_externalReference: p.externalReference,
+      payment_subscription: p.subscription,
+      payment_customer:  p.customer,
+    }));
+  }
+
+  const TRIAL_EVENTS    = ['PAYMENT_CREATED', 'SUBSCRIPTION_CREATED'];
+  const PAYMENT_EVENTS  = ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'];
+
+  // Evento de criação → trial-grant (acesso imediato antes da 1ª cobrança)
+  if (TRIAL_EVENTS.includes(event?.event)) {
+    const payment = event.payment || {};
+    const externalRef = (payment.externalReference || '').trim();
+    const customerId  = payment.customer;
+    const refParts    = externalRef.split('|');
+    const refUserId   = (refParts[0] || '').trim();
+    const refSku      = (refParts[1] || '').trim();
+
+    if (refUserId && refSku) {
+      const parsed = parsePlanFromSku(refSku);
+      if (parsed) {
+        const { plano } = parsed;
+        try {
+          await grantTrialIfInactive(refUserId, plano, payment.dueDate || null, customerId, payment.subscription || null);
+        } catch (e) {
+          console.error('ASAAS WEBHOOK trial-grant erro:', e.message);
+          // Erro interno — mas responde 200 pro Asaas (não retentar)
+        }
+      } else {
+        console.warn(`ASAAS WEBHOOK trial-grant: SKU não reconhecido (sku=${refSku})`);
+      }
+    } else {
+      console.warn(`ASAAS WEBHOOK trial-grant: externalReference ausente ou incompleto (ref="${externalRef}") — sem acesso concedido`);
+    }
+    return res.status(200).json({ ok: true, source: 'trial_grant', event_type: event?.event });
+  }
+
   if (!PAYMENT_EVENTS.includes(event?.event)) {
     return res.status(200).json({ ok: true, ignored: true });
   }
