@@ -1910,7 +1910,6 @@ async function newGaveta() {
 // PLANOS
 // ══════════════════════════════════════════════════════════════════
 
-let _cicloAtual = 'mensal';
 let _planoTabAtual = 'companion';
 
 const PLANOS_NOVO = {
@@ -1922,38 +1921,11 @@ const PLANOS_NOVO = {
   ],
 };
 
-function setPlanoTab(tab, btn) {
+function setPlanoTab(tab) {
   _planoTabAtual = tab;
-  document.querySelectorAll('.planos-tab').forEach(b => {
-    b.style.background = 'transparent';
-    b.style.color = 'var(--text2)';
-    b.style.borderColor = 'var(--border2)';
-  });
-  if (btn) {
-    btn.style.background = 'var(--accent)';
-    btn.style.color = '#fff';
-    btn.style.borderColor = 'var(--accent)';
-  }
-  // Combos só aparecem nas tabs companion e segundo-cerebro (não coletivo)
-  const combosSec = document.getElementById('planos-combos-section');
-  if (combosSec) combosSec.style.display = (tab === 'coletivo') ? 'none' : '';
   renderPlanos();
 }
 
-function setCiclo(ciclo, btn) {
-  _cicloAtual = ciclo;
-  document.querySelectorAll('#view-planos button[id^="ciclo"]').forEach(b => {
-    b.style.background = 'transparent';
-    b.style.color = 'var(--text2)';
-    b.style.borderColor = 'var(--border2)';
-  });
-  if (btn) {
-    btn.style.background = 'var(--accent)';
-    btn.style.color = '#fff';
-    btn.style.borderColor = 'var(--accent)';
-  }
-  renderPlanos();
-}
 
 function _formatPreco(p) {
   if (typeof p === 'object') {
@@ -2006,7 +1978,7 @@ async function iniciarCheckout(planoId, ev) {
   }
 
   // SKU completo: plano-ciclo (ex: companion-pro-mensal)
-  const sku = planoId + '-' + _cicloAtual;
+  const sku = planoId + '-mensal';
 
   try {
     const res = await fetch('/api/asaas/checkout', {
@@ -2016,7 +1988,7 @@ async function iniciarCheckout(planoId, ev) {
         userId: currentUser.id,
         sku:    sku,
         plano:  planoId,
-        ciclo:  _cicloAtual,
+        ciclo:  'mensal',
         email:  currentUser.email,
         name:   localStorage.getItem('koreo-display-name') || currentUser.email,
       }),
@@ -2771,7 +2743,7 @@ function navigate(view) {
     renderKanban();
   }
   if (view === 'planos') {
-    setPlanoTab(_planoTabAtual || 'companion', document.getElementById('pt-' + (_planoTabAtual || 'companion')));
+    setPlanoTab(_planoTabAtual || 'companion');
   }
   if (view === 'settings') {
     loadUserEmails();
