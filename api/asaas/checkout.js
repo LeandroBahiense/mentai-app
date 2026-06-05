@@ -78,6 +78,11 @@ const SKUS = {
   // Duo Ultra
   'duo-ultra-mensal':                 { value: 229.00,  plano: 'duo-ultra'                 },
   'duo-ultra-anual':                  { value: 2290.00, plano: 'duo-ultra'                 },
+
+  // Novo catálogo Pallyum (01/06/2026)
+  'essencial-mensal':                 { value:  39.00,  plano: 'essencial'                 },
+  'pro-mensal':                       { value:  69.00,  plano: 'pro'                       },
+  'ultra-mensal':                     { value:  99.00,  plano: 'ultra'                     },
 };
 
 // ── Nomes curtos por SKU (max 30 chars — limite Asaas) ────────────────────────
@@ -104,6 +109,10 @@ const SKU_NAMES = {
   'duo-essencial-anual':              'Duo Essencial Anual',
   'duo-pro-anual':                    'Duo Pro Anual',
   'duo-ultra-anual':                  'Duo Ultra Anual',
+  // Novo catálogo Pallyum (01/06/2026)
+  'essencial-mensal':                 'Pallyum Essencial Mensal',
+  'pro-mensal':                       'Pallyum Pro Mensal',
+  'ultra-mensal':                     'Pallyum Ultra Mensal',
 };
 
 // ── Helpers de assinatura recorrente ──────────────────────────────────────────

@@ -51,6 +51,8 @@ function parsePlanFromSku(sku) {
     'segundo-cerebro-essencial', 'segundo-cerebro-pro', 'segundo-cerebro-ultra',
     'coletivo-team', 'coletivo-business', 'coletivo-enterprise',
     'duo-essencial', 'duo-pro', 'duo-ultra',
+    // Novo catálogo Pallyum (01/06/2026)
+    'essencial', 'pro', 'ultra',
   ];
   if (!PLANOS_VALIDOS.includes(plano)) {
     console.warn(`ASAAS WEBHOOK: plano "${plano}" não reconhecido (sku=${sku})`);
@@ -84,6 +86,11 @@ function parsePlanFromDescription(description) {
   else if (desc.includes('pro'))                                   tier = 'pro';
   else if (desc.includes('team'))                                  tier = 'team';
   else if (desc.includes('essencial') || desc.includes('essential')) tier = 'essencial';
+
+  // Novo catálogo Pallyum (sem prefixo de produto): plano = tier
+  if (!produto && (tier === 'essencial' || tier === 'pro' || tier === 'ultra')) {
+    return { plano: tier, meses };
+  }
 
   if (!produto || !tier) {
     console.warn(`ASAAS WEBHOOK: não foi possível parsear "${description}" | produto=${produto} tier=${tier}`);
