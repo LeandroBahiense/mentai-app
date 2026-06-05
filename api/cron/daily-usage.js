@@ -11,6 +11,7 @@
 const SUPABASE_URL     = process.env.SUPABASE_URL;
 const SUPABASE_SVC_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const CRON_SECRET      = process.env.CRON_SECRET; // protege o endpoint
+const DIAS_RETENCAO_LAPIDE = 30;  // poda lápides de deleted_notes além disso
 
 function svcHeaders() {
   return {
@@ -18,6 +19,23 @@ function svcHeaders() {
     'apikey':        SUPABASE_SVC_KEY,
     'Authorization': 'Bearer ' + SUPABASE_SVC_KEY,
   };
+}
+
+async function prunePassedTombstones() {
+  try {
+    const cutoff = new Date(Date.now() - DIAS_RETENCAO_LAPIDE * 24 * 60 * 60 * 1000).toISOString();
+    const res = await fetch(
+      SUPABASE_URL + '/rest/v1/deleted_notes?deleted_at=lt.' + encodeURIComponent(cutoff),
+      { method: 'DELETE', headers: { ...svcHeaders(), 'Prefer': 'count=exact' } }
+    );
+    const range = res.headers.get('content-range') || '';
+    const removed = range.includes('/') ? range.split('/')[1] : '?';
+    console.log('[daily-usage] poda deleted_notes | status', res.status, '| removidas:', removed, '| cutoff:', cutoff);
+    return { ok: res.ok, removed };
+  } catch (e) {
+    console.error('[daily-usage] poda deleted_notes erro:', e.message);
+    return { ok: false, removed: 0 };
+  }
 }
 
 // Tabela de cooldown por faixa de uso (seção 9.2)
@@ -149,8 +167,9 @@ export default async function handler(req, res) {
       }
     }
 
+    const podaTombstones = await prunePassedTombstones();
     console.log('[daily-usage] Concluído:', JSON.stringify(results));
-    return res.status(200).json({ ok: true, ...results });
+    return res.status(200).json({ ok: true, ...results, poda_tombstones: podaTombstones });
 
   } catch (err) {
     console.error('[daily-usage] Erro geral:', err.message);
