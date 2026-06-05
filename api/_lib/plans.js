@@ -6,6 +6,14 @@
  * SKUs legados mantidos comentados abaixo de cada mapa — não remover.
  */
 
+function dataHojeSP() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+}
+function dataSPdiasAtras(dias) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })
+    .format(new Date(Date.now() - dias * 86400000));
+}
+
 // ── Mapeamento de plano → modelo Claude ──────────────────────
 //
 // Nota: 'pro', 'ultra' e 'design_partner' são planos de modelo dual:
@@ -162,10 +170,8 @@ export async function calculateCooldown(userId) {
 
     if (prefs?.pending_suspension) return 'BLOCKED';
 
-    // Buscar últimos 7 dias de uso
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const since = sevenDaysAgo.toISOString().split('T')[0];
+    // Buscar últimos 7 dias de uso (data em horário de Brasília)
+    const since = dataSPdiasAtras(7);
 
     const { data: logs } = await sb
       .from('usage_logs')
@@ -199,7 +205,7 @@ export async function calculateCooldown(userId) {
 export async function trackUsage(userId, channel, options = {}) {
   try {
     const sb = makeSupabase();
-    const today = new Date().toISOString().split('T')[0];
+    const today = dataHojeSP();
 
     // Buscar plano atual se não fornecido
     let planAtTime = options.plano || null;
