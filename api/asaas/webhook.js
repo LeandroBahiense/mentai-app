@@ -174,6 +174,32 @@ async function grantTrialIfInactive(userId, plano, dueDate, customerId, subscrip
     throw new Error('PATCH user_preferences falhou: ' + await patchRes.text());
   }
 
+  // Persiste os ids do Asaas em subscriptions — MESMO padrão do PAYMENT_CONFIRMED.
+  // Destrava o botão "Cancelar assinatura" durante o trial. Campos só entram no body
+  // se truthy → null nunca sobrescreve id já salvo. NÃO toca no cluster de plano (Etapa 04).
+  const subBody = {
+    user_id:    userId,
+    updated_at: new Date().toISOString(),
+  };
+  if (customerId)     subBody.asaas_customer_id     = customerId;
+  if (subscriptionId) subBody.asaas_subscription_id = subscriptionId;
+
+  if (customerId || subscriptionId) {
+    const subRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`,
+      {
+        method:  'POST',
+        headers: { ...svcHeaders(), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        body:    JSON.stringify(subBody),
+      }
+    );
+    if (!subRes.ok) {
+      const err = await subRes.text();
+      // Não bloqueia — o plano já foi concedido; loga para reconciliação
+      console.error('[webhook] trial-grant upsert subscriptions falhou (não crítico):', err);
+    }
+  }
+
   console.log(`ASAAS WEBHOOK trial-grant OK | userId=${userId} | plano=${plano} | plano_validade=${planoValidade}`);
 }
 
