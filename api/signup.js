@@ -10,17 +10,11 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { TERMS_VERSION, PRIVACY_VERSION, CONSENT_TEXT_SHOWN } from './_lib/versions.js';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY         = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-// Versão dos documentos aceitos. Atualizar quando os termos ou a privacidade mudarem.
-const TERMS_VERSION   = '2026-06-06';
-const PRIVACY_VERSION = '2026-06-06';
-
-// Texto literal mostrado ao usuário no momento do aceite (prova LGPD).
-const CONSENT_TEXT_SHOWN = 'Li e concordo com os Termos de Uso e a Política de Privacidade, incluindo o tratamento dos meus dados pessoais conforme a LGPD.';
 
 function getClientIp(req) {
   const xff = req.headers['x-forwarded-for'];
