@@ -1041,6 +1041,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           </button>
         </div>
 
+        <!-- ── Seus dados ── -->
+        <div class="settings-section">
+          <div class="ss-title">📦 Seus dados</div>
+          <p style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:14px;">
+            Baixe um arquivo ZIP com suas notas (Markdown), anexos, conversas do WhatsApp e metadados.
+          </p>
+          <button id="export-vault-btn" class="ss-btn primary" onclick="exportVault()">
+            📦 Exportar meu vault
+          </button>
+        </div>
+
         <!-- ── Zona de perigo ── -->
         <div class="settings-section" style="border-color:rgba(216,90,48,.3);">
           <div class="ss-title" style="color:var(--coral);">⚠️ Zona de perigo</div>
@@ -4845,6 +4856,25 @@ function forceLogout() {
   });
   localStorage.removeItem('koreo-user-id');
   window.location.reload();
+}
+
+async function exportVault() {
+  const btn = document.getElementById('export-vault-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Gerando…'; }
+  try {
+    const res = await fetch('/api/user/export', { method: 'POST', credentials: 'include' });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.url) {
+      window.open(data.url, '_blank');
+      showAdminToast('Export pronto.', 'ok');
+    } else {
+      showAdminToast('Não foi possível gerar o export. Tente novamente.', 'err');
+    }
+  } catch (e) {
+    showAdminToast('Falha de rede ao gerar o export.', 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📦 Exportar meu vault'; }
+  }
 }
 
 function openDeleteAccountModal() {
