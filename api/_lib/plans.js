@@ -28,6 +28,16 @@ export const MODEL_MAP = {
   'design_partner': 'claude-sonnet-4-6', // interno — features idênticas ao pro
 };
 const DEFAULT_MODEL = 'claude-haiku-4-5';
+const SONNET_MODEL  = 'claude-sonnet-4-6';
+
+// routeModel(ceilingModel, opts) — roteamento fino por tipo de tarefa (G-28).
+// Só rebaixa AÇÃO (vira tool call + confirmação de texto fixo) quando o teto é Sonnet;
+// nunca sobe; quem já é Haiku (Essencial) não muda; pergunta/redação fica no Sonnet.
+export function routeModel(ceilingModel, opts) {
+  const isAction = opts && opts.isAction;
+  if (isAction && ceilingModel === SONNET_MODEL) return DEFAULT_MODEL; // ação rotineira → Haiku
+  return ceilingModel;                                                 // senão, mantém o teto
+}
 
 // === SKUs legados desativados em 01/06/2026 — manter pra reativação futura ===
 // 'companion-teste':           'claude-sonnet-4-6',
