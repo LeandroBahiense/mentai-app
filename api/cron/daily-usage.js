@@ -46,6 +46,122 @@ async function prunePassedTombstones() {
   }
 }
 
+// ── Expurgo D+30 de contas excluídas (LGPD) — IRREVERSÍVEL ──────────────────────
+// Para cada conta com account_deleted_at > 30d: apaga binários no Storage, rows de files,
+// deleta o usuário no auth (CASCADE limpa notes/phone_users/user_preferences) e audita.
+// Ordem: Storage → files rows → deleteUser (deleteUser é o "commit" da conta).
+async function purgeDeletedAccounts() {
+  try {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Contas vencidas. PostgREST: lt não casa null → contas null/dentro da graça ficam de fora.
+    const listRes = await fetch(
+      SUPABASE_URL + '/rest/v1/user_preferences?account_deleted_at=lt.' + encodeURIComponent(cutoff) + '&select=user_id,account_deleted_at',
+      { headers: svcHeaders() }
+    );
+    if (!listRes.ok) {
+      console.error('[purge] GET contas vencidas falhou:', listRes.status);
+      return { ok: false, purged: 0 };
+    }
+    const contas = await listRes.json().catch(() => []);
+    console.log('[purge] contas vencidas:', Array.isArray(contas) ? contas.length : 0);
+
+    let purged = 0;
+    for (const conta of (Array.isArray(contas) ? contas : [])) {
+      const uid = conta?.user_id;
+      const ts  = conta?.account_deleted_at;
+      if (!uid) continue;
+
+      try {
+        // a. Enumera os objetos da pessoa
+        const filesRes = await fetch(
+          SUPABASE_URL + '/rest/v1/files?user_id=eq.' + encodeURIComponent(uid) + '&select=path',
+          { headers: svcHeaders() }
+        );
+        const fileRows = filesRes.ok ? await filesRes.json().catch(() => []) : [];
+
+        // b. DELETE de cada objeto no Storage (best-effort; 404/non-ok NÃO é fatal).
+        //    path concatenado DIRETO (sem encodeURIComponent — os '/' são separadores de objeto).
+        let storageFails = 0;
+        for (const f of (Array.isArray(fileRows) ? fileRows : [])) {
+          if (!f?.path) continue;
+          try {
+            const delObj = await fetch(
+              SUPABASE_URL + '/storage/v1/object/mentai-files/' + f.path,
+              { method: 'DELETE', headers: svcHeaders() }
+            );
+            if (!delObj.ok) {
+              storageFails++;
+              console.error('[purge] DELETE objeto falhou (não fatal) uid=' + uid + ' path=' + f.path + ' status=' + delObj.status);
+            }
+          } catch (eObj) {
+            storageFails++;
+            console.error('[purge] DELETE objeto erro (não fatal) uid=' + uid + ' path=' + f.path + ':', eObj.message);
+          }
+        }
+        if (storageFails > 0) {
+          console.error('[purge] uid=' + uid + ' | falhas de Storage: ' + storageFails + '/' + (Array.isArray(fileRows) ? fileRows.length : 0));
+        }
+
+        // c. Apaga as rows de metadados. Non-ok → pula a conta (não deleta o user neste run).
+        const delFilesRes = await fetch(
+          SUPABASE_URL + '/rest/v1/files?user_id=eq.' + encodeURIComponent(uid),
+          { method: 'DELETE', headers: svcHeaders() }
+        );
+        if (!delFilesRes.ok) {
+          console.error('[purge] DELETE files rows falhou uid=' + uid + ' status=' + delFilesRes.status + ' — conta fica pro próximo run');
+          continue;
+        }
+
+        // d. Deleta o usuário no auth (CASCADE limpa o resto). Non-ok → pula (files já foram).
+        const delUserRes = await fetch(
+          SUPABASE_URL + '/auth/v1/admin/users/' + encodeURIComponent(uid),
+          { method: 'DELETE', headers: svcHeaders() }
+        );
+        if (!delUserRes.ok) {
+          console.error('[purge] DELETE auth user falhou uid=' + uid + ' status=' + delUserRes.status + ' — próximo run retenta só o deleteUser');
+          continue;
+        }
+
+        // e. Auditoria — não-bloqueante.
+        try {
+          const auditResp = await fetch(SUPABASE_URL + '/rest/v1/admin_audit', {
+            method:  'POST',
+            headers: { ...svcHeaders(), 'Prefer': 'return=minimal' },
+            body:    JSON.stringify({
+              admin_user_id:  uid,
+              target_user_id: uid,
+              action:         'account_purged',
+              old_value:      JSON.stringify({ account_deleted_at: ts }),
+              new_value:      JSON.stringify({ purged: true }),
+              created_at:     new Date().toISOString(),
+            }),
+          });
+          if (!auditResp.ok) {
+            console.error('[purge] ⚠️  admin_audit INSERT falhou uid=' + uid + ' status=' + auditResp.status);
+          }
+        } catch (eAudit) {
+          console.error('[purge] ⚠️  admin_audit INSERT erro uid=' + uid + ':', eAudit.message);
+        }
+
+        purged++;
+        console.log('[purge] conta expurgada uid=' + uid);
+
+      } catch (eConta) {
+        // Falha de uma conta NÃO derruba o loop nem o cron; fica pro próximo run.
+        console.error('[purge] erro ao expurgar uid=' + uid + ':', eConta.message);
+      }
+    }
+
+    console.log('[purge] concluído | expurgadas:', purged);
+    return { ok: true, purged };
+
+  } catch (e) {
+    console.error('[purge] erro geral:', e.message);
+    return { ok: false, purged: 0 };
+  }
+}
+
 // Tabela de cooldown por faixa de uso (seção 9.2)
 function cooldownFromAvg(avg) {
   if (avg < 100)  return 0;
@@ -174,8 +290,9 @@ export default async function handler(req, res) {
     }
 
     const podaTombstones = await prunePassedTombstones();
+    const expurgoContas  = await purgeDeletedAccounts();
     console.log('[daily-usage] Concluído:', JSON.stringify(results));
-    return res.status(200).json({ ok: true, ...results, poda_tombstones: podaTombstones });
+    return res.status(200).json({ ok: true, ...results, poda_tombstones: podaTombstones, expurgo_contas: expurgoContas });
 
   } catch (err) {
     console.error('[daily-usage] Erro geral:', err.message);
