@@ -924,6 +924,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
             <input class="ss-input" id="assistant-name-input" placeholder="Ex: Jarvis, Sofia, Max..." maxlength="20"/>
           </div>
           <div class="ss-row">
+            <span class="ss-label">Briefing matinal</span>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="briefing-optin-toggle" onchange="toggleBriefingOptin(this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);"/>
+              <span style="font-size:13px;color:var(--text2);">Receber briefing matinal no WhatsApp</span>
+            </label>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:-8px;margin-bottom:12px;line-height:1.5;">
+            Ao ativar, você concorda em receber uma mensagem do Pallyum no WhatsApp todas as manhãs, no horário escolhido, com o resumo do seu dia. Você pode desativar quando quiser, aqui nas Configurações.
+          </div>
+          <div id="briefing-hora-wrap">
+          <div class="ss-row">
             <span class="ss-label">Horário do briefing</span>
             <select class="ss-input" id="briefing-hora-input" style="max-width:120px;">
               <option value="00:00">00:00</option>
@@ -955,6 +966,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           <div style="font-size:11px;color:var(--text3);margin-top:-8px;margin-bottom:12px;">
             Você recebe o resumo do dia no WhatsApp nesse horário.
           </div>
+          </div><!-- /briefing-hora-wrap -->
           <div style="display:flex;gap:8px;align-items:center">
             <button class="ss-btn primary" onclick="saveAssistantName()">Salvar configurações</button>
             <span id="assistant-name-status" class="ss-status" style="display:none"></span>
@@ -4350,7 +4362,7 @@ async function checkOnboarding() {
     return;
   }
   const { data } = await _supabase.from('user_preferences')
-    .select('onboarding_done, gavetas, gavetas_ocultas, gavetas_ordem, assistant_name, display_name, briefing_hora')
+    .select('onboarding_done, gavetas, gavetas_ocultas, gavetas_ordem, assistant_name, display_name, briefing_hora, briefing_optin')
     .eq('user_id', currentUser.id)
     .maybeSingle();
   // garante que Inbox nunca foi removida do DOM
@@ -4391,6 +4403,12 @@ async function checkOnboarding() {
     if (dispInput) dispInput.value = data.display_name || '';
     const horaInput = document.getElementById('briefing-hora-input');
     if (horaInput) horaInput.value = data.briefing_hora || '08:00';
+    // Estado do opt-in do briefing (default off se não setado)
+    const optinToggle = document.getElementById('briefing-optin-toggle');
+    const briefingWrap = document.getElementById('briefing-hora-wrap');
+    const optin = !!data.briefing_optin;
+    if (optinToggle)  optinToggle.checked = optin;
+    if (briefingWrap) briefingWrap.style.display = optin ? '' : 'none';
     // aplica ordem salva das gavetas
     const ordem = [...new Set(data.gavetas_ordem || [])];
     if (ordem.length > 0) {
@@ -4709,6 +4727,33 @@ async function saveBriefingHora() {
   if (currentUser && _supabase) {
     await _supabase.from('user_preferences')
       .upsert({ user_id: currentUser.id, briefing_hora: hora, updated_at: new Date().toISOString() });
+  }
+}
+
+// Opt-in afirmativo do briefing — grava consentimento no servidor (base LGPD).
+async function toggleBriefingOptin(enabled) {
+  const toggle = document.getElementById('briefing-optin-toggle');
+  const wrap   = document.getElementById('briefing-hora-wrap');
+  if (toggle) toggle.disabled = true;
+  try {
+    const res = await fetch('/api/user/briefing-optin', {
+      method:      'POST',
+      credentials: 'include',
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify({ enabled: !!enabled }),
+    });
+    if (res.ok) {
+      if (wrap) wrap.style.display = enabled ? '' : 'none';
+      showAdminToast(enabled ? 'Briefing ativado.' : 'Briefing desativado.', 'ok');
+    } else {
+      if (toggle) toggle.checked = !enabled; // reverte o toggle
+      showAdminToast('Não foi possível atualizar o briefing. Tente novamente.', 'err');
+    }
+  } catch (e) {
+    if (toggle) toggle.checked = !enabled;
+    showAdminToast('Falha de rede ao atualizar o briefing.', 'err');
+  } finally {
+    if (toggle) toggle.disabled = false;
   }
 }
 
