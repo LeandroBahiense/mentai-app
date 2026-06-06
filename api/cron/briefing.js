@@ -70,6 +70,7 @@ async function getUserPrefs(userId) {
 async function getPrefsForHour(horaAtual) {
   const res = await fetch(
     SUPABASE_URL + '/rest/v1/user_preferences?briefing_hora=eq.' + encodeURIComponent(horaAtual) +
+    '&briefing_optin=eq.true' +
     '&select=user_id,display_name,assistant_name,briefing_hora',
     { headers: svcHeaders() }
   );
