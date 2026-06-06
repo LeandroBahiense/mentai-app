@@ -468,7 +468,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <button class="auth-btn" style="margin-top:10px;" onclick="sendPasswordReset()">Enviar código</button>
       <!-- etapa 2: código + nova senha (revelada após o envio) -->
       <div id="forgot-step2" style="display:none;margin-top:14px;">
-        <input class="auth-input" id="forgot-code" type="text" inputmode="numeric" maxlength="6" placeholder="Código de 6 dígitos" style="margin-bottom:8px;"/>
+        <input class="auth-input" id="forgot-code" type="text" inputmode="numeric" maxlength="10" placeholder="Código recebido por email" style="margin-bottom:8px;"/>
         <input class="auth-input" id="forgot-newpass" type="password" placeholder="Nova senha" autocomplete="new-password" style="margin-bottom:8px;"/>
         <input class="auth-input" id="forgot-newpass2" type="password" placeholder="Confirmar nova senha" autocomplete="new-password"/>
         <button class="auth-btn" style="margin-top:10px;" onclick="confirmPasswordReset()">Redefinir senha</button>
@@ -5067,7 +5067,7 @@ async function sendPasswordReset() {
     if (error) throw error;
     _recoveryEmail = email;
     errEl.style.color   = 'var(--green)';
-    errEl.textContent   = 'Enviamos um código de 6 dígitos para seu email.';
+    errEl.textContent   = 'Enviamos um código para seu email.';
     document.getElementById('forgot-step2').style.display = 'block';
   } catch(e) {
     errEl.textContent = e.message || 'Erro ao enviar. Tente novamente.';
@@ -5075,7 +5075,7 @@ async function sendPasswordReset() {
 }
 
 async function confirmPasswordReset() {
-  const code     = document.getElementById('forgot-code').value.trim();
+  const code     = document.getElementById('forgot-code').value.trim().replace(/\s/g, '');
   const newpass  = document.getElementById('forgot-newpass').value;
   const newpass2 = document.getElementById('forgot-newpass2').value;
   const errEl    = document.getElementById('forgot-err');
