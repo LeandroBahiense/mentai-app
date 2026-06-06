@@ -162,6 +162,64 @@ async function purgeDeletedAccounts() {
   }
 }
 
+// LIST de objetos no Storage sob um prefixo. Supabase Storage: POST /storage/v1/object/list/{bucket}
+// com body { prefix, limit, offset }. Retorna entradas; SUBPASTAS vêm com id===null (name = pasta),
+// ARQUIVOS com id !== null (name = nome do arquivo, relativo ao prefixo).
+async function storageList(prefix) {
+  const res = await fetch(SUPABASE_URL + '/storage/v1/object/list/mentai-files', {
+    method:  'POST',
+    headers: svcHeaders(),
+    body:    JSON.stringify({ prefix, limit: 1000, offset: 0 }),
+  });
+  if (!res.ok) {
+    console.error('[prune-exports] LIST falhou prefix=' + prefix + ' status=' + res.status);
+    return [];
+  }
+  const data = await res.json().catch(() => []);
+  return Array.isArray(data) ? data : [];
+}
+
+// Poda de ZIPs de export com mais de 48h. GUARDA DURA: só toca paths sob 'exports/'.
+async function pruneExpiredExports() {
+  const HARD_PREFIX = 'exports/';
+  const cutoffMs = Date.now() - 48 * 60 * 60 * 1000;
+  let scanned = 0, removed = 0;
+  try {
+    // 1. LIST exports/ → pastas {uid} (entradas com id === null)
+    const folders = await storageList(HARD_PREFIX);
+    for (const folder of folders) {
+      if (folder?.id !== null) continue;        // só subpastas
+      const uid = folder?.name;
+      if (!uid) continue;
+      const prefix = HARD_PREFIX + uid + '/';
+
+      // 2. LIST exports/{uid}/ → arquivos .zip
+      const objs = await storageList(prefix);
+      for (const obj of objs) {
+        const name = obj?.name;
+        if (!name || obj?.id === null) continue; // pula subpastas
+        if (!name.endsWith('.zip')) continue;
+        scanned++;
+        // 3. ts = nome do arquivo sem .zip (epoch ms gravado no upload)
+        const ts = Number(name.slice(0, -4));
+        if (!Number.isFinite(ts) || ts >= cutoffMs) continue; // só apaga > 48h
+        const path = prefix + name;
+        if (!path.startsWith(HARD_PREFIX)) continue;          // GUARDA DURA
+        const del = await fetch(SUPABASE_URL + '/storage/v1/object/mentai-files/' + path, {
+          method: 'DELETE', headers: svcHeaders(),
+        });
+        if (del.ok) removed++;
+        else console.error('[prune-exports] DELETE falhou path=' + path + ' status=' + del.status);
+      }
+    }
+    console.log('[prune-exports] zips analisados:', scanned, '| removidos:', removed);
+    return { ok: true, removed };
+  } catch (e) {
+    console.error('[prune-exports] erro:', e.message);
+    return { ok: false, removed };
+  }
+}
+
 // Tabela de cooldown por faixa de uso (seção 9.2)
 function cooldownFromAvg(avg) {
   if (avg < 100)  return 0;
@@ -291,8 +349,9 @@ export default async function handler(req, res) {
 
     const podaTombstones = await prunePassedTombstones();
     const expurgoContas  = await purgeDeletedAccounts();
+    const podaExports    = await pruneExpiredExports();
     console.log('[daily-usage] Concluído:', JSON.stringify(results));
-    return res.status(200).json({ ok: true, ...results, poda_tombstones: podaTombstones, expurgo_contas: expurgoContas });
+    return res.status(200).json({ ok: true, ...results, poda_tombstones: podaTombstones, expurgo_contas: expurgoContas, poda_exports: podaExports });
 
   } catch (err) {
     console.error('[daily-usage] Erro geral:', err.message);
