@@ -239,7 +239,7 @@ section{padding:5.5rem 2rem}
 .prod-features li{font-size:12px;color:var(--text2);display:flex;gap:.4rem;align-items:flex-start;line-height:1.5}
 
 .plans-section{background:var(--abyss)}
-.plans-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:2.75rem}
+.plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:2.75rem}
 .plan-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.4rem;position:relative;transition:border-color .2s}
 .plan-card:hover{border-color:var(--violet)}
 .plan-card.featured{border-color:var(--violet)}
@@ -354,11 +354,7 @@ footer a:hover{color:var(--lilac)}
 <nav>
   <a href="#" class="nav-logo">Pallyum</a>
   <ul class="nav-links">
-    <li><a href="#produto">Produto</a></li>
-    <li><a href="#companion">Companion</a></li>
-    <li><a href="#segundo-cerebro">Segundo Cérebro</a></li>
-    <li><a href="#coletivo">Empresas</a></li>
-    <li><a href="#combos">Combos</a></li>
+    <li><a href="#planos">Planos</a></li>
   </ul>
   <div class="nav-actions">
     <a href="/app" class="nav-app">Entrar no app</a>
@@ -395,7 +391,6 @@ footer a:hover{color:var(--lilac)}
     <a href="#produto" class="btn-g">Ver como funciona</a>
   </div>
   <div class="hero-stats">
-    <div style="text-align:center"><div class="hero-stat-num">3</div><div class="hero-stat-label">produtos integrados</div></div>
     <div style="text-align:center"><div class="hero-stat-num">∞</div><div class="hero-stat-label">conversas nos planos pagos</div></div>
     <div style="text-align:center"><div class="hero-stat-num">7</div><div class="hero-stat-label">dias grátis para começar</div></div>
   </div>
@@ -461,181 +456,65 @@ footer a:hover{color:var(--lilac)}
   </div>
 </section>
 
-<div class="divider"></div>
-
-<section class="products">
-  <div class="container">
-    <p class="sec-label">O PRODUTO</p>
-    <h2 class="sec-title">Três produtos.<br>Um ecossistema.</h2>
-    <p class="sec-sub">Podem ser usados separadamente ou combinados. Cada um cresce junto com você — do pessoal ao corporativo, sem ruptura.</p>
-    <div class="products-grid">
-      <div class="prod-card c1">
-        <div class="prod-icon">🤝</div>
-        <h3 class="prod-title">Companion</h3>
-        <p class="prod-sub">Presença pessoal 24h</p>
-        <div class="prod-divider"></div>
-        <ul class="prod-features">
-          <li><span style="color:var(--violet)">·</span> Conversas ilimitadas — sempre disponível</li>
-          <li><span style="color:var(--violet)">·</span> Memória emocional profunda</li>
-          <li><span style="color:var(--violet)">·</span> Personalidade que você nomeia</li>
-          <li><span style="color:var(--violet)">·</span> WhatsApp + voz (Whisper)</li>
-          <li><span style="color:var(--violet)">·</span> Proativo — age antes de você pedir</li>
-        </ul>
-      </div>
-      <div class="prod-card c2">
-        <div class="prod-icon">🧠</div>
-        <h3 class="prod-title">Segundo Cérebro</h3>
-        <p class="prod-sub">Poder profissional</p>
-        <div class="prod-divider"></div>
-        <ul class="prod-features">
-          <li><span style="color:var(--cyan)">·</span> Inclui Companion Pro</li>
-          <li><span style="color:var(--cyan)">·</span> Vault semântico + graph view neuronal</li>
-          <li><span style="color:var(--cyan)">·</span> Google Calendar e Gmail</li>
-          <li><span style="color:var(--cyan)">·</span> Integração financeira — 114 bancos</li>
-          <li><span style="color:var(--cyan)">·</span> Reuniões transcritas e indexadas</li>
-        </ul>
-      </div>
-      <div class="prod-card c3">
-        <div class="prod-icon">🏢</div>
-        <h3 class="prod-title">Cérebro Coletivo</h3>
-        <p class="prod-sub">Inteligência empresarial</p>
-        <div class="prod-divider"></div>
-        <ul class="prod-features">
-          <li><span style="color:var(--amber)">·</span> Agentes por setor — RH, Jurídico...</li>
-          <li><span style="color:var(--amber)">·</span> Vault central compartilhado</li>
-          <li><span style="color:var(--amber)">·</span> Permissões por papel e área</li>
-          <li><span style="color:var(--amber)">·</span> Pague por usuário real — sem assentos vazios</li>
-          <li><span style="color:var(--amber)">·</span> Decisões com contexto de toda a empresa</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
 
 <div class="divider"></div>
 
-<section class="plans-section" id="companion">
+<section class="plans-section" id="planos">
   <div class="container">
-    <p class="sec-label">COMPANION — PLANOS</p>
+    <p class="sec-label">PLANOS</p>
     <h2 class="sec-title">Conversas ilimitadas.<br>Pague pela capacidade.</h2>
     <p class="sec-sub">Nenhum plano pago limita mensagens. O que cresce com o plano é armazenamento, integrações e recursos.</p>
     <div class="plans-grid">
       <div class="plan-card">
-        <p class="plan-name">Teste</p>
-        <p class="plan-price">R$0 <span>/7 dias</span></p>
-        <p class="plan-storage">500MB · 50 notas</p>
-        <div class="plan-divider"></div>
-        <ul class="plan-items">
-          <li><span class="ck">✓</span> Conversas ilimitadas</li>
-          <li><span class="ck">✓</span> WhatsApp sandbox</li>
-          <li><span class="ck">✓</span> Memória 7 dias</li>
-          <li><span class="xk">–</span> Sem voz/áudio</li>
-          <li><span class="xk">–</span> Sem uploads</li>
-          <li><span class="xk">–</span> Sem Google</li>
-        </ul>
-      </div>
-      <div class="plan-card">
         <p class="plan-name">Essencial</p>
-        <p class="plan-price">R$29 <span>/mês</span></p>
-        <p class="plan-storage">2GB · notas ilimitadas</p>
+        <div style="display:inline-block;font-size:10px;color:var(--lilac);background:#7c3aed1a;border:1px solid #7c3aed44;border-radius:99px;padding:.2rem .6rem;margin-bottom:.6rem">✦ 7 dias grátis no início</div>
+        <p class="plan-price">R$39 <span>/mês</span></p>
         <div class="plan-divider"></div>
         <ul class="plan-items">
-          <li><span class="ck">✓</span> Conversas ilimitadas</li>
-          <li><span class="ck">✓</span> WhatsApp oficial</li>
+          <li><span class="ck">✓</span> Mensagens ilimitadas</li>
+          <li><span class="ck">✓</span> Modelo Haiku 4.5</li>
+          <li><span class="ck">✓</span> Storage 2 GB</li>
           <li><span class="ck">✓</span> Memória 90 dias</li>
-          <li><span class="xk">–</span> Texto apenas (sem voz)</li>
-          <li><span class="xk">–</span> Sem uploads</li>
-          <li><span class="xk">–</span> Sem Google</li>
+          <li><span class="ck">✓</span> App + WhatsApp</li>
         </ul>
+        <a href="/app" class="btn-g" style="display:block;text-align:center;margin-top:1.1rem">Começar 7 dias grátis</a>
       </div>
       <div class="plan-card featured">
-        <span class="plan-badge">Popular</span>
+        <span class="plan-badge">Mais popular</span>
         <p class="plan-name" style="margin-top:.4rem">Pro</p>
-        <p class="plan-price">R$59 <span>/mês</span></p>
-        <p class="plan-storage">10GB · histórico completo</p>
+        <div style="display:inline-block;font-size:10px;color:var(--lilac);background:#7c3aed1a;border:1px solid #7c3aed44;border-radius:99px;padding:.2rem .6rem;margin-bottom:.6rem">✦ 7 dias grátis no início</div>
+        <p class="plan-price">R$69 <span>/mês</span></p>
         <div class="plan-divider"></div>
         <ul class="plan-items">
-          <li><span class="ck">✓</span> Conversas ilimitadas</li>
-          <li><span class="ck">✓</span> WhatsApp + voz (Whisper)</li>
+          <li><span class="ck">✓</span> Mensagens ilimitadas</li>
+          <li><span class="ck">✓</span> Modelo Sonnet 4.6</li>
+          <li><span class="ck">✓</span> Storage 10 GB</li>
           <li><span class="ck">✓</span> Memória permanente</li>
+          <li><span class="ck">✓</span> Áudio (Whisper) 🎙</li>
           <li><span class="ck">✓</span> Briefing matinal</li>
-          <li><span class="xk">–</span> Sem análise de imagens</li>
-          <li><span class="xk">–</span> Sem Google</li>
-        </ul>
-      </div>
-      <div class="plan-card">
-        <p class="plan-name">Ultra</p>
-        <p class="plan-price">R$89 <span>/mês</span></p>
-        <p class="plan-storage">25GB · backup automático</p>
-        <div class="plan-divider"></div>
-        <ul class="plan-items">
-          <li><span class="ck">✓</span> Tudo do Pro</li>
-          <li><span class="ck">✓</span> Análise de imagens (Vision)</li>
-          <li><span class="ck">✓</span> Fila prioritária de resposta</li>
-          <li><span class="ck">✓</span> Briefing matinal</li>
-          <li><span class="ck">✓</span> Múltiplas personalidades</li>
-          <li><span class="ck">✓</span> Suporte prioritário</li>
-        </ul>
-      </div>
-    </div>
-    <div class="extras-note"><strong>Precisa de mais espaço?</strong> +10GB por R$9/mês · +50GB por R$29/mês — disponível em qualquer plano pago.</div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<section class="plans-section" id="segundo-cerebro">
-  <div class="container">
-    <p class="sec-label">SEGUNDO CÉREBRO — PLANOS</p>
-    <h2 class="sec-title">Inteligência profissional.<br>Memória que nunca esquece.</h2>
-    <p class="sec-sub">Inclui tudo do Companion Pro. Vault semântico, Google integrado, reuniões transcritas e indexadas automaticamente.</p>
-    <div class="plans-grid" style="grid-template-columns:repeat(3,1fr)">
-      <div class="plan-card">
-        <p class="plan-name">Essencial</p>
-        <p class="plan-price">R$59 <span>/mês</span></p>
-        <p class="plan-storage">10GB · Companion Pro incluso</p>
-        <div class="plan-divider"></div>
-        <ul class="plan-items">
-          <li><span class="ck">✓</span> Tudo do Companion Pro</li>
-          <li><span class="ck">✓</span> Vault semântico</li>
-          <li><span class="ck">✓</span> Google Calendar + Gmail</li>
-          <li><span class="ck">✓</span> Reuniões transcritas</li>
-          <li><span class="xk">–</span> Sem graph view</li>
-          <li><span class="xk">–</span> Sem integração financeira</li>
-        </ul>
-      </div>
-      <div class="plan-card featured">
-        <span class="plan-badge">Popular</span>
-        <p class="plan-name" style="margin-top:.4rem">Pro</p>
-        <p class="plan-price">R$99 <span>/mês</span></p>
-        <p class="plan-storage">50GB · histórico completo</p>
-        <div class="plan-divider"></div>
-        <ul class="plan-items">
           <li><span class="ck">✓</span> Tudo do Essencial</li>
-          <li><span class="ck">✓</span> Graph view neuronal</li>
-          <li><span class="ck">✓</span> Integração financeira — 114 bancos</li>
-          <li><span class="ck">✓</span> Análise de imagens</li>
-          <li><span class="ck">✓</span> Briefing matinal avançado</li>
-          <li><span class="ck">✓</span> Suporte prioritário</li>
         </ul>
+        <a href="/app" class="btn-p" style="display:block;text-align:center;margin-top:1.1rem">Começar 7 dias grátis</a>
       </div>
       <div class="plan-card">
         <p class="plan-name">Ultra</p>
-        <p class="plan-price">R$169 <span>/mês</span></p>
-        <p class="plan-storage">200GB · backup automático</p>
+        <div style="display:inline-block;font-size:10px;color:var(--lilac);background:#7c3aed1a;border:1px solid #7c3aed44;border-radius:99px;padding:.2rem .6rem;margin-bottom:.6rem">✦ 7 dias grátis no início</div>
+        <p class="plan-price">R$99 <span>/mês</span></p>
         <div class="plan-divider"></div>
         <ul class="plan-items">
+          <li><span class="ck">✓</span> Mensagens ilimitadas</li>
+          <li><span class="ck">✓</span> Modelo Sonnet 4.6</li>
+          <li><span class="ck">✓</span> Storage 25 GB</li>
+          <li><span class="ck">✓</span> Análise de imagem (Vision) 🖼</li>
+          <li><span class="ck">✓</span> Prioridade na fila</li>
           <li><span class="ck">✓</span> Tudo do Pro</li>
-          <li><span class="ck">✓</span> Modelo Opus 4.7 (mais avançado)</li>
-          <li><span class="ck">✓</span> Fila prioritária de resposta</li>
-          <li><span class="ck">✓</span> API pessoal (webhooks)</li>
-          <li><span class="ck">✓</span> Múltiplos perfis de IA</li>
-          <li><span class="ck">✓</span> SLA de uptime</li>
         </ul>
+        <a href="/app" class="btn-g" style="display:block;text-align:center;margin-top:1.1rem">Começar 7 dias grátis</a>
       </div>
     </div>
   </div>
 </section>
+
 
 <div class="divider"></div>
 
@@ -667,68 +546,6 @@ footer a:hover{color:var(--lilac)}
   </div>
 </section>
 
-<div class="divider"></div>
-
-<section class="coletivo-section" id="coletivo">
-  <div class="container">
-    <p class="sec-label">CÉREBRO COLETIVO</p>
-    <h2 class="sec-title">Inteligência que escala<br>com sua empresa</h2>
-    <p class="sec-sub">Cada setor tem seu agente especializado. Todos lendo do mesmo vault central. Pague pelos usuários que usa — sem assentos vazios.</p>
-    <div class="coletivo-grid">
-      <div class="col-card">
-        <p class="col-target">PEQUENAS EMPRESAS</p>
-        <h3 class="col-name">Team</h3>
-        <p class="col-price">R$399 <span>/mês</span></p>
-        <p class="col-base">5 usuários inclusos · 100GB compartilhados</p>
-        <p class="col-extra">+ R$19 por usuário adicional</p>
-        <div class="col-divider"></div>
-        <ul class="col-items">
-          <li><span class="dot">✓</span> Vault central compartilhado</li>
-          <li><span class="dot">✓</span> Até 3 agentes setoriais</li>
-          <li><span class="dot">✓</span> Permissões por papel e área</li>
-          <li><span class="dot">✓</span> WhatsApp para o time</li>
-          <li><span class="dot">✓</span> Modelo Sonnet 4.6</li>
-        </ul>
-      </div>
-      <div class="col-card featured">
-        <p class="col-target">EMPRESAS EM CRESCIMENTO</p>
-        <h3 class="col-name">Business</h3>
-        <p class="col-price">R$699 <span>/mês</span></p>
-        <p class="col-base">15 usuários inclusos · 500GB compartilhados</p>
-        <p class="col-extra">+ R$25 por usuário adicional</p>
-        <div class="col-divider"></div>
-        <ul class="col-items">
-          <li><span class="dot">✓</span> Agentes setoriais ilimitados</li>
-          <li><span class="dot">✓</span> Agentes 100% customizados</li>
-          <li><span class="dot">✓</span> Modelo Opus 4.7 (mais avançado)</li>
-          <li><span class="dot">✓</span> API de integração (ERP, CRM)</li>
-          <li><span class="dot">✓</span> Relatórios por setor</li>
-          <li><span class="dot">✓</span> Onboarding dedicado</li>
-        </ul>
-      </div>
-      <div class="col-enterprise">
-        <div><h4>Enterprise — sob consulta</h4><p>Vault dedicado · SLA garantido · LGPD compliance · Integração com sistemas legados · Gerente de conta exclusivo. Para empresas acima de 50 usuários.</p></div>
-        <a href="mailto:leandro@somosvast.com" class="btn-g">Falar com a gente</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="setores-section">
-  <div class="container">
-    <p style="font-size:13px;font-weight:500;color:var(--text2);margin-bottom:1.1rem;text-align:center">Agentes setoriais — cada empresa monta o seu conjunto</p>
-    <div class="setores-grid">
-      <div class="setor"><div class="setor-name">RH & People</div><div class="setor-desc">Onboarding, políticas, benefícios, clima</div></div>
-      <div class="setor"><div class="setor-name">Jurídico</div><div class="setor-desc">Contratos, compliance, LGPD, pareceres</div></div>
-      <div class="setor"><div class="setor-name">Marketing</div><div class="setor-desc">Briefings, campanhas, métricas, copy</div></div>
-      <div class="setor"><div class="setor-name">Financeiro</div><div class="setor-desc">DRE, fluxo de caixa, relatórios</div></div>
-      <div class="setor"><div class="setor-name">Comercial</div><div class="setor-desc">Pipeline, clientes, propostas, follow-up</div></div>
-      <div class="setor"><div class="setor-name">TI & Produto</div><div class="setor-desc">Documentação, roadmap, incidentes</div></div>
-      <div class="setor"><div class="setor-name">Suporte</div><div class="setor-desc">FAQs, atendimento, SLA, escalações</div></div>
-      <div class="setor" style="border-style:dashed"><div class="setor-name">Personalizado</div><div class="setor-desc">Qualquer setor com contexto específico</div></div>
-    </div>
-  </div>
-</section>
 
 <div class="divider"></div>
 
@@ -747,33 +564,6 @@ footer a:hover{color:var(--lilac)}
   </div>
 </section>
 
-<div class="divider"></div>
-
-<section class="combos-section" id="combos">
-  <div class="container">
-    <p class="sec-label">COMBOS</p>
-    <h2 class="sec-title">Ecossistema completo<br>com desconto</h2>
-    <p class="sec-sub">Para quem quer os três produtos juntos. Paga menos, usa mais.</p>
-    <div class="combo-list">
-      <div class="combo">
-        <span class="combo-tag v">Duo Essencial</span>
-        <div><p class="combo-title">Companion Essencial + Segundo Cérebro Essencial</p><p class="combo-desc">Para freelancers e autônomos — presença pessoal e organização profissional num pacote.</p></div>
-        <div><p class="combo-price">R$79<span style="font-size:12px;font-weight:400;color:var(--text2)">/mês</span></p><p class="combo-save">economiza R$9/mês</p></div>
-      </div>
-      <div class="combo" style="border-color:rgba(124,58,237,.35);background:rgba(124,58,237,.06)">
-        <span class="combo-tag g">Duo Pro · Popular</span>
-        <div><p class="combo-title">Companion Pro + Segundo Cérebro Pro</p><p class="combo-desc">Para profissionais e criadores — o poder completo do ecossistema pessoal, sem abrir mão de nada.</p></div>
-        <div><p class="combo-price">R$139<span style="font-size:12px;font-weight:400;color:var(--text2)">/mês</span></p><p class="combo-save">economiza R$19/mês</p></div>
-      </div>
-      <div class="combo">
-        <span class="combo-tag a">Duo Ultra</span>
-        <div><p class="combo-title">Companion Ultra + Segundo Cérebro Ultra</p><p class="combo-desc">Para quem opera no topo — modelo mais avançado, Vision, fila prioritária, tudo liberado.</p></div>
-        <div><p class="combo-price">R$229<span style="font-size:12px;font-weight:400;color:var(--text2)">/mês</span></p><p class="combo-save">economiza R$29/mês</p></div>
-      </div>
-    </div>
-    <p style="text-align:center;font-size:12px;color:var(--text3);margin-top:1.25rem">7 dias grátis em todos os planos · Cancele quando quiser · Sem fidelidade</p>
-  </div>
-</section>
 
 <div class="divider"></div>
 

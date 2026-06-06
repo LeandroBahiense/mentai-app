@@ -4962,7 +4962,7 @@ async function confirmDeleteAccount() {
     }
     if (res.status === 409) {
       const data = await res.json().catch(() => ({}));
-      showErr(data.message || 'Não foi possível agendar a exclusão automaticamente. Solicite por lgpd@somosvast.com.');
+      showErr(data.message || 'Não foi possível agendar a exclusão automaticamente. Solicite por Pallyum.app@gmail.com.');
       return;
     }
     showErr('Não foi possível concluir. Tente novamente em instantes.');
@@ -5176,7 +5176,7 @@ function initSupabaseAuth() {
           const asData = await asResp.json().catch(() => ({}));
           if (asData.status === 'pending_purge') {
             // Conta excluída fora da graça → não carrega o app. Logout forçado (sem confirm) + mensagem.
-            alert('Esta conta foi excluída e será removida em breve. Em caso de engano, contate lgpd@somosvast.com.');
+            alert('Esta conta foi excluída e será removida em breve. Em caso de engano, contate Pallyum.app@gmail.com.');
             forceLogout();
             return; // interrompe o bootstrap aqui
           } else if (asData.status === 'restored') {
