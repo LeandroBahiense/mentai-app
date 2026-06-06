@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sub-processadores — Pallyum</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#06060f;--bg2:#0d0d1e;--text:#e8e8f4;--text2:#8080b0;--accent:#7c3aed;--accent2:#a99cf5;--border:rgba(255,255,255,0.06);}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;line-height:1.7;}
+nav{position:fixed;top:0;left:0;right:0;height:60px;background:rgba(6,6,15,0.9);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 40px;z-index:100;}
+.nav-logo{font-family:'Playfair Display',serif;font-size:20px;color:var(--accent2);text-decoration:none;}
+.nav-logo em{color:var(--accent);font-style:normal;}
+.container{max-width:760px;margin:0 auto;padding:100px 24px 80px;}
+h1{font-family:'Playfair Display',serif;font-size:36px;color:var(--text);margin-bottom:8px;}
+.subtitle{font-size:13px;color:var(--text2);margin-bottom:48px;padding-bottom:24px;border-bottom:1px solid var(--border);}
+h2{font-family:'Playfair Display',serif;font-size:20px;color:var(--text);margin:36px 0 12px;}
+p{color:var(--text2);margin-bottom:16px;font-size:15px;}
+a{color:var(--accent2);text-decoration:none;}
+a:hover{text-decoration:underline;}
+.highlight{background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:16px 20px;margin:24px 0;}
+.highlight p{margin:0;color:var(--text);}
+table{width:100%;border-collapse:collapse;margin:8px 0 24px;font-size:14px;}
+th,td{text-align:left;vertical-align:top;padding:12px 14px;border-bottom:1px solid var(--border);}
+th{color:var(--text);font-weight:500;font-size:13px;}
+td{color:var(--text2);}
+td:first-child{color:var(--text);font-weight:500;white-space:nowrap;}
+footer{text-align:center;padding:40px 24px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">Pallyum</a>
+</nav>
+<div class="container">
+  <h1>Sub-processadores</h1>
+  <div class="subtitle">Última atualização: 06/06/2026</div>
+
+  <div class="highlight">
+    <p>Para operar o Pallyum, a Somos Vast LTDA utiliza os sub-processadores listados abaixo. Cada um trata apenas os dados necessários para a finalidade indicada. Última atualização: 06/06/2026.</p>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Sub-processador</th>
+        <th>Finalidade</th>
+        <th>Dados tratados</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Supabase</td>
+        <td>Autenticação, banco de dados e armazenamento de arquivos</td>
+        <td>Cadastro, notas, preferências, anexos, mensagens e demais dados da conta</td>
+      </tr>
+      <tr>
+        <td>Vercel</td>
+        <td>Hospedagem da aplicação e execução das funções</td>
+        <td>Dados em trânsito durante o uso do app (processamento transitório)</td>
+      </tr>
+      <tr>
+        <td>Anthropic (Claude)</td>
+        <td>Inteligência artificial do assistente (chat e WhatsApp)</td>
+        <td>Mensagens, conteúdo de notas e dados de agenda/e-mail usados como contexto das respostas</td>
+      </tr>
+      <tr>
+        <td>OpenAI</td>
+        <td>Busca semântica das notas e transcrição de áudios</td>
+        <td>Texto das notas (para indexação) e áudios enviados pelo WhatsApp (para transcrição)</td>
+      </tr>
+      <tr>
+        <td>Google</td>
+        <td>Login e integração com Agenda e Gmail</td>
+        <td>Tokens de acesso, eventos de calendário e e-mails (somente leitura), nome e e-mail do perfil</td>
+      </tr>
+      <tr>
+        <td>Twilio</td>
+        <td>Envio e recebimento de mensagens no WhatsApp</td>
+        <td>Número de telefone, conteúdo das mensagens e mídias trocadas</td>
+      </tr>
+      <tr>
+        <td>Meta (WhatsApp)</td>
+        <td>Plataforma de mensageria do WhatsApp</td>
+        <td>Conteúdo das mensagens e número de telefone que trafegam pelo WhatsApp</td>
+      </tr>
+      <tr>
+        <td>Asaas</td>
+        <td>Processamento de pagamentos e assinaturas</td>
+        <td>CPF e dados de cartão (coletados diretamente pela Asaas), identificadores de cobrança e valores</td>
+      </tr>
+      <tr>
+        <td>Resend</td>
+        <td>Envio de e-mails transacionais</td>
+        <td>Endereço de e-mail e conteúdo das mensagens transacionais (confirmações e avisos)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>Alguns sub-processadores tratam dados fora do Brasil. Essas transferências internacionais seguem as bases legais e salvaguardas descritas na nossa <a href="/privacidade">Política de Privacidade</a>.</p>
+</div>
+<footer>
+  © 2026 Pallyum — Somos Vast LTDA · <a href="/privacidade">Política de Privacidade</a> · <a href="/termos">Termos de Serviço</a>
+</footer>
+</body>
+</html>
