@@ -4998,6 +4998,34 @@ function initSupabaseAuth() {
       if (_bootedUserId === session.user.id) return; // já inicializado neste load
       _bootedUserId = session.user.id;
 
+      // ── Gate de conta excluída (item 20) — ANTES de carregar o app ──────────────
+      // O cookie HMAC (pallyum_session) já foi setado pelo POST /api/session acima.
+      // Fail-OPEN: qualquer erro de rede/HTTP segue como 'active' (não tranca usuário saudável).
+      try {
+        const asResp = await fetch('/api/user/account-status', { method: 'POST', credentials: 'include' });
+        if (asResp.ok) {
+          const asData = await asResp.json().catch(() => ({}));
+          if (asData.status === 'pending_purge') {
+            // Conta excluída fora da graça → não carrega o app. Logout forçado (sem confirm) + mensagem.
+            alert('Esta conta foi excluída e será removida em breve. Em caso de engano, contate lgpd@somosvast.com.');
+            try { _supabase.auth.signOut({ scope: 'local' }).catch(() => {}); } catch (e) {}
+            Object.keys(localStorage).forEach(key => {
+              if (key.startsWith('sb-') || key.startsWith('supabase')) localStorage.removeItem(key);
+            });
+            localStorage.removeItem('koreo-user-id');
+            window.location.reload();
+            return; // interrompe o bootstrap aqui
+          } else if (asData.status === 'restored') {
+            showAdminToast('Conta restaurada.', 'ok');
+          }
+          // 'active' → segue o bootstrap normal
+        } else {
+          console.error('[account-status] HTTP ' + asResp.status + ' — seguindo como active (fail-open)');
+        }
+      } catch (e) {
+        console.error('[account-status] falha de rede — seguindo como active (fail-open):', e.message);
+      }
+
       const lastUserId = localStorage.getItem('koreo-user-id');
       if (lastUserId && lastUserId !== session.user.id) {
         localStorage.removeItem('mentai-notes');
