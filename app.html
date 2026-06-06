@@ -1040,6 +1040,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
             🚪 Sair da conta
           </button>
         </div>
+
+        <!-- ── Zona de perigo ── -->
+        <div class="settings-section" style="border-color:rgba(216,90,48,.3);">
+          <div class="ss-title" style="color:var(--coral);">⚠️ Zona de perigo</div>
+          <p style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:14px;">
+            Exclui sua conta e todos os dados (notas, anexos, mensagens). Você tem 30 dias para restaurar fazendo login novamente.
+          </p>
+          <button class="ss-btn" onclick="openDeleteAccountModal()"
+            style="color:var(--coral);border:1px solid rgba(216,90,48,.3);background:transparent;">
+            Excluir minha conta
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1276,6 +1288,23 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 </div>
 
 <!-- Modal: confirmação de cancelamento de assinatura -->
+<!-- Modal: excluir conta -->
+<div id="delete-account-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:14px;">
+    <div style="font-size:40px;line-height:1;text-align:center;">⚠️</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);text-align:center;">Excluir minha conta</div>
+    <p style="font-size:13px;color:var(--text2);line-height:1.6;margin:0;">
+      Sua conta será agendada para exclusão. Você tem 30 dias para restaurar — basta fazer login novamente nesse período. Após 30 dias, suas notas, anexos e mensagens são apagados em definitivo. Dados exigidos por lei (registros fiscais e trilha de auditoria) são retidos pelo prazo legal.
+    </p>
+    <input id="delete-account-password" class="auth-input" type="password" placeholder="Confirme sua senha" autocomplete="current-password"/>
+    <div id="delete-account-error" style="display:none;font-size:12px;color:var(--coral);"></div>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button onclick="closeDeleteAccountModal()" class="ss-btn primary" style="flex:1;">Cancelar</button>
+      <button id="delete-account-confirm-btn" onclick="confirmDeleteAccount()" class="ss-btn" style="flex:1;color:var(--coral);border-color:rgba(216,90,48,.3);">Excluir minha conta</button>
+    </div>
+  </div>
+</div>
+
 <div id="cancel-subscription-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:center;justify-content:center;">
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:14px;text-align:center;">
 
@@ -4804,6 +4833,71 @@ async function doLogout() {
   window.location.reload();
 }
 
+// Logout forçado (sem confirm) — usado pelo gate de conta excluída e pela exclusão de conta.
+function forceLogout() {
+  try {
+    _supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  } catch (e) {
+    console.warn('signOut error:', e);
+  }
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith('sb-') || key.startsWith('supabase')) localStorage.removeItem(key);
+  });
+  localStorage.removeItem('koreo-user-id');
+  window.location.reload();
+}
+
+function openDeleteAccountModal() {
+  const err = document.getElementById('delete-account-error');
+  const pw  = document.getElementById('delete-account-password');
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
+  if (pw)  pw.value = '';
+  const m = document.getElementById('delete-account-modal');
+  if (m) m.style.display = 'flex';
+}
+
+function closeDeleteAccountModal() {
+  const m = document.getElementById('delete-account-modal');
+  if (m) m.style.display = 'none';
+}
+
+async function confirmDeleteAccount() {
+  const err = document.getElementById('delete-account-error');
+  const pw  = document.getElementById('delete-account-password');
+  const btn = document.getElementById('delete-account-confirm-btn');
+  const showErr = (msg) => { if (err) { err.textContent = msg; err.style.display = 'block'; } };
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
+
+  const password = pw?.value || '';
+  if (!password) { showErr('Digite sua senha.'); return; }
+  if (!currentUser?.email) { showErr('Sessão expirada. Faça login novamente.'); return; }
+
+  if (btn) btn.disabled = true; // anti duplo-clique
+  try {
+    // Re-auth com o MESMO signInWithPassword do login
+    const { error: authErr } = await _supabase.auth.signInWithPassword({ email: currentUser.email, password });
+    if (authErr) { showErr('Senha incorreta.'); return; }
+
+    // Agenda a exclusão (soft-delete no servidor)
+    const res = await fetch('/api/user/delete', { method: 'POST', credentials: 'include' });
+    if (res.ok) {
+      alert('Sua conta foi agendada para exclusão. Você tem 30 dias para restaurá-la fazendo login novamente.');
+      forceLogout();
+      return;
+    }
+    if (res.status === 409) {
+      const data = await res.json().catch(() => ({}));
+      showErr(data.message || 'Não foi possível agendar a exclusão automaticamente. Solicite por lgpd@somosvast.com.');
+      return;
+    }
+    showErr('Não foi possível concluir. Tente novamente em instantes.');
+  } catch (e) {
+    showErr('Não foi possível concluir. Tente novamente em instantes.');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 function showForgotPassword() {
   document.getElementById('login-fields').style.display    = 'none';
   document.getElementById('forgot-link').style.display     = 'none';
@@ -5008,12 +5102,7 @@ function initSupabaseAuth() {
           if (asData.status === 'pending_purge') {
             // Conta excluída fora da graça → não carrega o app. Logout forçado (sem confirm) + mensagem.
             alert('Esta conta foi excluída e será removida em breve. Em caso de engano, contate lgpd@somosvast.com.');
-            try { _supabase.auth.signOut({ scope: 'local' }).catch(() => {}); } catch (e) {}
-            Object.keys(localStorage).forEach(key => {
-              if (key.startsWith('sb-') || key.startsWith('supabase')) localStorage.removeItem(key);
-            });
-            localStorage.removeItem('koreo-user-id');
-            window.location.reload();
+            forceLogout();
             return; // interrompe o bootstrap aqui
           } else if (asData.status === 'restored') {
             showAdminToast('Conta restaurada.', 'ok');
