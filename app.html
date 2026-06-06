@@ -462,10 +462,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 
     <!-- forgot password panel (oculto por padrão) -->
     <div id="forgot-panel" style="display:none;">
-      <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">Informe seu e-mail para receber o link de redefinição.</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">Informe seu e-mail para receber um código de redefinição.</div>
       <input class="auth-input" id="forgot-email" type="email" placeholder="seu@email.com" autocomplete="email"/>
       <div class="auth-err" id="forgot-err" style="margin-top:6px;"></div>
-      <button class="auth-btn" style="margin-top:10px;" onclick="sendPasswordReset()">Enviar link de recuperação</button>
+      <button class="auth-btn" style="margin-top:10px;" onclick="sendPasswordReset()">Enviar código</button>
+      <!-- etapa 2: código + nova senha (revelada após o envio) -->
+      <div id="forgot-step2" style="display:none;margin-top:14px;">
+        <input class="auth-input" id="forgot-code" type="text" inputmode="numeric" maxlength="6" placeholder="Código de 6 dígitos" style="margin-bottom:8px;"/>
+        <input class="auth-input" id="forgot-newpass" type="password" placeholder="Nova senha" autocomplete="new-password" style="margin-bottom:8px;"/>
+        <input class="auth-input" id="forgot-newpass2" type="password" placeholder="Confirmar nova senha" autocomplete="new-password"/>
+        <button class="auth-btn" style="margin-top:10px;" onclick="confirmPasswordReset()">Redefinir senha</button>
+      </div>
       <div style="text-align:center;margin-top:10px;">
         <span onclick="hideForgotPassword()" style="font-size:12px;color:var(--text3);cursor:pointer;">← Voltar ao login</span>
       </div>
@@ -1399,6 +1406,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 let currentUser = null;
 let _supabase   = null;
 let _authMode   = 'login'; // 'login' | 'signup'
+let _recoveryEmail = null; // email do fluxo de redefinição de senha (código de 6 dígitos)
 
 const APP = {
   notes: [],
@@ -5030,6 +5038,12 @@ function showForgotPassword() {
   document.getElementById('forgot-panel').style.display    = 'block';
   document.getElementById('forgot-email').value            = document.getElementById('auth-email').value;
   document.getElementById('forgot-err').textContent        = '';
+  // reseta a etapa 2 (código + nova senha)
+  document.getElementById('forgot-step2').style.display    = 'none';
+  document.getElementById('forgot-code').value             = '';
+  document.getElementById('forgot-newpass').value          = '';
+  document.getElementById('forgot-newpass2').value         = '';
+  _recoveryEmail = null;
 }
 
 function hideForgotPassword() {
@@ -5049,14 +5063,45 @@ async function sendPasswordReset() {
   if (!email) { errEl.textContent = 'Informe seu e-mail.'; return; }
   if (!_supabase) { errEl.textContent = 'Supabase não configurado.'; return; }
   try {
-    const { error } = await _supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://pallyum.com/app',
-    });
+    const { error } = await _supabase.auth.resetPasswordForEmail(email);
     if (error) throw error;
+    _recoveryEmail = email;
     errEl.style.color   = 'var(--green)';
-    errEl.textContent   = 'Verifique seu email para redefinir a senha.';
+    errEl.textContent   = 'Enviamos um código de 6 dígitos para seu email.';
+    document.getElementById('forgot-step2').style.display = 'block';
   } catch(e) {
     errEl.textContent = e.message || 'Erro ao enviar. Tente novamente.';
+  }
+}
+
+async function confirmPasswordReset() {
+  const code     = document.getElementById('forgot-code').value.trim();
+  const newpass  = document.getElementById('forgot-newpass').value;
+  const newpass2 = document.getElementById('forgot-newpass2').value;
+  const errEl    = document.getElementById('forgot-err');
+  errEl.style.color = 'var(--coral)';
+  errEl.textContent = '';
+
+  if (!code || !newpass || !newpass2) { errEl.textContent = 'Preencha o código e a nova senha.'; return; }
+  if (newpass !== newpass2) { errEl.textContent = 'As senhas não conferem.'; return; }
+  if (!_recoveryEmail) { errEl.textContent = 'Peça um novo código.'; return; }
+  if (!_supabase) { errEl.textContent = 'Supabase não configurado.'; return; }
+
+  try {
+    // 1. Valida o código (cria a sessão de recovery)
+    const { error: vErr } = await _supabase.auth.verifyOtp({ email: _recoveryEmail, token: code, type: 'recovery' });
+    if (vErr) { errEl.textContent = 'Código inválido ou expirado. Confira ou peça um novo.'; return; }
+
+    // 2. Define a nova senha (Supabase aplica o tamanho mínimo; surfa o erro se houver)
+    const { error: uErr } = await _supabase.auth.updateUser({ password: newpass });
+    if (uErr) { errEl.textContent = uErr.message || 'Não foi possível redefinir a senha.'; return; }
+
+    // Sucesso: o verifyOtp já criou a sessão → o onAuthStateChange boota o app sozinho.
+    errEl.style.color = 'var(--green)';
+    errEl.textContent = 'Senha redefinida.';
+    hideForgotPassword();
+  } catch (e) {
+    errEl.textContent = e.message || 'Erro ao redefinir. Tente novamente.';
   }
 }
 
@@ -5320,6 +5365,19 @@ async function manualSync() {
 initSupabaseAuth();
 initApp();
 loadFromSupabase(); // boot: usa o cookie persistido, sem depender do onAuthStateChange
+
+// Link mágico de recuperação antigo clicado e expirado → orienta pro fluxo de código
+if (window.location.hash && window.location.hash.indexOf('error_code=otp_expired') !== -1) {
+  try {
+    history.replaceState(null, '', window.location.pathname); // limpa o hash do erro
+    showForgotPassword();
+    const errEl = document.getElementById('forgot-err');
+    if (errEl) {
+      errEl.style.color = 'var(--coral)';
+      errEl.textContent = "Esse link expirou — peça um novo código em 'Esqueceu a senha?'.";
+    }
+  } catch (e) {}
+}
 
 // ── Modal nova nota ──────────────────────────────────────────────
 document.getElementById('new-note-title-input')?.addEventListener('keydown', e => {
