@@ -1310,6 +1310,27 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   </div>
 </div>
 
+<!-- Modal: re-aceite de termos (item 27) — gate bloqueante, sem cancelar/fechar -->
+<div id="reaccept-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:14px;">
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);text-align:center;">Atualizamos nossos Termos e Política de Privacidade</div>
+    <p style="font-size:13px;color:var(--text2);line-height:1.6;margin:0;">
+      Revisamos nossos documentos legais. Para continuar usando o Pallyum, leia e aceite as versões atualizadas.
+    </p>
+    <div style="display:flex;gap:14px;font-size:13px;">
+      <a href="/termos" target="_blank" rel="noopener noreferrer">Termos de Serviço</a>
+      <span style="color:var(--text3);">·</span>
+      <a href="/privacidade" target="_blank" rel="noopener noreferrer">Política de Privacidade</a>
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:12px;color:var(--text2);line-height:1.5;">
+      <input type="checkbox" id="reaccept-checkbox" style="margin-top:2px;cursor:pointer;flex-shrink:0;accent-color:var(--accent);"/>
+      <span>Li e concordo com os Termos de Uso e a Política de Privacidade, incluindo o tratamento dos meus dados pessoais conforme a LGPD.</span>
+    </label>
+    <div id="reaccept-error" style="display:none;font-size:12px;color:var(--coral);"></div>
+    <button id="reaccept-btn" class="ss-btn primary" disabled style="opacity:.5;">Aceitar e continuar</button>
+  </div>
+</div>
+
 <!-- Modal: confirmação de cancelamento de assinatura -->
 <!-- Modal: excluir conta -->
 <div id="delete-account-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:center;justify-content:center;">
@@ -4922,6 +4943,33 @@ async function exportVault() {
   }
 }
 
+function showReacceptGate() {
+  return new Promise(function(resolve) {
+    var modal = document.getElementById('reaccept-modal');
+    var cb    = document.getElementById('reaccept-checkbox');
+    var btn   = document.getElementById('reaccept-btn');
+    var err   = document.getElementById('reaccept-error');
+    cb.checked = false; err.style.display = 'none';
+    btn.disabled = true; btn.style.opacity = '.5';
+    cb.onchange = function() { btn.disabled = !cb.checked; btn.style.opacity = cb.checked ? '1' : '.5'; };
+    btn.onclick = async function() {
+      if (!cb.checked) return;
+      btn.disabled = true; btn.style.opacity = '.5'; err.style.display = 'none';
+      try {
+        var r = await fetch('/api/user/reaccept', { method: 'POST', credentials: 'include' });
+        if (!r.ok) throw new Error('reaccept_failed');
+        modal.style.display = 'none';
+        resolve();
+      } catch (e) {
+        err.textContent = 'Não foi possível registrar o aceite. Tente novamente.';
+        err.style.display = 'block';
+        btn.disabled = false; btn.style.opacity = '1';
+      }
+    };
+    modal.style.display = 'flex';
+  });
+}
+
 function openDeleteAccountModal() {
   const err = document.getElementById('delete-account-error');
   const pw  = document.getElementById('delete-account-password');
@@ -5189,6 +5237,18 @@ function initSupabaseAuth() {
       } catch (e) {
         console.error('[account-status] falha de rede — seguindo como active (fail-open):', e.message);
       }
+
+      // ── Gate de re-aceite de termos (item 27) ──
+      try {
+        const creResp = await fetch('/api/user/consent-status', { method: 'POST', credentials: 'include' });
+        if (creResp.ok) {
+          const creData = await creResp.json();
+          if (creData && creData.needsReaccept) {
+            await showReacceptGate();   // bloqueia até re-aceitar com sucesso
+          }
+        }
+        // fail-open: !ok ou exceção → segue o boot, re-checa no próximo login
+      } catch (e) { /* fail-open */ }
 
       const lastUserId = localStorage.getItem('koreo-user-id');
       if (lastUserId && lastUserId !== session.user.id) {
