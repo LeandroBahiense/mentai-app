@@ -1,4 +1,4 @@
-import { getModelForUser, calculateCooldown, trackUsage } from './_lib/plans.js';
+import { getModelForUser, calculateCooldown, trackUsage, routeModel } from './_lib/plans.js';
 import { searchRelevantNotes, buildRagContext, indexNote } from './_lib/embeddings.js';
 import { createHmac, timingSafeEqual } from 'crypto';
 
@@ -1232,7 +1232,9 @@ export default async function handler(req, res) {
     const _tools = googleConnected ? NOTE_TOOLS.concat(EVENT_TOOLS) : NOTE_TOOLS;
     const _ehAcao = /\b(marc|agend|cri[ae]|cancel|remarc|desmarc|reagend|adia|anot|registr|salv|apag|delet|adicion|exclu|altera|edita|mud[ae])/i.test(userMessage || '');
     const _toolChoice = (_ehAcao && _tools.length) ? { type: 'any' } : undefined;
-    const _content = await askClaudeTools(system, msgs, req._pallyumModel, _tools, _toolChoice);
+    const _routedModel = routeModel(req._pallyumModel, { isAction: _ehAcao });
+    console.log('[G-28] modelo roteado:', _routedModel, '| isAction:', _ehAcao, '| teto:', req._pallyumModel);
+    const _content = await askClaudeTools(system, msgs, _routedModel, _tools, _toolChoice);
     const reply = (_content || []).filter(function (b) { return b && b.type === 'text'; }).map(function (b) { return b.text; }).join('\n');
     const _toolUses = (_content || []).filter(function (b) { return b && b.type === 'tool_use'; });
     console.log('REPLY:', (reply || '').substring(0, 200), '| TOOL_USES:', _toolUses.map(function (t) { return t.name; }).join(','));
