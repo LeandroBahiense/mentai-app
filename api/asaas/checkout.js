@@ -15,6 +15,17 @@ const ASAAS_BASE_URL = process.env.ASAAS_ENV === 'production'
   ? 'https://api.asaas.com/v3'
   : 'https://sandbox.asaas.com/api/v3';
 
+const SUPABASE_URL     = process.env.SUPABASE_URL;
+const SUPABASE_SVC_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+function svcHeaders() {
+  return {
+    'Content-Type':  'application/json',
+    'apikey':        SUPABASE_SVC_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_SVC_KEY,
+  };
+}
+
 function toBase64url(buf) {
   return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -230,6 +241,26 @@ export default async function handler(req, res) {
 
     const invoiceUrl = asaasData.link || asaasData.url;
     console.log(`CHECKOUT: link gerado | id=${asaasData.id} | url=${invoiceUrl}`);
+
+    // Mapa {checkout_session_id → user_id, sku} para o webhook resolver a assinatura
+    // (o Asaas não propaga externalReference do Checkout Session pra assinatura/cobranças).
+    // Falha aqui NÃO bloqueia o checkout — só loga.
+    try {
+      const csRes = await fetch(`${SUPABASE_URL}/rest/v1/checkout_sessions`, {
+        method:  'POST',
+        headers: { ...svcHeaders(), 'Prefer': 'return=minimal' },
+        body: JSON.stringify({
+          checkout_session_id: asaasData.id,
+          user_id:             uid,
+          sku:                 skuKey,
+        }),
+      });
+      if (!csRes.ok) {
+        console.error('[checkout] INSERT checkout_sessions falhou:', csRes.status, await csRes.text());
+      }
+    } catch (e) {
+      console.error('[checkout] INSERT checkout_sessions erro:', e.message);
+    }
 
     return res.status(200).json({ invoiceUrl });
 

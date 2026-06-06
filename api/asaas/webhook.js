@@ -292,6 +292,83 @@ async function updateUserPlanByCustomer(customerId, plano, meses, subscriptionId
   return validade.toISOString();
 }
 
+// ── Resolvedor único de {refUserId, refSku} a partir de um evento de pagamento ──
+// Ordem: (1) payment.externalReference; (2) GET na assinatura → externalReference;
+// (2b) GET na assinatura → checkoutSession → SELECT em checkout_sessions; (3) null.
+async function resolveUserAndSku(payment) {
+  // 1) externalReference do próprio payment
+  const direct = (payment.externalReference || '').trim();
+  if (direct) {
+    const [u, s] = direct.split('|');
+    const refUserId = (u || '').trim();
+    const refSku    = (s || '').trim();
+    if (refUserId && refSku) {
+      return { refUserId, refSku, source: 'payment.externalReference' };
+    }
+  }
+
+  // 2) precisa da assinatura
+  const subscriptionId = payment.subscription || null;
+  if (!subscriptionId) {
+    console.warn('ASAAS WEBHOOK resolve: sem externalReference e sem subscription');
+    return null;
+  }
+
+  let subData = null;
+  try {
+    const subRes = await fetch(`${ASAAS_BASE_URL}/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+      headers: { 'Content-Type': 'application/json', 'access_token': ASAAS_API_KEY },
+    });
+    if (subRes.ok) {
+      subData = await subRes.json();
+    } else {
+      console.warn(`ASAAS WEBHOOK resolve: GET subscription ${subscriptionId} retornou ${subRes.status}`);
+    }
+  } catch (e) {
+    console.warn(`ASAAS WEBHOOK resolve: falha ao buscar subscription ${subscriptionId}:`, e.message);
+  }
+
+  if (subData) {
+    // 2a) externalReference da assinatura
+    const subRef = (subData.externalReference || '').trim();
+    if (subRef) {
+      const [u, s] = subRef.split('|');
+      const refUserId = (u || '').trim();
+      const refSku    = (s || '').trim();
+      if (refUserId && refSku) {
+        console.log(`ASAAS WEBHOOK resolve: via subscription.externalReference (${subscriptionId})`);
+        return { refUserId, refSku, source: 'subscription.externalReference' };
+      }
+    }
+
+    // 2b) checkoutSession da assinatura → tabela checkout_sessions
+    const checkoutSessionId = (subData.checkoutSession || '').trim();
+    if (checkoutSessionId) {
+      try {
+        const csRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/checkout_sessions?checkout_session_id=eq.${encodeURIComponent(checkoutSessionId)}&select=user_id,sku&limit=1`,
+          { headers: svcHeaders() }
+        );
+        if (csRes.ok) {
+          const rows = await csRes.json();
+          const row  = Array.isArray(rows) ? rows[0] : null;
+          if (row?.user_id && row?.sku) {
+            console.log(`ASAAS WEBHOOK resolve: via checkout_sessions (session=${checkoutSessionId})`);
+            return { refUserId: row.user_id, refSku: row.sku, source: 'checkout_sessions' };
+          }
+        } else {
+          console.warn(`ASAAS WEBHOOK resolve: SELECT checkout_sessions retornou ${csRes.status}`);
+        }
+      } catch (e) {
+        console.warn('ASAAS WEBHOOK resolve: falha ao consultar checkout_sessions:', e.message);
+      }
+    }
+  }
+
+  console.warn(`ASAAS WEBHOOK resolve: não foi possível resolver user/sku (subscription=${subscriptionId})`);
+  return null;
+}
+
 // ── Handler ────────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -333,50 +410,26 @@ export default async function handler(req, res) {
 
   // Evento de criação → trial-grant (acesso imediato antes da 1ª cobrança)
   if (TRIAL_EVENTS.includes(event?.event)) {
-    const payment     = event.payment || {};
+    const payment        = event.payment || {};
     const subscriptionId = payment.subscription || null;
     const customerId     = payment.customer;
 
-    // Resolve externalReference: (a) do payload; (b) da assinatura no Asaas; (c) falha silenciosa
-    let externalRef = (payment.externalReference || '').trim();
-    if (!externalRef && subscriptionId) {
-      try {
-        const subRes = await fetch(`${ASAAS_BASE_URL}/subscriptions/${encodeURIComponent(subscriptionId)}`, {
-          headers: { 'Content-Type': 'application/json', 'access_token': ASAAS_API_KEY },
-        });
-        if (subRes.ok) {
-          const subData = await subRes.json();
-          externalRef = (subData.externalReference || '').trim();
-          if (externalRef) {
-            console.log(`ASAAS WEBHOOK trial-grant: externalReference resolvido via subscription ${subscriptionId} → "${externalRef}"`);
-          }
-        } else {
-          console.warn(`ASAAS WEBHOOK trial-grant: GET subscription ${subscriptionId} retornou ${subRes.status}`);
-        }
-      } catch (e) {
-        console.warn(`ASAAS WEBHOOK trial-grant: falha ao buscar subscription ${subscriptionId}:`, e.message);
-      }
-    }
-
-    const refParts  = externalRef.split('|');
-    const refUserId = (refParts[0] || '').trim();
-    const refSku    = (refParts[1] || '').trim();
-
-    if (refUserId && refSku) {
-      const parsed = parsePlanFromSku(refSku);
+    const resolved = await resolveUserAndSku(payment);
+    if (resolved) {
+      const parsed = parsePlanFromSku(resolved.refSku);
       if (parsed) {
         const { plano } = parsed;
         try {
-          await grantTrialIfInactive(refUserId, plano, payment.dueDate || null, customerId, subscriptionId);
+          await grantTrialIfInactive(resolved.refUserId, plano, payment.dueDate || null, customerId, subscriptionId);
         } catch (e) {
           console.error('ASAAS WEBHOOK trial-grant erro:', e.message);
           // Erro interno — responde 200 pro Asaas (não retentar)
         }
       } else {
-        console.warn(`ASAAS WEBHOOK trial-grant: SKU não reconhecido (sku=${refSku})`);
+        console.warn(`ASAAS WEBHOOK trial-grant: SKU não reconhecido (sku=${resolved.refSku})`);
       }
     } else {
-      console.warn(`ASAAS WEBHOOK trial-grant: externalReference ausente ou incompleto (ref="${externalRef}") — sem acesso concedido`);
+      console.warn('ASAAS WEBHOOK trial-grant: não foi possível resolver user/sku — sem acesso concedido');
     }
     return res.status(200).json({ ok: true, source: 'trial_grant', event_type: event?.event });
   }
@@ -396,35 +449,33 @@ export default async function handler(req, res) {
   const description  = payment.description || '';
 
   try {
-    // ── Fonte primária: externalReference = "userId|sku" ──────────────────────
-    const refParts  = externalRef.split('|');
-    const refUserId = (refParts[0] || '').trim();
-    const refSku    = (refParts[1] || '').trim();
-
-    if (refUserId && refSku) {
-      const parsed = parsePlanFromSku(refSku);
+    // ── Fonte primária: resolvedor unificado ──────────────────────────────────
+    // externalReference (payload) → GET assinatura (externalReference) → checkout_sessions
+    const resolved = await resolveUserAndSku(payment);
+    if (resolved) {
+      const parsed = parsePlanFromSku(resolved.refSku);
 
       if (parsed) {
         const { plano, meses } = parsed;
         const subscriptionId = payment.subscription || null;
-        const validade = await updateUserPlanByUserId(refUserId, plano, meses, subscriptionId, customerId);
+        const validade = await updateUserPlanByUserId(resolved.refUserId, plano, meses, subscriptionId, customerId);
         // Dispara email transacional. Não-bloqueante — webhook ainda responde 200 mesmo se Resend falhar.
         try {
           await sendPlanoAtivadoByUserId({
-            userId:        refUserId,
+            userId:        resolved.refUserId,
             planoSlug:     plano,
             planoValidade: validade,
             valor:         payment.value,
           });
-          console.log('[webhook] email "plano ativado" enviado | userId=' + refUserId);
+          console.log('[webhook] email "plano ativado" enviado | userId=' + resolved.refUserId);
         } catch (emailErr) {
-          console.error('[webhook] falha ao enviar email para userId=' + refUserId + ':', emailErr.message);
+          console.error('[webhook] falha ao enviar email para userId=' + resolved.refUserId + ':', emailErr.message);
         }
-        console.log(`ASAAS WEBHOOK: [externalRef] plano atualizado | userId=${refUserId} | plano=${plano} | meses=${meses} | validade=${validade}`);
-        return res.status(200).json({ ok: true, source: 'externalReference', plano, meses, validade });
+        console.log(`ASAAS WEBHOOK: [resolved:${resolved.source}] plano atualizado | userId=${resolved.refUserId} | plano=${plano} | meses=${meses} | validade=${validade}`);
+        return res.status(200).json({ ok: true, source: resolved.source, plano, meses, validade });
       }
 
-      console.warn(`ASAAS WEBHOOK: externalReference presente mas sku inválido: "${refSku}" — tentando fallback`);
+      console.warn(`ASAAS WEBHOOK: user/sku resolvido mas sku inválido: "${resolved.refSku}" — tentando fallback`);
     }
 
     // ── Fallback: description + asaas_customer_id (pagamentos antigos) ────────
