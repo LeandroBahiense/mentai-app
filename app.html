@@ -5171,7 +5171,7 @@ async function authAction() {
       });
       const respData = await resp.json();
       if (!resp.ok) {
-        throw new Error(respData.error || 'Falha ao criar conta');
+        throw new Error(typeof respData.error === 'string' ? respData.error : 'Falha ao criar conta');
       }
       errEl.style.color = 'var(--green)';
       errEl.textContent = respData.message || 'Conta criada! Verifique seu e-mail para confirmar.';
