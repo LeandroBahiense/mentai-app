@@ -6,12 +6,112 @@
  * SKUs legados mantidos comentados abaixo de cada mapa — não remover.
  */
 
+// ── Tabela de SKUs ─────────────────────────────────────────────────────────────
+// FONTE ÚNICA de preço/plano do app. Chave: "{produto}-{tier}-{periodo}".
+// Importada por api/asaas/checkout.js (cobrança) e pelos helpers de proration
+// abaixo (Bloco C). Preço só muda aqui. SKU_NAMES (display) fica no checkout.js.
+export const SKUS = {
+  // Companion (mensal)
+  'companion-essencial-mensal':       { value: 29.00,   plano: 'companion-essencial'       },
+  'companion-pro-mensal':             { value: 59.00,   plano: 'companion-pro'             },
+  'companion-ultra-mensal':           { value: 89.00,   plano: 'companion-ultra'           },
+  // Companion (anual)
+  'companion-essencial-anual':        { value: 300.00,  plano: 'companion-essencial'       },
+  'companion-pro-anual':              { value: 600.00,  plano: 'companion-pro'             },
+  'companion-ultra-anual':            { value: 900.00,  plano: 'companion-ultra'           },
+
+  // Segundo Cérebro (mensal)
+  'segundo-cerebro-essencial-mensal': { value: 59.00,   plano: 'segundo-cerebro-essencial' },
+  'segundo-cerebro-pro-mensal':       { value: 99.00,   plano: 'segundo-cerebro-pro'       },
+  'segundo-cerebro-ultra-mensal':     { value: 169.00,  plano: 'segundo-cerebro-ultra'     },
+  // Segundo Cérebro (anual)
+  'segundo-cerebro-essencial-anual':  { value: 600.00,  plano: 'segundo-cerebro-essencial' },
+  'segundo-cerebro-pro-anual':        { value: 1000.00, plano: 'segundo-cerebro-pro'       },
+  'segundo-cerebro-ultra-anual':      { value: 1700.00, plano: 'segundo-cerebro-ultra'     },
+
+  // Coletivo (mensal)
+  'coletivo-team-mensal':             { value: 399.00,  plano: 'coletivo-team'             },
+  'coletivo-business-mensal':         { value: 699.00,  plano: 'coletivo-business'         },
+  // Coletivo (anual)
+  'coletivo-team-anual':              { value: 4000.00, plano: 'coletivo-team'             },
+  'coletivo-business-anual':          { value: 7000.00, plano: 'coletivo-business'         },
+
+  // Duo Essencial
+  'duo-essencial-mensal':             { value: 79.00,   plano: 'duo-essencial'             },
+  'duo-essencial-anual':              { value: 790.00,  plano: 'duo-essencial'             },
+  // Duo Pro
+  'duo-pro-mensal':                   { value: 139.00,  plano: 'duo-pro'                   },
+  'duo-pro-anual':                    { value: 1390.00, plano: 'duo-pro'                   },
+  // Duo Ultra
+  'duo-ultra-mensal':                 { value: 229.00,  plano: 'duo-ultra'                 },
+  'duo-ultra-anual':                  { value: 2290.00, plano: 'duo-ultra'                 },
+
+  // Novo catálogo Pallyum (01/06/2026)
+  'essencial-mensal':                 { value:  39.00,  plano: 'essencial'                 },
+  'pro-mensal':                       { value:  69.00,  plano: 'pro'                       },
+  'ultra-mensal':                     { value:  99.00,  plano: 'ultra'                     },
+};
+
 function dataHojeSP() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 }
 function dataSPdiasAtras(dias) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })
     .format(new Date(Date.now() - dias * 86400000));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bloco C — classificação e proration de troca de plano (mensal)
+//
+// Ambos os helpers usam SKUS[`${plano}-mensal`].value como fonte de preço.
+// classifyPlanChange  → 'same' | 'upgrade' | 'downgrade' | null (sku desconhecido)
+// prorationDiff       → { diff, chargeWaived }  (só relevante p/ upgrade)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PRORATION_FLOOR = 5; // abaixo disso, não vale a pena cobrar a diferença
+
+function planoPriceMensal(plano) {
+  const sku = SKUS[`${plano}-mensal`];
+  return sku ? sku.value : null;
+}
+
+// classifyPlanChange(currentPlano, targetPlano)
+//   Compara os preços mensais e classifica a transição.
+//   Retorna null se algum dos planos não tiver SKU mensal conhecido.
+export function classifyPlanChange(currentPlano, targetPlano) {
+  const priceCurrent = planoPriceMensal(currentPlano);
+  const priceTarget  = planoPriceMensal(targetPlano);
+  if (priceCurrent == null || priceTarget == null) return null;
+  if (priceTarget === priceCurrent) return 'same';
+  return priceTarget > priceCurrent ? 'upgrade' : 'downgrade';
+}
+
+// prorationDiff({ currentPlano, targetPlano, nextDueDate })
+//   Diferença pró-rata a cobrar HOJE num upgrade, proporcional aos dias que
+//   faltam até a próxima cobrança (nextDueDate, 'YYYY-MM-DD' do Asaas).
+//   Retorna null se algum plano for desconhecido.
+//   Para downgrade/same o diff sai 0/≤0 e o chamador deve ignorá-lo.
+export function prorationDiff({ currentPlano, targetPlano, nextDueDate }) {
+  const priceCurrent = planoPriceMensal(currentPlano);
+  const priceTarget  = planoPriceMensal(targetPlano);
+  if (priceCurrent == null || priceTarget == null) return null;
+
+  const gap = priceTarget - priceCurrent;
+
+  // remainingDays = dias de hoje (SP) até nextDueDate, arredondado p/ cima, [0,30].
+  const msPerDay = 86400000;
+  const start = new Date(dataHojeSP() + 'T00:00:00-03:00').getTime();
+  const end   = new Date(String(nextDueDate).slice(0, 10) + 'T00:00:00-03:00').getTime();
+  let remainingDays = Math.ceil((end - start) / msPerDay);
+  if (!Number.isFinite(remainingDays)) remainingDays = 0;
+  remainingDays = Math.max(0, Math.min(30, remainingDays));
+
+  // diff proporcional, 2 casas; trava: nunca > gap, nunca < 0.
+  let diff = Math.round((gap * remainingDays / 30) * 100) / 100;
+  if (diff > gap) diff = gap;
+  if (diff < 0)   diff = 0;
+
+  return { diff, chargeWaived: (diff > 0 && diff < PRORATION_FLOOR) };
 }
 
 // ── Mapeamento de plano → modelo Claude ──────────────────────
