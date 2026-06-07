@@ -164,6 +164,7 @@ async function grantTrialIfInactive(userId, plano, dueDate, customerId, subscrip
     plano,
     plano_validade:           planoValidade,
     subscription_canceled_at: null,
+    is_trial:                 true,
     updated_at:               new Date().toISOString(),
   };
   const patchRes = await fetch(
@@ -213,6 +214,7 @@ async function updateUserPlanByUserId(userId, plano, meses, subscriptionId, cust
     plano,
     plano_validade:           validade.toISOString(),
     subscription_canceled_at: null, // nova cobrança = reativação
+    is_trial:                 false,
     updated_at:               new Date().toISOString(),
   };
 
@@ -279,6 +281,7 @@ async function updateUserPlanByCustomer(customerId, plano, meses, subscriptionId
     plano,
     plano_validade:           validade.toISOString(),
     subscription_canceled_at: null,
+    is_trial:                 false,
     updated_at:               new Date().toISOString(),
   };
   const res = await fetch(
