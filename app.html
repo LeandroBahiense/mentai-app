@@ -1363,7 +1363,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     <div id="cancel-state-confirm" style="display:flex;flex-direction:column;gap:14px;align-items:center;">
       <div style="font-size:40px;line-height:1;">⚠️</div>
       <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Cancelar assinatura?</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.6;">Sua assinatura será cancelada e nenhuma cobrança futura será feita. Você continuará tendo acesso até o fim do período já pago.</div>
+      <div id="cancel-confirm-text" style="font-size:13px;color:var(--text2);line-height:1.6;">Sua assinatura será cancelada e nenhuma cobrança futura será feita. Você continuará tendo acesso até o fim do período já pago.</div>
       <div style="display:flex;gap:8px;width:100%;margin-top:4px;">
         <button onclick="cancelSubscription()" class="ss-btn" style="flex:1;color:var(--coral,#e87b7b);border-color:rgba(232,123,123,0.3);">Sim, cancelar</button>
         <button onclick="closeCancelSubscriptionModal()" class="ss-btn primary" style="flex:1;">Manter assinatura</button>
@@ -1404,6 +1404,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 // ESTADO GLOBAL
 // ══════════════════════════════════════════════════════════════════
 let currentUser = null;
+let _isTrialPlan = false; // estado: o plano atual é trial? (gravado em renderSubscriptionStatus)
 let _supabase   = null;
 let _authMode   = 'login'; // 'login' | 'signup'
 let _recoveryEmail = null; // email do fluxo de redefinição de senha (código de 6 dígitos)
@@ -2058,6 +2059,38 @@ async function iniciarCheckout(planoId, ev) {
     return;
   }
 
+  // --- Trava Bloco B: impede novo checkout se já há assinatura viva (anti-duplicata + trial) ---
+  let _canCancel = false, _isTrial = false, _stateOk = false;
+  try {
+    const [prefsRes, statusResp] = await Promise.race([
+      Promise.all([
+        _supabase.from('user_preferences').select('is_trial').eq('user_id', currentUser.id).maybeSingle(),
+        fetch('/api/asaas/subscription-status', { credentials: 'include' }).then(r => r.ok ? r.json() : null),
+      ]),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
+    ]);
+    if (statusResp) {
+      _canCancel = !!statusResp.canCancel;
+      _isTrial   = !!(prefsRes?.data?.is_trial);
+      _stateOk   = true;
+    }
+  } catch (e) { _stateOk = false; }
+
+  if (!_stateOk) {
+    showAdminToast('Não consegui verificar seu plano agora. Tente novamente em instantes.', 'err');
+    if (btn) { btn.textContent = originalText; btn.disabled = false; }
+    return;
+  }
+  if (_canCancel) {
+    showAdminToast(_isTrial
+      ? 'Durante o teste grátis não é possível trocar de plano. Aguarde o fim do teste para escolher outro.'
+      : 'A troca de plano (upgrade/downgrade) chega em breve. Com uma assinatura ativa ainda não é possível trocar por aqui.', 'warn');
+    if (btn) { btn.textContent = originalText; btn.disabled = false; }
+    return;
+  }
+  // sem assinatura viva (novo ou cancelado) → segue para o checkout normal abaixo
+  // --- fim trava Bloco B ---
+
   // SKU completo: plano-ciclo (ex: companion-pro-mensal)
   const sku = planoId + '-mensal';
 
@@ -2128,7 +2161,7 @@ async function loadPlanInfo() {
     // O navegador não consulta a tabela subscriptions diretamente.
     const prefsQuery = _supabase
       .from('user_preferences')
-      .select('plano, plano_validade, current_cooldown_ms, subscription_canceled_at')
+      .select('plano, plano_validade, current_cooldown_ms, subscription_canceled_at, is_trial')
       .eq('user_id', currentUser.id)
       .maybeSingle();
     const timeout4s = new Promise((_, reject) =>
@@ -2246,6 +2279,7 @@ async function loadPlanInfo() {
 }
 
 function renderSubscriptionStatus(prefs, canCancel) {
+  _isTrialPlan = !!(prefs && prefs.is_trial);
   const old = document.getElementById('subscription-status');
   if (old) old.remove();
   const contentEl = document.getElementById('plan-info-content');
@@ -2271,6 +2305,12 @@ function renderSubscriptionStatus(prefs, canCancel) {
 
 function openCancelSubscriptionModal() {
   const modal = document.getElementById('cancel-subscription-modal');
+  const txt = document.getElementById('cancel-confirm-text');
+  if (txt) {
+    txt.textContent = _isTrialPlan
+      ? 'Você está no teste grátis. Ao cancelar, você mantém o acesso até o fim do teste e nenhuma cobrança será feita. Atenção: se assinar novamente depois, a cobrança será imediata — você não terá um novo teste grátis.'
+      : 'Sua assinatura será cancelada e nenhuma cobrança futura será feita. Você continuará tendo acesso até o fim do período já pago.';
+  }
   if (modal) modal.style.display = 'flex';
 }
 
