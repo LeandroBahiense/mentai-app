@@ -11,6 +11,11 @@
 
 import { timingSafeEqual } from 'crypto';
 import { sendPlanoAtivadoByUserId, sendPlanoAtivadoByCustomerId } from '../_lib/email.js';
+import { parsePlanFromSku } from '../_lib/plans.js';
+
+// Marker de cobrança avulsa da diferença de upgrade (Bloco C). NÃO é evento de
+// plano — é receita pontual. O webhook ignora (não toca plano/validade).
+const DIFF_MARKER_SKU = 'plan_upgrade_diff';
 
 const SUPABASE_URL        = process.env.SUPABASE_URL;
 const SUPABASE_SVC_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -36,35 +41,7 @@ function safeEqual(a, b) {
   try { return timingSafeEqual(bufA, bufB); } catch { return false; }
 }
 
-// ── Parser primário: externalReference = "userId|sku" ─────────────────────────
-// Ex: "abc123|companion-pro-mensal"  →  { plano: 'companion-pro', meses: 1 }
-//     "abc123|segundo-cerebro-ultra-anual" → { plano: 'segundo-cerebro-ultra', meses: 12 }
-
-function parsePlanFromSku(sku) {
-  if (!sku) return null;
-
-  const isAnual = sku.endsWith('-anual');
-  const isMensal = sku.endsWith('-mensal');
-  if (!isAnual && !isMensal) return null;
-
-  const meses = isAnual ? 12 : 1;
-  const plano = isAnual ? sku.slice(0, -6) : sku.slice(0, -7); // remove '-anual' ou '-mensal'
-
-  const PLANOS_VALIDOS = [
-    'companion-essencial', 'companion-pro', 'companion-ultra',
-    'segundo-cerebro-essencial', 'segundo-cerebro-pro', 'segundo-cerebro-ultra',
-    'coletivo-team', 'coletivo-business', 'coletivo-enterprise',
-    'duo-essencial', 'duo-pro', 'duo-ultra',
-    // Novo catálogo Pallyum (01/06/2026)
-    'essencial', 'pro', 'ultra',
-  ];
-  if (!PLANOS_VALIDOS.includes(plano)) {
-    console.warn(`ASAAS WEBHOOK: plano "${plano}" não reconhecido (sku=${sku})`);
-    return null;
-  }
-
-  return { plano, meses };
-}
+// parsePlanFromSku foi movido para ../_lib/plans.js (fonte única) — importado acima.
 
 // ── Parser fallback: description = "Pallyum {Label} — {Período}" ──────────────
 function parsePlanFromDescription(description) {
@@ -444,6 +421,13 @@ export default async function handler(req, res) {
     const customerId     = payment.customer;
 
     const resolved = await resolveUserAndSku(payment);
+
+    // Guard Bloco C: cobrança avulsa da diferença de upgrade — receita, não plano.
+    if (resolved && resolved.refSku === DIFF_MARKER_SKU) {
+      console.log(`ASAAS WEBHOOK: ignorando ${event?.event} de diferença de upgrade (plan_upgrade_diff) | uid=${resolved.refUserId} — sem tocar plano/validade`);
+      return res.status(200).json({ ok: true, source: 'plan_upgrade_diff', event_type: event?.event });
+    }
+
     if (resolved) {
       const parsed = parsePlanFromSku(resolved.refSku);
       if (parsed) {
@@ -481,6 +465,13 @@ export default async function handler(req, res) {
     // ── Fonte primária: resolvedor unificado ──────────────────────────────────
     // externalReference (payload) → GET assinatura (externalReference) → checkout_sessions
     const resolved = await resolveUserAndSku(payment);
+
+    // Guard Bloco C: cobrança avulsa da diferença de upgrade — receita, não plano.
+    if (resolved && resolved.refSku === DIFF_MARKER_SKU) {
+      console.log(`ASAAS WEBHOOK: ignorando ${event?.event} de diferença de upgrade (plan_upgrade_diff) | uid=${resolved.refUserId} — sem tocar plano/validade`);
+      return res.status(200).json({ ok: true, source: 'plan_upgrade_diff', event_type: event?.event });
+    }
+
     if (resolved) {
       const parsed = parsePlanFromSku(resolved.refSku);
 
