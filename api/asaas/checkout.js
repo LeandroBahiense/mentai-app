@@ -191,7 +191,28 @@ export default async function handler(req, res) {
   // SUBSCRIPTION_CREATED), antes de qualquer cobrança efetiva.
   // endDate = 10 anos no futuro (assinatura "sem fim" — Asaas exige o campo).
   // +7 dias em ms; formatAsaasDate extrai os componentes em horário SP — sem bug UTC.
-  const nextDue = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  // --- Bloco B: "no second trial" — se o usuário já usou trial, 1ª cobrança HOJE (sem nova janela grátis) ---
+  let _jaUsouTrial = false;
+  try {
+    const _prefRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}&select=is_trial`,
+      { headers: svcHeaders() }
+    );
+    if (_prefRes.ok) {
+      const _rows = await _prefRes.json();
+      const _isTrialVal = _rows?.[0]?.is_trial;
+      _jaUsouTrial = (_isTrialVal !== null && _isTrialVal !== undefined);
+    }
+  } catch (e) {
+    console.warn('[checkout][Bloco B] lookup is_trial falhou, mantendo trial:', e.message);
+  }
+
+  // nextDueDate = data da 1ª cobrança. Trial novo → D+7. Já usou trial → HOJE (cobrança imediata).
+  const nextDue = _jaUsouTrial
+    ? new Date()
+    : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  console.log('[checkout][Bloco B] uid=' + uid + ' jaUsouTrial=' + _jaUsouTrial + ' → nextDue=' + nextDue.toISOString());
+
   const endDate = new Date();
   endDate.setFullYear(endDate.getFullYear() + 10);
 
