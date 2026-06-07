@@ -9,6 +9,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'crypto';
+import { SKUS } from '../_lib/plans.js';
 
 const ASAAS_API_KEY  = process.env.ASAAS_API_KEY;
 const ASAAS_BASE_URL = process.env.ASAAS_ENV === 'production'
@@ -53,48 +54,8 @@ function readSession(req) {
 }
 
 // ── Tabela de SKUs ─────────────────────────────────────────────────────────────
-// Chave: "{produto}-{tier}-{periodo}"
-const SKUS = {
-  // Companion (mensal)
-  'companion-essencial-mensal':       { value: 29.00,   plano: 'companion-essencial'       },
-  'companion-pro-mensal':             { value: 59.00,   plano: 'companion-pro'             },
-  'companion-ultra-mensal':           { value: 89.00,   plano: 'companion-ultra'           },
-  // Companion (anual)
-  'companion-essencial-anual':        { value: 300.00,  plano: 'companion-essencial'       },
-  'companion-pro-anual':              { value: 600.00,  plano: 'companion-pro'             },
-  'companion-ultra-anual':            { value: 900.00,  plano: 'companion-ultra'           },
-
-  // Segundo Cérebro (mensal)
-  'segundo-cerebro-essencial-mensal': { value: 59.00,   plano: 'segundo-cerebro-essencial' },
-  'segundo-cerebro-pro-mensal':       { value: 99.00,   plano: 'segundo-cerebro-pro'       },
-  'segundo-cerebro-ultra-mensal':     { value: 169.00,  plano: 'segundo-cerebro-ultra'     },
-  // Segundo Cérebro (anual)
-  'segundo-cerebro-essencial-anual':  { value: 600.00,  plano: 'segundo-cerebro-essencial' },
-  'segundo-cerebro-pro-anual':        { value: 1000.00, plano: 'segundo-cerebro-pro'       },
-  'segundo-cerebro-ultra-anual':      { value: 1700.00, plano: 'segundo-cerebro-ultra'     },
-
-  // Coletivo (mensal)
-  'coletivo-team-mensal':             { value: 399.00,  plano: 'coletivo-team'             },
-  'coletivo-business-mensal':         { value: 699.00,  plano: 'coletivo-business'         },
-  // Coletivo (anual)
-  'coletivo-team-anual':              { value: 4000.00, plano: 'coletivo-team'             },
-  'coletivo-business-anual':          { value: 7000.00, plano: 'coletivo-business'         },
-
-  // Duo Essencial
-  'duo-essencial-mensal':             { value: 79.00,   plano: 'duo-essencial'             },
-  'duo-essencial-anual':              { value: 790.00,  plano: 'duo-essencial'             },
-  // Duo Pro
-  'duo-pro-mensal':                   { value: 139.00,  plano: 'duo-pro'                   },
-  'duo-pro-anual':                    { value: 1390.00, plano: 'duo-pro'                   },
-  // Duo Ultra
-  'duo-ultra-mensal':                 { value: 229.00,  plano: 'duo-ultra'                 },
-  'duo-ultra-anual':                  { value: 2290.00, plano: 'duo-ultra'                 },
-
-  // Novo catálogo Pallyum (01/06/2026)
-  'essencial-mensal':                 { value:  39.00,  plano: 'essencial'                 },
-  'pro-mensal':                       { value:  69.00,  plano: 'pro'                       },
-  'ultra-mensal':                     { value:  99.00,  plano: 'ultra'                     },
-};
+// Fonte única de PREÇOS/plano vive em _lib/plans.js (importada aqui).
+// Direção do import: rota → lib (sem ciclo). SKU_NAMES (display) segue local.
 
 // ── Nomes curtos por SKU (max 30 chars — limite Asaas) ────────────────────────
 const SKU_NAMES = {
