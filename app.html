@@ -1406,6 +1406,46 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   </div>
 </div>
 
+<!-- Modal: troca de plano (Bloco C) — espelha o shell do cancel-subscription-modal -->
+<div id="plan-change-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:14px;text-align:center;">
+
+    <!-- Estado: confirm -->
+    <div id="pc-state-confirm" style="display:flex;flex-direction:column;gap:14px;align-items:center;">
+      <div style="font-size:40px;line-height:1;">🔁</div>
+      <div id="pc-title" style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);"></div>
+      <div id="pc-text" style="font-size:13px;color:var(--text2);line-height:1.6;"></div>
+      <div style="display:flex;gap:8px;width:100%;margin-top:4px;">
+        <button onclick="closePlanChangeModal()" class="ss-btn" style="flex:1;">Cancelar</button>
+        <button onclick="confirmPlanChange()" class="ss-btn primary" style="flex:1;">Confirmar</button>
+      </div>
+    </div>
+
+    <!-- Estado: loading -->
+    <div id="pc-state-loading" style="display:none;flex-direction:column;gap:14px;align-items:center;">
+      <div class="checkout-spinner"></div>
+      <div style="font-size:14px;color:var(--text2);">Processando…</div>
+    </div>
+
+    <!-- Estado: success -->
+    <div id="pc-state-success" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%;">
+      <div style="font-size:48px;line-height:1;">✓</div>
+      <div id="pc-success-title" style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);"></div>
+      <div id="pc-success-text" style="font-size:13px;color:var(--text2);line-height:1.6;"></div>
+      <button onclick="closePlanChangeModal(true)" class="ss-btn primary" style="width:100%;margin-top:4px;">Fechar</button>
+    </div>
+
+    <!-- Estado: error -->
+    <div id="pc-state-error" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%;">
+      <div style="font-size:40px;line-height:1;">⚠️</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Não foi possível trocar</div>
+      <div id="pc-error-text" style="font-size:13px;color:var(--text2);line-height:1.5;"></div>
+      <button onclick="closePlanChangeModal()" class="ss-btn primary" style="width:100%;margin-top:4px;">Fechar</button>
+    </div>
+
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════
@@ -1413,6 +1453,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 // ══════════════════════════════════════════════════════════════════
 let currentUser = null;
 let _isTrialPlan = false; // estado: o plano atual é trial? (gravado em renderSubscriptionStatus)
+let _pendingTarget = null; // plano-alvo pendente de confirmação no modal de troca (Bloco C)
 let _supabase   = null;
 let _authMode   = 'login'; // 'login' | 'signup'
 let _recoveryEmail = null; // email do fluxo de redefinição de senha (código de 6 dígitos)
@@ -2089,19 +2130,14 @@ async function iniciarCheckout(planoId, ev) {
     if (btn) { btn.textContent = originalText; btn.disabled = false; }
     return;
   }
-  if (_canCancel) {
+  // Trial: bloqueio mantido (modal locked). NÃO mexer.
+  if (_canCancel && _isTrial) {
     const _ico = document.getElementById('checkout-locked-icon');
     const _tit = document.getElementById('checkout-locked-title');
     const _txt = document.getElementById('checkout-locked-text');
-    if (_isTrial) {
-      if (_ico) _ico.textContent = '🔒';
-      if (_tit) _tit.textContent = 'Troca bloqueada no teste grátis';
-      if (_txt) _txt.textContent = 'Durante o teste grátis não é possível trocar de plano. Aguarde o fim do teste para escolher outro.';
-    } else {
-      if (_ico) _ico.textContent = '🔜';
-      if (_tit) _tit.textContent = 'Troca de plano em breve';
-      if (_txt) _txt.textContent = 'Com uma assinatura ativa ainda não é possível trocar de plano por aqui. Essa opção chega em breve.';
-    }
+    if (_ico) _ico.textContent = '🔒';
+    if (_tit) _tit.textContent = 'Troca bloqueada no teste grátis';
+    if (_txt) _txt.textContent = 'Durante o teste grátis não é possível trocar de plano. Aguarde o fim do teste para escolher outro.';
     ['confirming','confirmed','timeout','cancel','expired','locked'].forEach(s => {
       const el = document.getElementById('checkout-state-' + s);
       if (el) el.style.display = 'none';
@@ -2110,6 +2146,68 @@ async function iniciarCheckout(planoId, ev) {
     if (_locked) _locked.style.display = 'flex';
     const _modal = document.getElementById('checkout-result-modal');
     if (_modal) _modal.style.display = 'flex';
+    if (btn) { btn.textContent = originalText; btn.disabled = false; }
+    return;
+  }
+
+  // Pagante ativo (não-trial): fluxo de troca de plano (Bloco C) — preview + confirmação.
+  if (_canCancel && !_isTrial) {
+    let preview = null;
+    try {
+      const pr = await fetch('/api/asaas/plan-change-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ targetPlano: planoId }),
+      });
+      preview = pr.ok ? await pr.json() : null;
+    } catch (e) { preview = null; }
+
+    if (!preview) {
+      showAdminToast('Não consegui calcular a troca agora. Tente de novo.', 'err');
+      if (btn) { btn.textContent = originalText; btn.disabled = false; }
+      return;
+    }
+
+    const targetLabel  = (PLAN_LABELS[planoId] || { label: planoId }).label;
+    const currentLabel = (PLAN_LABELS[preview.currentPlano] || { label: preview.currentPlano }).label;
+    const brl = (v) => Number(v).toFixed(2).replace('.', ',');
+
+    if (preview.direction === 'same') {
+      showAdminToast('Esse já é o seu plano atual.', 'warn');
+      if (btn) { btn.textContent = originalText; btn.disabled = false; }
+      return;
+    }
+
+    if (preview.direction === 'upgrade') {
+      _pendingTarget = planoId;
+      document.getElementById('pc-title').textContent = `Upgrade para ${targetLabel}`;
+      document.getElementById('pc-text').textContent = preview.chargeWaived
+        ? `Sem cobrança agora (diferença mínima). A partir do próximo mês, R$ ${brl(preview.priceTarget)}/mês.`
+        : `Você paga R$ ${brl(preview.difference)} agora, proporcional aos dias restantes do ciclo, no cartão cadastrado. A partir do próximo mês, R$ ${brl(preview.priceTarget)}/mês.`;
+      setPlanChangeState('confirm');
+      const m = document.getElementById('plan-change-modal');
+      if (m) m.style.display = 'flex';
+      if (btn) { btn.textContent = originalText; btn.disabled = false; }
+      return;
+    }
+
+    if (preview.direction === 'downgrade') {
+      _pendingTarget = planoId;
+      let dataStr = '';
+      try { dataStr = new Date(preview.nextDueDate).toLocaleDateString('pt-BR'); } catch { dataStr = preview.nextDueDate; }
+      document.getElementById('pc-title').textContent = `Mudar para ${targetLabel}`;
+      document.getElementById('pc-text').textContent =
+        `Nenhuma cobrança agora. A mudança vale a partir do próximo ciclo, em ${dataStr}. Até lá você mantém o ${currentLabel}.`;
+      setPlanChangeState('confirm');
+      const m = document.getElementById('plan-change-modal');
+      if (m) m.style.display = 'flex';
+      if (btn) { btn.textContent = originalText; btn.disabled = false; }
+      return;
+    }
+
+    // direção inesperada → não arrisca; reabilita e sai.
+    showAdminToast('Não consegui calcular a troca agora. Tente de novo.', 'err');
     if (btn) { btn.textContent = originalText; btn.disabled = false; }
     return;
   }
@@ -2380,6 +2478,80 @@ async function cancelSubscription() {
       errorEl.style.display = 'flex';
     }
   }
+}
+
+// ── Troca de plano (Bloco C) ─────────────────────────────────────────────────
+function setPlanChangeState(state) {
+  ['confirm','loading','success','error'].forEach(s => {
+    const el = document.getElementById('pc-state-' + s);
+    if (el) el.style.display = 'none';
+  });
+  const target = document.getElementById('pc-state-' + state);
+  if (target) target.style.display = 'flex';
+}
+
+function closePlanChangeModal(refresh) {
+  const modal = document.getElementById('plan-change-modal');
+  if (modal) modal.style.display = 'none';
+  setPlanChangeState('confirm'); // reseta o shell pro próximo uso
+  if (refresh && typeof loadPlanInfo === 'function') loadPlanInfo();
+}
+
+async function confirmPlanChange() {
+  if (!_pendingTarget) return;
+  setPlanChangeState('loading');
+
+  let data = null, ok = false;
+  try {
+    const resp = await fetch('/api/asaas/plan-change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ targetPlano: _pendingTarget }),
+    });
+    ok = resp.ok;
+    data = await resp.json().catch(() => null);
+  } catch (e) { ok = false; data = null; }
+
+  if (ok && data && data.result === 'upgrade') {
+    const label = (PLAN_LABELS[data.plano] || { label: data.plano }).label;
+    document.getElementById('pc-success-title').textContent = 'Upgrade concluído';
+    document.getElementById('pc-success-text').textContent  = `Você agora está no ${label}.`;
+    setPlanChangeState('success');
+    return;
+  }
+
+  if (ok && data && data.result === 'downgrade') {
+    const label = (PLAN_LABELS[data.plano_agendado] || { label: data.plano_agendado }).label;
+    let dataStr = '';
+    try { dataStr = new Date(data.effectiveDate).toLocaleDateString('pt-BR'); } catch { dataStr = data.effectiveDate; }
+    document.getElementById('pc-success-title').textContent = 'Mudança agendada';
+    document.getElementById('pc-success-text').textContent  = `Você muda para ${label} em ${dataStr}.`;
+    setPlanChangeState('success');
+    return;
+  }
+
+  // 'undo'/'noop' (sem efeito visível de troca) também caem como sucesso neutro.
+  if (ok && data && (data.result === 'undo' || data.result === 'noop')) {
+    document.getElementById('pc-success-title').textContent = 'Tudo certo';
+    document.getElementById('pc-success-text').textContent  = 'Seu plano foi atualizado.';
+    setPlanChangeState('success');
+    return;
+  }
+
+  // Erro: mensagem por código.
+  const code = data && data.code;
+  let msg;
+  switch (code) {
+    case 'charge_failed':       msg = 'Não foi possível cobrar a diferença no seu cartão. Nenhuma alteração foi feita.'; break;
+    case 'no_card_token':       msg = 'Não encontramos um cartão salvo na sua assinatura. Tente de novo ou fale com o suporte.'; break;
+    case 'plan_change_partial': msg = 'O pagamento foi feito, mas houve um problema ao aplicar. Fale com o suporte se algo parecer errado.'; break;
+    case 'trial_cannot_change': msg = 'Durante o teste grátis não é possível trocar de plano.'; break;
+    default:                    msg = 'Não foi possível concluir a troca agora. Tente novamente.';
+  }
+  const txtEl = document.getElementById('pc-error-text');
+  if (txtEl) txtEl.textContent = msg;
+  setPlanChangeState('error');
 }
 
 // ── Admin Cérebro Coletivo ────────────────────────────────────────────────────
