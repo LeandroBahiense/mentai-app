@@ -52,7 +52,7 @@ export const SKUS = {
   'ultra-mensal':                     { value:  99.00,  plano: 'ultra'                     },
 };
 
-function dataHojeSP() {
+export function dataHojeSP() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 }
 function dataSPdiasAtras(dias) {
@@ -112,6 +112,37 @@ export function prorationDiff({ currentPlano, targetPlano, nextDueDate }) {
   if (diff < 0)   diff = 0;
 
   return { diff, chargeWaived: (diff > 0 && diff < PRORATION_FLOOR) };
+}
+
+// ── Parser de SKU → { plano, meses } ─────────────────────────────────────────
+// Fonte única (movido de api/asaas/webhook.js). externalReference = "userId|sku".
+// Ex: "abc123|companion-pro-mensal"  →  { plano: 'companion-pro', meses: 1 }
+//     "abc123|segundo-cerebro-ultra-anual" → { plano: 'segundo-cerebro-ultra', meses: 12 }
+// Retorna null se o SKU não tiver período (-mensal/-anual) ou plano desconhecido.
+export function parsePlanFromSku(sku) {
+  if (!sku) return null;
+
+  const isAnual = sku.endsWith('-anual');
+  const isMensal = sku.endsWith('-mensal');
+  if (!isAnual && !isMensal) return null;
+
+  const meses = isAnual ? 12 : 1;
+  const plano = isAnual ? sku.slice(0, -6) : sku.slice(0, -7); // remove '-anual' ou '-mensal'
+
+  const PLANOS_VALIDOS = [
+    'companion-essencial', 'companion-pro', 'companion-ultra',
+    'segundo-cerebro-essencial', 'segundo-cerebro-pro', 'segundo-cerebro-ultra',
+    'coletivo-team', 'coletivo-business', 'coletivo-enterprise',
+    'duo-essencial', 'duo-pro', 'duo-ultra',
+    // Novo catálogo Pallyum (01/06/2026)
+    'essencial', 'pro', 'ultra',
+  ];
+  if (!PLANOS_VALIDOS.includes(plano)) {
+    console.warn(`ASAAS WEBHOOK: plano "${plano}" não reconhecido (sku=${sku})`);
+    return null;
+  }
+
+  return { plano, meses };
 }
 
 // ── Mapeamento de plano → modelo Claude ──────────────────────
