@@ -14,9 +14,15 @@
  */
 
 import { createHmac, timingSafeEqual } from 'crypto';
+import { parsePlanFromSku } from '../_lib/plans.js';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const ASAAS_API_KEY  = process.env.ASAAS_API_KEY;
+const ASAAS_BASE_URL = process.env.ASAAS_ENV === 'production'
+  ? 'https://api.asaas.com/v3'
+  : 'https://sandbox.asaas.com/api/v3';
 
 // ── Helpers de sessão — CÓPIA LITERAL de api/asaas/checkout.js ───────────────
 
@@ -73,17 +79,42 @@ export default async function handler(req, res) {
     if (!resp.ok) {
       console.error('[subscription-status] query falhou:', resp.status);
       // Falha segura: não mostrar botão de cancelamento
-      return res.status(200).json({ canCancel: false });
+      return res.status(200).json({ canCancel: false, scheduledPlano: null, nextDueDate: null });
     }
 
     const rows = await resp.json();
-    const canCancel = !!(rows?.[0]?.asaas_subscription_id);
+    const subscriptionId = rows?.[0]?.asaas_subscription_id || null;
+    const canCancel = !!subscriptionId;
 
-    return res.status(200).json({ canCancel });
+    // Plano AGENDADO da assinatura (o que será cobrado no próximo ciclo) + data.
+    // Read-only: GET na assinatura Asaas. Falha aqui NÃO derruba canCancel — só
+    // deixa os campos novos null (front cai no comportamento sem-agendamento).
+    let scheduledPlano = null;
+    let nextDueDate    = null;
+    if (subscriptionId) {
+      try {
+        const subRes = await fetch(
+          `${ASAAS_BASE_URL}/subscriptions/${encodeURIComponent(subscriptionId)}`,
+          { headers: { 'Content-Type': 'application/json', 'access_token': ASAAS_API_KEY } }
+        );
+        if (subRes.ok) {
+          const subData = await subRes.json();
+          nextDueDate    = subData?.nextDueDate || null;
+          const sku      = (subData?.externalReference || '').split('|')[1] || '';
+          scheduledPlano = parsePlanFromSku(sku)?.plano || null;
+        } else {
+          console.error('[subscription-status] GET subscription Asaas retornou', subRes.status);
+        }
+      } catch (e) {
+        console.error('[subscription-status] GET subscription Asaas erro:', e.message);
+      }
+    }
+
+    return res.status(200).json({ canCancel, scheduledPlano, nextDueDate });
 
   } catch (e) {
     console.error('[subscription-status] erro inesperado:', e.message);
     // Falha segura: não mostrar botão
-    return res.status(200).json({ canCancel: false });
+    return res.status(200).json({ canCancel: false, scheduledPlano: null, nextDueDate: null });
   }
 }
