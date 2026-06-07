@@ -1314,6 +1314,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       </div>
     </div>
 
+    <!-- Estado: locked (Bloco B — troca de plano bloqueada) -->
+    <div id="checkout-state-locked" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%;">
+      <div id="checkout-locked-icon" style="font-size:40px;line-height:1;">🔒</div>
+      <div id="checkout-locked-title" style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);"></div>
+      <div id="checkout-locked-text" style="font-size:13px;color:var(--text2);line-height:1.5;"></div>
+      <button onclick="closeCheckoutResultModal(false)" class="ss-btn primary" style="width:100%;margin-top:6px;">Entendi</button>
+    </div>
+
   </div>
 </div>
 
@@ -2082,9 +2090,26 @@ async function iniciarCheckout(planoId, ev) {
     return;
   }
   if (_canCancel) {
-    showAdminToast(_isTrial
-      ? 'Durante o teste grátis não é possível trocar de plano. Aguarde o fim do teste para escolher outro.'
-      : 'A troca de plano (upgrade/downgrade) chega em breve. Com uma assinatura ativa ainda não é possível trocar por aqui.', 'warn');
+    const _ico = document.getElementById('checkout-locked-icon');
+    const _tit = document.getElementById('checkout-locked-title');
+    const _txt = document.getElementById('checkout-locked-text');
+    if (_isTrial) {
+      if (_ico) _ico.textContent = '🔒';
+      if (_tit) _tit.textContent = 'Troca bloqueada no teste grátis';
+      if (_txt) _txt.textContent = 'Durante o teste grátis não é possível trocar de plano. Aguarde o fim do teste para escolher outro.';
+    } else {
+      if (_ico) _ico.textContent = '🔜';
+      if (_tit) _tit.textContent = 'Troca de plano em breve';
+      if (_txt) _txt.textContent = 'Com uma assinatura ativa ainda não é possível trocar de plano por aqui. Essa opção chega em breve.';
+    }
+    ['confirming','confirmed','timeout','cancel','expired','locked'].forEach(s => {
+      const el = document.getElementById('checkout-state-' + s);
+      if (el) el.style.display = 'none';
+    });
+    const _locked = document.getElementById('checkout-state-locked');
+    if (_locked) _locked.style.display = 'flex';
+    const _modal = document.getElementById('checkout-result-modal');
+    if (_modal) _modal.style.display = 'flex';
     if (btn) { btn.textContent = originalText; btn.disabled = false; }
     return;
   }
