@@ -200,13 +200,19 @@ export async function deleteNote(title) {
     { headers: googleSbHeaders() }
   );
   const notes = await res.json();
-  console.log('NOTE DELETE SEARCH:', JSON.stringify(notes));
+  console.log('NOTE TRASH SEARCH:', JSON.stringify(notes));
   if (!Array.isArray(notes) || notes.length === 0) return false;
 
-  const del = await fetch(
+  // Soft-delete: move pra lixeira (in_trash + deleted_at), idêntico ao app web.
+  // Hard DELETE é barrado no banco e a web ressuscitaria a nota via sync.
+  const patch = await fetch(
     SUPABASE_URL + '/rest/v1/notes?id=eq.' + encodeURIComponent(notes[0].id),
-    { method: 'DELETE', headers: googleSbHeaders() }
+    {
+      method: 'PATCH',
+      headers: { ...googleSbHeaders(), 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ in_trash: true, deleted_at: new Date().toISOString() }),
+    }
   );
-  console.log('NOTE DELETE STATUS:', del.status, '|', title);
-  return del.status >= 200 && del.status < 300;
+  console.log('NOTE TRASH STATUS:', patch.status, '|', title);
+  return patch.status >= 200 && patch.status < 300;
 }
