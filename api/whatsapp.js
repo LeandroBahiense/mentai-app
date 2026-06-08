@@ -1232,8 +1232,8 @@ export default async function handler(req, res) {
           const ok = await updateNote(inp.title, inp.content || userMessage, userId);
           actionConfirm += ok ? ('📝 Nota "' + inp.title + '" atualizada.\n') : ('⚠️ Não encontrei a nota "' + inp.title + '".\n');
         } else if (tu.name === 'apagar_nota') {
-          await deleteNote(inp.title);
-          actionConfirm += '🗑️ Nota "' + inp.title + '" apagada.\n';
+          const okDel = await deleteNote(inp.title);
+          actionConfirm += okDel ? ('🗑️ Nota "' + inp.title + '" movida para a lixeira.\n') : ('⚠️ Não encontrei a nota "' + inp.title + '".\n');
         } else if (tu.name === 'criar_evento' || tu.name === 'atualizar_evento' || tu.name === 'apagar_evento') {
           if (!accessToken) {
             if (accounts.length === 0) {
