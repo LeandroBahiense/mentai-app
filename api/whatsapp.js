@@ -1,4 +1,4 @@
-import { getModelForUser, calculateCooldown, trackUsage, routeModel } from './_lib/plans.js';
+import { getModelForUser, calculateCooldown, trackUsage, routeModel, checkVisionQuota, incrementVisionUsage } from './_lib/plans.js';
 import { searchRelevantNotes, buildRagContext, indexNote } from './_lib/embeddings.js';
 import { createHmac, timingSafeEqual } from 'crypto';
 
@@ -921,6 +921,143 @@ const NOTE_TOOLS = [
   }
 ];
 
+// ─── Vision (imagem→agenda/nota) — helpers ──────────────────────────────────
+
+// Tool que PROPÕE um evento a partir da imagem (não cria; criação só após "sim").
+const PROPOR_EVENTO_TOOL = {
+  name: 'propor_evento',
+  description: 'Use quando o usuário enviar uma IMAGEM e pedir para criar evento/agenda/compromisso a partir dela. Extrai os dados e PROPÕE — NUNCA cria direto. A criação ocorre só após confirmação explícita do usuário.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      title:    { type: 'string', description: 'Título curto do evento lido na imagem.' },
+      datetime: { type: 'string', description: 'Início em ISO com fuso de Brasília, ex: "2026-06-29T19:30:00-03:00". Use a tabela de datas do sistema para resolver datas/dias relativos.' },
+      local:    { type: 'string', description: 'Opcional. Local/endereço do evento, se aparecer na imagem.' },
+      confianca:{ type: 'string', enum: ['alta', 'baixa'], description: 'baixa se a imagem estiver ilegível ou a data/hora estiver incerta.' },
+    },
+    required: ['title', 'datetime'],
+  },
+};
+
+// Detecta se a legenda da imagem pede para LER o conteúdo (Vision) — agenda ou nota-conteúdo.
+// Sem legenda → false (storage puro). Regex léxico (mesma família do G-28): ajustável.
+function _temIntencaoVision(texto) {
+  const t = (texto || '').toLowerCase().trim();
+  if (!t) return false;
+  const agenda = /(agend|evento|compromisso|reuni[ãa]o|marcar?\b|p[õo]e.*(agenda|calend)|adicion.*(agenda|calend))/.test(t);
+  const notaConteudo = /(informa[çc]|conte[úu]do|dados|extra[ií]|transcrev|resum|\bler\b|\bleia\b|\bl[êe]\b|o que (tem|diz|est[áa]))/.test(t);
+  return agenda || notaConteudo;
+}
+
+// Formata um ISO em "DD/MM às HH:MM" no fuso de Brasília (mensagem de confirmação).
+function _fmtDataHoraBR(iso) {
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: USER_TZ, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(d).replace(',', ' às');
+  } catch (e) { return iso; }
+}
+
+// Baixa a mídia do Twilio (auth Basic) uma única vez e devolve buffer + base64.
+async function fetchTwilioMediaBase64(mediaUrl) {
+  const auth = Buffer.from(TWILIO_SID + ':' + TWILIO_TOKEN).toString('base64');
+  const r = await fetch(mediaUrl, { headers: { 'Authorization': 'Basic ' + auth } });
+  if (!r.ok) throw new Error('Erro ao baixar mídia do Twilio: ' + r.status);
+  const buffer = Buffer.from(await r.arrayBuffer());
+  return { buffer, base64: buffer.toString('base64') };
+}
+
+// Lê a proposta pendente não-expirada do usuário (ou null).
+async function getVisionPending(userId) {
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/vision_pending?user_id=eq.' + encodeURIComponent(userId) +
+      '&expires_at=gt.' + encodeURIComponent(new Date().toISOString()) +
+      '&select=kind,payload,confidence&limit=1',
+    { headers: googleSbHeaders() }
+  );
+  const data = await res.json();
+  return Array.isArray(data) && data.length > 0 ? data[0] : null;
+}
+
+// Grava/atualiza a proposta pendente (1 por usuário; sobrescreve). TTL em minutos (default 15).
+async function setVisionPending(userId, kind, payload, confidence, ttlMinutes) {
+  const expiresAt = new Date(Date.now() + (ttlMinutes || 15) * 60000).toISOString();
+  await fetch(
+    SUPABASE_URL + '/rest/v1/vision_pending?on_conflict=user_id',
+    {
+      method: 'POST',
+      headers: { ...googleSbHeaders(), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({
+        user_id:    userId,
+        kind:       kind,
+        payload:    payload,
+        confidence: confidence || null,
+        created_at: new Date().toISOString(),
+        expires_at: expiresAt,
+      }),
+    }
+  );
+}
+
+// Apaga a proposta pendente do usuário.
+async function clearVisionPending(userId) {
+  await fetch(
+    SUPABASE_URL + '/rest/v1/vision_pending?user_id=eq.' + encodeURIComponent(userId),
+    { method: 'DELETE', headers: googleSbHeaders() }
+  );
+}
+
+// Sobe a mídia ao Storage e cria a linha em `files` vinculada a UMA nota específica
+// (noteId explícito — corrige o "anexa à nota mais recente" do uploadMediaToStorage).
+async function persistMediaToNote({ buffer, mediaType, phone, userId, noteId }) {
+  const ext       = mimeToExt(mediaType);
+  const timestamp = Date.now();
+  const folder    = userId || ('phone-' + phone.replace(/\D/g, ''));
+  const path      = folder + '/whatsapp/' + timestamp + '.' + ext;
+
+  const storageUrl = SUPABASE_URL + '/storage/v1/object/mentai-files/' + path;
+  const upRes = await fetch(storageUrl, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
+      'Content-Type':  mediaType,
+      'x-upsert':      'true',
+    },
+    body: buffer,
+  });
+  if (!upRes.ok) {
+    const upErr = await upRes.text();
+    throw new Error('Erro no upload Storage: ' + upRes.status + ' ' + upErr);
+  }
+
+  const fileId   = 'wa-' + timestamp;
+  const filename = timestamp + '.' + ext;
+  await fetch(SUPABASE_URL + '/rest/v1/files', {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'apikey':        SUPABASE_SERVICE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
+      'Prefer':        'return=minimal',
+    },
+    body: JSON.stringify({
+      id:         fileId,
+      note_id:    noteId,
+      user_id:    userId || null,
+      name:       filename,
+      size:       buffer.byteLength,
+      mime_type:  mediaType,
+      path:       path,
+      url:        path,
+      created_at: new Date().toISOString(),
+    }),
+  });
+  return fileId;
+}
+
 // ─── Handler Principal ───────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -1080,13 +1217,169 @@ export default async function handler(req, res) {
       if (cooldown > 0) await sleep(cooldown);
     }
 
-    // ── Upload de imagem / documento (agora com userId resolvido) ─────────
+    // ── Confirmação de proposta Vision pendente (turn "sim"/"não", só texto) ──
+    if (!hasMedia) {
+      const _pend = await getVisionPending(userId);
+      if (_pend && _pend.kind === 'evento') {
+        const _tC = (userMessage || '').toLowerCase().trim();
+        const _afirma = _tC === '👍' || _tC === '✅' ||
+          /^(sim|s|isso|ok|okay|claro|confirmo|confirmar|pode|pode criar|cria|criar|manda|bora|positivo)\b/.test(_tC);
+        const _nega = /^(n[ãa]o|nao|n|cancela|cancelar|deixa|esquece|para|negativo)\b/.test(_tC);
+        if (_afirma) {
+          const _pl = _pend.payload || {};
+          let _tkC = null;
+          try {
+            const _accC = await getAllGoogleAccounts(userId, phone);
+            const _ord = (_accC || []).slice().sort(function (a, b) { return (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0); });
+            for (const _acc of _ord) { try { _tkC = await ensureAccountToken(_acc); break; } catch (e) { console.error('CONFIRM TOKEN FAIL:', e.message); } }
+          } catch (e) { console.error('CONFIRM ACCOUNTS ERR:', e.message); }
+          if (!_tkC) {
+            await clearVisionPending(userId);
+            await sendWhatsApp(phone, '⚠️ Conecte sua agenda Google no app e envie a imagem novamente.');
+            return res.status(200).send('OK');
+          }
+          const _descC = _pl.local ? ('Local: ' + _pl.local) : '';
+          let _confC = '';
+          try {
+            const _r = await createCalendarEvent(_tkC, _pl.title, _pl.datetime_iso, _descC);
+            _confC = (_r && _r.id) ? ('✅ "' + _pl.title + '" criado na sua agenda.') : ('⚠️ Não consegui criar "' + _pl.title + '".');
+          } catch (e) { console.error('CONFIRM CREATE ERR:', e.message); _confC = '⚠️ Erro ao criar o evento.'; }
+          await clearVisionPending(userId);
+          await saveMessage(phone, 'user', userMessage);
+          await saveMessage(phone, 'assistant', _confC);
+          await sendWhatsApp(phone, _confC);
+          return res.status(200).send('OK');
+        } else if (_nega) {
+          await clearVisionPending(userId);
+          const _negMsg = 'Ok, não criei nada. 👍';
+          await saveMessage(phone, 'user', userMessage);
+          await saveMessage(phone, 'assistant', _negMsg);
+          await sendWhatsApp(phone, _negMsg);
+          return res.status(200).send('OK');
+        }
+        // Nem sim nem não → mantém a proposta (TTL cuida) e segue o fluxo normal.
+      }
+    }
+
+    // ── Mídia recebida: rota Vision (imagem + intenção) OU storage puro ───
     if (hasMedia) {
+      const isImage = mediaType.startsWith('image/');
+      const visionIntent = isImage && _temIntencaoVision(userMessage);
+
+      if (visionIntent) {
+        try {
+          // 1) Gate de cota ANTES de qualquer inferência
+          const vq = await checkVisionQuota(userId);
+          if (!vq.allowed) {
+            const msgLimite = (vq.quota === 0)
+              ? 'A leitura de imagens (Vision) está disponível nos planos Pro e Ultra. Faça upgrade no app para usar. 📷'
+              : 'Você atingiu o limite de ' + vq.quota + ' imagens deste mês. O limite renova no início do próximo mês. 📷';
+            await sendWhatsApp(phone, msgLimite);
+            return res.status(200).send('OK');
+          }
+
+          // 2) Baixa a imagem uma vez (base64 pro modelo)
+          const visionImg = await fetchTwilioMediaBase64(mediaUrl);
+
+          // 3) System prompt focado em extração da imagem
+          const vAssistant = await getAssistantName(userId);
+          const vAgora = new Intl.DateTimeFormat('pt-BR', {
+            timeZone: USER_TZ, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: false,
+          }).format(new Date());
+          let vSystem = 'Você é o ' + vAssistant + ', assistente via WhatsApp. O usuário enviou uma IMAGEM com uma instrução. Leia a imagem e aja conforme a instrução. Responda em português, curto.\n\n';
+          vSystem += 'Data e hora atuais: ' + vAgora + '. Use para resolver datas e dias relativos.\n';
+          let vRef = 'Tabela de datas (use SEMPRE para converter dias da semana; nunca calcule de cabeça):\n';
+          const vBase = Date.now();
+          for (let i = 0; i <= 14; i++) {
+            const vd = new Date(vBase + i * 86400000);
+            const vds = new Intl.DateTimeFormat('pt-BR', { timeZone: USER_TZ, weekday: 'long' }).format(vd);
+            const vdf = new Intl.DateTimeFormat('pt-BR', { timeZone: USER_TZ, day: '2-digit', month: '2-digit', year: 'numeric' }).format(vd);
+            vRef += '- ' + (i === 0 ? vds + ' (hoje)' : vds) + ': ' + vdf + '\n';
+          }
+          vSystem += vRef + '\n';
+          vSystem += 'REGRAS:\n';
+          vSystem += '- Se a instrução for criar evento/agenda/compromisso a partir da imagem: use a ferramenta propor_evento (title curto; datetime em ISO com fuso de Brasília; local se aparecer). NUNCA crie o evento direto — propor_evento apenas PROPÕE; a criação ocorre após o usuário confirmar.\n';
+          vSystem += '- Se a instrução for criar uma nota com o conteúdo/informações da imagem: use criar_nota (title curto; content = as informações lidas na imagem, organizadas e legíveis; cluster apropriado).\n';
+          vSystem += '- Se a imagem estiver ilegível, ou faltar data/hora para um evento, NÃO invente: responda em texto pedindo uma foto mais nítida.\n';
+
+          // 4) Mensagem com content block de imagem (sem histórico)
+          const vUserText = userMessage || 'Aja conforme a imagem.';
+          const vMsgs = [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: mediaType, data: visionImg.base64 } },
+              { type: 'text', text: vUserText },
+            ],
+          }];
+
+          // 5) Chamada — só criar_nota + propor_evento; tool_choice AUTO (permite "não consegui ler")
+          const vTools = NOTE_TOOLS.filter(function (t) { return t.name === 'criar_nota'; }).concat([PROPOR_EVENTO_TOOL]);
+          const vModel = routeModel(req._pallyumModel, { isAction: true });
+          const vContent = await askClaudeTools(vSystem, vMsgs, vModel, vTools, undefined);
+
+          if (!vContent) {
+            await sendWhatsApp(phone, 'Não consegui processar a imagem agora. Tente novamente em instantes.');
+            return res.status(200).send('OK');
+          }
+
+          // 6) Inferência ocorreu → conta +1 (independe do caminho: nota ou agenda)
+          const vNovoTotal = await incrementVisionUsage(userId);
+          console.log('[VISION] model=' + vModel + ' | uso=' + vNovoTotal + '/' + vq.quota);
+
+          const vText = (vContent || []).filter(function (b) { return b && b.type === 'text'; }).map(function (b) { return b.text; }).join('\n');
+          const vToolUses = (vContent || []).filter(function (b) { return b && b.type === 'tool_use'; });
+          console.log('[VISION] tools=' + vToolUses.map(function (t) { return t.name; }).join(',') + ' | text=' + (vText || '').substring(0, 80));
+
+          // 7) Executa o resultado
+          let vReply = '';
+          if (vToolUses.length === 0) {
+            vReply = vText || 'Não consegui ler a imagem. Pode enviar uma foto mais nítida?';
+          } else {
+            for (const tu of vToolUses) {
+              const inp = tu.input || {};
+              try {
+                if (tu.name === 'criar_nota') {
+                  inp.user_id = userId;
+                  const noteId = await createNote(inp);
+                  if (noteId) {
+                    try {
+                      await persistMediaToNote({ buffer: visionImg.buffer, mediaType: mediaType, phone: phone, userId: userId, noteId: noteId });
+                    } catch (pe) { console.error('VISION PERSIST ERR:', pe.message); }
+                    vReply += '📝 Nota "' + (inp.title || '') + '" criada com o conteúdo da imagem (arquivo anexado).';
+                  } else {
+                    vReply += '⚠️ Não consegui criar a nota.';
+                  }
+                } else if (tu.name === 'propor_evento') {
+                  const vPayload = { title: inp.title, datetime_iso: inp.datetime, local: inp.local || null, account: null };
+                  await setVisionPending(userId, 'evento', vPayload, inp.confianca || null, 15);
+                  const vDataFmt = _fmtDataHoraBR(inp.datetime);
+                  const vLocal = inp.local ? (' — ' + inp.local) : '';
+                  const vAviso = (inp.confianca === 'baixa') ? '\n_(Não tenho certeza da leitura; confira a data/hora.)_' : '';
+                  vReply += 'Vou criar: *' + inp.title + '*, ' + vDataFmt + vLocal + ' — confirma? (responda *sim*)' + vAviso;
+                }
+              } catch (te) { console.error('VISION TOOL ERR:', tu.name, te.message); vReply += '⚠️ Erro ao processar a ação.'; }
+            }
+          }
+
+          vReply = (vReply || '✅ Feito!').trim();
+          await saveMessage(phone, 'user', userMessage || '[imagem]');
+          await saveMessage(phone, 'assistant', vReply);
+          await sendWhatsApp(phone, vReply);
+          if (userId) trackUsage(userId, 'whatsapp', { audio: false, image: true }).catch(console.error);
+          return res.status(200).send('OK');
+        } catch (ve) {
+          console.error('VISION FATAL:', ve.message);
+          await sendWhatsApp(phone, 'Tive um problema ao processar a imagem. Tente novamente.');
+          return res.status(200).send('OK');
+        }
+      }
+
+      // ── Storage puro (comportamento atual, inalterado) ──
       try {
         savedFileUrl = await uploadMediaToStorage(mediaUrl, mediaType, phone, userId);
         console.log('MEDIA SAVED:', savedFileUrl ? 'OK' : 'sem URL assinada');
         if (!userMessage) {
-          const isImage = mediaType.startsWith('image/');
           userMessage = isImage
             ? '[O usuário enviou uma imagem que foi salva no vault.]'
             : '[O usuário enviou um documento (' + mediaType + ') que foi salvo no vault.]';
