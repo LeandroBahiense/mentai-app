@@ -2194,8 +2194,7 @@ async function iniciarCheckout(planoId, ev) {
 
     if (preview.direction === 'downgrade') {
       _pendingTarget = planoId;
-      let dataStr = '';
-      try { dataStr = new Date(preview.nextDueDate).toLocaleDateString('pt-BR'); } catch { dataStr = preview.nextDueDate; }
+      const dataStr = fmtDateBR(preview.nextDueDate);
       document.getElementById('pc-title').textContent = `Mudar para ${targetLabel}`;
       document.getElementById('pc-text').textContent =
         `Nenhuma cobrança agora. A mudança vale a partir do próximo ciclo, em ${dataStr}. Até lá você mantém o ${currentLabel}.`;
@@ -2271,6 +2270,14 @@ const PLAN_LABELS = {
   // =============================================================================
 };
 
+// Formata "YYYY-MM-DD" (formato do Asaas) como DD/MM/YYYY sem passar por
+// new Date() — que parseava como UTC e voltava 1 dia em horário BR. À prova de null.
+function fmtDateBR(s) {
+  if (!s) return '';
+  const p = String(s).slice(0, 10).split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(s);
+}
+
 async function loadPlanInfo() {
   if (!currentUser || !_supabase) return;
 
@@ -2292,6 +2299,8 @@ async function loadPlanInfo() {
     );
     let prefs     = null;
     let canCancel = false; // falha segura: default não mostra o botão
+    let scheduledPlano = null; // troca de plano agendada (downgrade pendente)
+    let nextDueDate    = null;
     try {
       const [prefsResult, statusResp] = await Promise.race([
         Promise.all([
@@ -2304,6 +2313,8 @@ async function loadPlanInfo() {
       ]);
       prefs     = prefsResult?.data;
       canCancel = !!(statusResp?.canCancel);
+      scheduledPlano = statusResp?.scheduledPlano || null;
+      nextDueDate    = statusResp?.nextDueDate || null;
     } catch(e) {
       console.warn('loadPlanInfo prefs timeout:', e.message);
     }
@@ -2352,8 +2363,8 @@ async function loadPlanInfo() {
     } else {
       validadeEl.textContent = plano ? 'Plano ativo' : '';
     }
-    // Estado da assinatura (cancelada ou ativa)
-    renderSubscriptionStatus(prefs, canCancel);
+    // Estado da assinatura (cancelada ou ativa) + troca agendada
+    renderSubscriptionStatus(prefs, canCancel, scheduledPlano, nextDueDate);
 
     // Barras de uso
     const barsEl = document.getElementById('plan-usage-bars');
@@ -2401,12 +2412,33 @@ async function loadPlanInfo() {
   }
 }
 
-function renderSubscriptionStatus(prefs, canCancel) {
+function renderSubscriptionStatus(prefs, canCancel, scheduledPlano, nextDueDate) {
   _isTrialPlan = !!(prefs && prefs.is_trial);
+  const oldSched = document.getElementById('scheduled-change');
+  if (oldSched) oldSched.remove();
   const old = document.getElementById('subscription-status');
   if (old) old.remove();
   const contentEl = document.getElementById('plan-info-content');
   if (!contentEl || !prefs) return;
+
+  // Troca de plano agendada (downgrade pendente): scheduledPlano existe E difere do atual.
+  // Renderiza abaixo do plano/validade e antes dos botões. Estado normal → nada.
+  if (scheduledPlano && scheduledPlano !== prefs.plano) {
+    const meta = PLAN_LABELS[scheduledPlano] || { label: scheduledPlano };
+    const sched = document.createElement('div');
+    sched.id = 'scheduled-change';
+    sched.style.cssText = 'margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; color:var(--text2); line-height:1.5;';
+    sched.innerHTML = `<span>Muda para <strong style="color:var(--text);">${meta.label}</strong> em ${fmtDateBR(nextDueDate)}</span>`;
+    const undoBtn = document.createElement('button');
+    undoBtn.id = 'undo-plan-change-btn';
+    undoBtn.className = 'ss-btn';
+    undoBtn.style.cssText = 'font-size:11px; flex-shrink:0;';
+    undoBtn.textContent = 'Desfazer';
+    undoBtn.onclick = () => undoPlanChange(prefs.plano);
+    sched.appendChild(undoBtn);
+    contentEl.appendChild(sched);
+  }
+
   const wrapper = document.createElement('div');
   wrapper.id = 'subscription-status';
   wrapper.style.cssText = 'margin-top:10px; padding:10px 14px; border-radius:8px; font-size:12px; line-height:1.5;';
@@ -2523,8 +2555,7 @@ async function confirmPlanChange() {
 
   if (ok && data && data.result === 'downgrade') {
     const label = (PLAN_LABELS[data.plano_agendado] || { label: data.plano_agendado }).label;
-    let dataStr = '';
-    try { dataStr = new Date(data.effectiveDate).toLocaleDateString('pt-BR'); } catch { dataStr = data.effectiveDate; }
+    const dataStr = fmtDateBR(data.effectiveDate);
     document.getElementById('pc-success-title').textContent = 'Mudança agendada';
     document.getElementById('pc-success-text').textContent  = `Você muda para ${label} em ${dataStr}.`;
     setPlanChangeState('success');
@@ -2552,6 +2583,26 @@ async function confirmPlanChange() {
   const txtEl = document.getElementById('pc-error-text');
   if (txtEl) txtEl.textContent = msg;
   setPlanChangeState('error');
+}
+
+// Desfaz um downgrade agendado: reaponta a assinatura para o plano atual exibido.
+// O backend resolve isso como result:'undo' (targetPrice === effectivePrice).
+async function undoPlanChange(currentPlano) {
+  const btn = document.getElementById('undo-plan-change-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Desfazendo…'; }
+  try {
+    const resp = await fetch('/api/asaas/plan-change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ targetPlano: currentPlano }),
+    });
+    if (!resp.ok) throw new Error('undo failed');
+    if (typeof loadPlanInfo === 'function') loadPlanInfo(); // recarrega o card → rótulo some
+  } catch (e) {
+    showAdminToast('Não consegui desfazer agora. Tente de novo.', 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Desfazer'; }
+  }
 }
 
 // ── Admin Cérebro Coletivo ────────────────────────────────────────────────────
