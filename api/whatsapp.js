@@ -746,50 +746,44 @@ async function uploadMediaToStorage(mediaUrl, mediaType, phone, userId) {
     : null;
   console.log('SIGNED URL:', signedUrl ? 'OK' : 'FAILED');
 
-  // 4. Busca a nota mais recente do usuário para vincular o arquivo
+  // 4. Vincula o arquivo à nota fixa "📎 Arquivos" (achável; antes era a nota mais recente)
   let noteId = null;
   if (userId) {
     try {
-      const notesRes = await fetch(
-        SUPABASE_URL + '/rest/v1/notes?user_id=eq.' + encodeURIComponent(userId) + '&order=updated_at.desc&limit=1&select=id',
-        { headers: googleSbHeaders() }
-      );
-      const notes = await notesRes.json();
-      noteId = Array.isArray(notes) && notes.length > 0 ? notes[0].id : null;
-      console.log('LINK NOTE ID:', noteId);
+      noteId = await getOrCreateArquivosNote(userId);
+      console.log('LINK NOTE ID (Arquivos):', noteId);
     } catch (e) {
-      console.error('FETCH NOTE FOR FILE ERR:', e.message);
+      console.error('CREATE/FETCH ARQUIVOS NOTE ERR:', e.message);
     }
   }
 
-  // Salva metadados na tabela files
-  const fileId   = 'wa-' + timestamp;
+  // Salva metadados na tabela files (id gerado pelo banco — uuid default)
   const filename = timestamp + '.' + ext;
-  const metaBody = JSON.stringify({
-    id:         fileId,
-    note_id:    noteId,
-    user_id:    userId || null,
-    name:       filename,
-    size:       fileBuffer.byteLength,
-    mime_type:  mediaType,
-    path:       path,
-    url:        path,
-    created_at: new Date().toISOString(),
-  });
-  console.log('FILE META PAYLOAD:', metaBody);
   const metaRes = await fetch(SUPABASE_URL + '/rest/v1/files', {
     method: 'POST',
     headers: {
       'Content-Type':  'application/json',
       'apikey':        SUPABASE_SERVICE_KEY,
       'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
-      'Prefer':        'return=representation',
+      'Prefer':        'return=minimal',
     },
-    body: metaBody,
+    body: JSON.stringify({
+      note_id:    noteId,
+      user_id:    userId || null,
+      name:       filename,
+      size:       fileBuffer.byteLength,
+      mime_type:  mediaType,
+      path:       path,
+      url:        path,
+      created_at: new Date().toISOString(),
+    }),
   });
-  const metaText = await metaRes.text();
-  console.log('FILE META STATUS:', metaRes.status);
-  console.log('FILE META BODY:', metaText);
+  if (!metaRes.ok) {
+    const metaErr = await metaRes.text();
+    console.error('FILE META INSERT FAILED:', metaRes.status, metaErr);
+    throw new Error('Falha ao registrar o arquivo: ' + metaRes.status);
+  }
+  console.log('FILE META OK:', metaRes.status, path);
 
   // 5. Retorna a URL assinada
   return signedUrl;
@@ -1009,6 +1003,26 @@ async function clearVisionPending(userId) {
   );
 }
 
+// Acha (ou cria) a nota fixa "📎 Arquivos" do usuário — lar achável dos arquivos soltos.
+async function getOrCreateArquivosNote(userId) {
+  try {
+    const res = await fetch(
+      SUPABASE_URL + '/rest/v1/notes?user_id=eq.' + encodeURIComponent(userId) +
+        '&title=eq.' + encodeURIComponent('📎 Arquivos') + '&limit=1&select=id',
+      { headers: googleSbHeaders() }
+    );
+    const rows = await res.json();
+    if (Array.isArray(rows) && rows.length > 0) return rows[0].id;
+  } catch (e) { console.error('getOrCreateArquivosNote find err:', e.message); }
+  return await createNote({
+    title: '📎 Arquivos',
+    content: 'Arquivos enviados pelo WhatsApp ficam anexados aqui.',
+    cluster: 'inbox',
+    tags: ['arquivos'],
+    user_id: userId,
+  });
+}
+
 // Sobe a mídia ao Storage e cria a linha em `files` vinculada a UMA nota específica
 // (noteId explícito — corrige o "anexa à nota mais recente" do uploadMediaToStorage).
 async function persistMediaToNote({ buffer, mediaType, phone, userId, noteId }) {
@@ -1033,9 +1047,8 @@ async function persistMediaToNote({ buffer, mediaType, phone, userId, noteId }) 
     throw new Error('Erro no upload Storage: ' + upRes.status + ' ' + upErr);
   }
 
-  const fileId   = 'wa-' + timestamp;
   const filename = timestamp + '.' + ext;
-  await fetch(SUPABASE_URL + '/rest/v1/files', {
+  const fRes = await fetch(SUPABASE_URL + '/rest/v1/files', {
     method: 'POST',
     headers: {
       'Content-Type':  'application/json',
@@ -1044,7 +1057,6 @@ async function persistMediaToNote({ buffer, mediaType, phone, userId, noteId }) 
       'Prefer':        'return=minimal',
     },
     body: JSON.stringify({
-      id:         fileId,
       note_id:    noteId,
       user_id:    userId || null,
       name:       filename,
@@ -1055,7 +1067,12 @@ async function persistMediaToNote({ buffer, mediaType, phone, userId, noteId }) 
       created_at: new Date().toISOString(),
     }),
   });
-  return fileId;
+  if (!fRes.ok) {
+    const fErr = await fRes.text();
+    console.error('PERSIST FILE INSERT FAILED:', fRes.status, fErr);
+    return false;
+  }
+  return true;
 }
 
 // ─── Handler Principal ───────────────────────────────────────────────────────
@@ -1343,10 +1360,13 @@ export default async function handler(req, res) {
                   inp.user_id = userId;
                   const noteId = await createNote(inp);
                   if (noteId) {
+                    let _anexoOk = false;
                     try {
-                      await persistMediaToNote({ buffer: visionImg.buffer, mediaType: mediaType, phone: phone, userId: userId, noteId: noteId });
+                      _anexoOk = await persistMediaToNote({ buffer: visionImg.buffer, mediaType: mediaType, phone: phone, userId: userId, noteId: noteId });
                     } catch (pe) { console.error('VISION PERSIST ERR:', pe.message); }
-                    vReply += '📝 Nota "' + (inp.title || '') + '" criada com o conteúdo da imagem (arquivo anexado).';
+                    vReply += _anexoOk
+                      ? ('📝 Nota "' + (inp.title || '') + '" criada com o conteúdo da imagem (arquivo anexado).')
+                      : ('📝 Nota "' + (inp.title || '') + '" criada com o conteúdo da imagem.');
                   } else {
                     vReply += '⚠️ Não consegui criar a nota.';
                   }
@@ -1494,7 +1514,7 @@ export default async function handler(req, res) {
     system += refDatas + '\n';
 
     if (savedFileUrl) {
-      system += 'ARQUIVO RECEBIDO: O usuário enviou um arquivo via WhatsApp que foi salvo com sucesso no vault (Supabase Storage). Mencione de forma curta que o arquivo foi recebido e salvo.\n\n';
+      system += 'ARQUIVO RECEBIDO: O usuário enviou um arquivo via WhatsApp que foi salvo no vault, na nota "📎 Arquivos". Mencione de forma curta que o arquivo foi recebido e salvo lá.\n\n';
     }
 
     if (ragContext) {
