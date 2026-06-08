@@ -1,0 +1,16 @@
+# Dependências
+node_modules/
+
+# Variáveis de ambiente e segredos
+.env*
+
+# macOS
+.DS_Store
+
+# Logs e debug
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel
