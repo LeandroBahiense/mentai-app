@@ -293,6 +293,72 @@ export async function getFeaturesForUser(userId) {
   }
 }
 
+// ── Vision — fair use mensal (Etapa de Urgência, 06/2026) ─────
+// Cota de imagens processadas por Vision, por mês-calendário (America/Sao_Paulo).
+// Decisão 08/06: Essencial sem · Pro 120 · Ultra 300 · design_partner = volume do Pro.
+export const VISION_QUOTA = {
+  'essencial':      0,
+  'pro':            120,
+  'ultra':          300,
+  'design_partner': 120,
+};
+const DEFAULT_VISION_QUOTA = 0;
+
+// 'YYYY-MM' no fuso de Brasília — chave da janela mensal do vision_usage.
+export function getVisionMonth() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit',
+  }).format(new Date()).slice(0, 7);
+}
+
+// checkVisionQuota(userId) → { allowed, count, quota, plano, month }. Não incrementa.
+// Fail-closed: em erro, allowed=false (protege custo; sem usuários reais ainda).
+export async function checkVisionQuota(userId) {
+  const month = getVisionMonth();
+  try {
+    const sb = makeSupabase();
+    const { data: prefs } = await sb
+      .from('user_preferences')
+      .select('plano')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const plano = prefs?.plano || '';
+    const quota = Object.prototype.hasOwnProperty.call(VISION_QUOTA, plano)
+      ? VISION_QUOTA[plano]
+      : DEFAULT_VISION_QUOTA;
+
+    const { data: usage } = await sb
+      .from('vision_usage')
+      .select('count')
+      .eq('user_id', userId)
+      .eq('year_month', month)
+      .maybeSingle();
+    const count = usage?.count || 0;
+
+    return { allowed: quota > 0 && count < quota, count, quota, plano, month };
+  } catch (e) {
+    console.error('checkVisionQuota error:', e.message);
+    return { allowed: false, count: 0, quota: 0, plano: '', month };
+  }
+}
+
+// incrementVisionUsage(userId) → novo total (int) | null.
+// Chama a RPC atômica increment_vision_usage. Usar SÓ após inferência bem-sucedida.
+export async function incrementVisionUsage(userId) {
+  const month = getVisionMonth();
+  try {
+    const sb = makeSupabase();
+    const { data, error } = await sb.rpc('increment_vision_usage', {
+      p_user_id: userId, p_year_month: month,
+    });
+    if (error) { console.error('incrementVisionUsage rpc error:', error.message); return null; }
+    return data;
+  } catch (e) {
+    console.error('incrementVisionUsage error:', e.message);
+    return null;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // calculateCooldown(userId) → número em ms  |  'BLOCKED'
 //   Calcula média rolante de 7 dias de mensagens e retorna o
