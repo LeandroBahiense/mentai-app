@@ -1454,6 +1454,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   </div>
 </div>
 
+<!-- Modal: limite de contas do plano (03.4a) -->
+<div id="account-limit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:14px;text-align:center;">
+    <div style="font-size:40px;line-height:1;">🔒</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Limite de contas atingido</div>
+    <div id="account-limit-text" style="font-size:13px;color:var(--text2);line-height:1.6;">Você atingiu o limite de contas do seu plano.</div>
+    <div style="display:flex;flex-direction:column;gap:8px;width:100%;margin-top:4px;">
+      <button onclick="closeAccountLimitModal(); navigate('planos');" class="ss-btn primary" style="width:100%;">Fazer upgrade</button>
+      <button onclick="accountLimitExtraStub()" class="ss-btn" style="width:100%;">Adicionar e-mail avulso (+R$15/mês)</button>
+      <button onclick="closeAccountLimitModal()" class="ss-btn" style="width:100%;">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════
@@ -2867,6 +2881,9 @@ let _pendingGoogleUrl = null;
 
 async function connectGoogle() {
   if (!currentUser) return;
+  // Gate de limite (03.4a): se já no limite, abre o modal em vez de conectar.
+  const _lim = await checkLimitBeforeConnect();
+  if (_lim && _lim.atLimit) { openAccountLimitModal(_lim.used, _lim.max); return; }
   sessionStorage.setItem('pallyum-return-to', 'settings');
   // Tenta incluir o phone do usuário pra o callback vincular à tabela phone_users
   let phone = '';
@@ -2936,7 +2953,7 @@ function renderNylasProviderButtons() {
   const wrap = document.getElementById('nylas-provider-buttons');
   if (!wrap) return;
   wrap.innerHTML = NYLAS_PROVIDERS.map(function(p) {
-    return '<a href="/api/auth/nylas-connect?provider=' + encodeURIComponent(p.id) + '" class="ss-btn primary" '
+    return '<a href="/api/auth/nylas-connect?provider=' + encodeURIComponent(p.id) + '" onclick="return gateNylasConnect(event)" class="ss-btn primary" '
       + 'style="display:block;text-align:center;text-decoration:none;width:100%;font-size:12px;box-sizing:border-box;">+ Conectar ' + p.label + '</a>';
   }).join('');
 }
@@ -2975,6 +2992,49 @@ async function removeNylasAccount(id, email) {
     });
   } catch(e) { console.warn('removeNylasAccount error:', e); return; }
   checkNylasAccounts();
+}
+
+// ── Gate de limite de contas (03.4a) ──────────────────────────────────────────
+// Consulta o servidor antes de iniciar qualquer connect. Fail-open: erro de
+// checagem NÃO bloqueia (o nylas-connect re-valida no servidor; Google não tem
+// gate de servidor, então aqui é a única trava — aceitável p/ um upsell).
+async function checkLimitBeforeConnect() {
+  try {
+    const r = await fetch('/api/account-limits', { credentials: 'same-origin' });
+    if (!r.ok) return { atLimit: false };
+    return await r.json();
+  } catch (e) { console.warn('checkLimitBeforeConnect error:', e); return { atLimit: false }; }
+}
+
+function openAccountLimitModal(used, max) {
+  const t = document.getElementById('account-limit-text');
+  if (t) {
+    const u = (used == null ? '?' : used);
+    const m = (max == null ? '?' : max);
+    t.textContent = 'Você atingiu o limite do seu plano (' + u + '/' + m + ' contas).';
+  }
+  const modal = document.getElementById('account-limit-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeAccountLimitModal() {
+  const modal = document.getElementById('account-limit-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+// Stub — a cobrança do e-mail avulso (+R$15/mês) é o passo 03.4b.
+function accountLimitExtraStub() {
+  if (typeof showAdminToast === 'function') showAdminToast('Em breve: adicionar e-mail avulso.', 'warn');
+}
+
+// Intercepta os links de provedor Nylas: checa limite antes de navegar.
+async function gateNylasConnect(ev) {
+  ev.preventDefault();
+  const href = ev.currentTarget.getAttribute('href');
+  const lim = await checkLimitBeforeConnect();
+  if (lim && lim.atLimit) { openAccountLimitModal(lim.used, lim.max); return false; }
+  window.location.href = href;
+  return false;
 }
 
 async function loadUserEmails() {
@@ -5682,6 +5742,15 @@ function initSupabaseAuth() {
       } else if (urlParams.get('nylas') === 'provider_invalid') {
         history.replaceState(null, '', window.location.pathname);
         if (typeof showAdminToast === 'function') showAdminToast('Provedor não suportado.', 'warn');
+      } else if (urlParams.get('nylas') === 'limit') {
+        history.replaceState(null, '', window.location.pathname);
+        checkLimitBeforeConnect().then(function(lim){ openAccountLimitModal(lim && lim.used, lim && lim.max); });
+      }
+
+      // Limite atingido vindo do connect Google (simetria com ?nylas=limit)
+      if (urlParams.get('google') === 'limit') {
+        history.replaceState(null, '', window.location.pathname);
+        checkLimitBeforeConnect().then(function(lim){ openAccountLimitModal(lim && lim.used, lim && lim.max); });
       }
 
       checkOnboarding().catch(function(e) { console.warn('onboarding skip:', e); });
