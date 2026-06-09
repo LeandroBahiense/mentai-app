@@ -11,6 +11,7 @@ import { getModelForUser, calculateCooldown, trackUsage } from './_lib/plans.js'
 import { searchRelevantNotes, buildRagContext } from './_lib/embeddings.js';
 import { askClaudeTools, EVENT_TOOLS, NOTE_TOOLS, createNote, updateNote, deleteNote } from './_lib/agent.js';
 import { getAllGoogleAccounts, ensureAccountToken, getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, formatCalendarEvents } from './_lib/google.js';
+import { getAllNylasGrants, getCalendarEventsNylas } from './_lib/nylas.js';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
@@ -159,8 +160,24 @@ export default async function handler(req, res) {
               calendarEvents = calendarEvents.concat(evs);
             } catch (e) { console.error('CHAT CAL ERR (' + acc.email + '):', e.message); }
           }
+          // Une grants Nylas (Outlook/iCloud/IMAP…) — read-only, já vem no shape Google.
+          // Chaveado por user_id; se userId for null, pula (sem fallback por phone).
+          let nylasGrants = [];
+          if (userId) {
+            try {
+              nylasGrants = await getAllNylasGrants(userId);
+              for (const g of nylasGrants) {
+                try {
+                  const evs = await getCalendarEventsNylas(g);
+                  evs.forEach(e => { e._accountEmail = g.email; });
+                  calendarEvents = calendarEvents.concat(evs);
+                } catch (e) { console.error('NYLAS CAL ACCOUNT ERR (' + g.email + '):', e.message); }
+              }
+            } catch (e) { console.error('NYLAS GRANTS ERR:', e.message); }
+          }
           calendarEvents.sort((a, b) =>
             new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date));
+          console.log('CALENDAR EVENTS (com Nylas):', calendarEvents.length, '| nylas grants:', nylasGrants?.length || 0);
         }
       } catch (e) { console.error('CHAT GOOGLE ERR:', e.message); }
       const googleConnected = accounts.length > 0;

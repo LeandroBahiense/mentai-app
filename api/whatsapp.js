@@ -1,6 +1,7 @@
 import { getModelForUser, calculateCooldown, trackUsage, routeModel, checkVisionQuota, incrementVisionUsage } from './_lib/plans.js';
 import { searchRelevantNotes, buildRagContext } from './_lib/embeddings.js';
 import { getAllGoogleAccounts, ensureAccountToken, getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, getGmailMessages, formatCalendarEvents, formatGmailMessages } from './_lib/google.js';
+import { getAllNylasGrants, getCalendarEventsNylas } from './_lib/nylas.js';
 import { askClaudeTools, EVENT_TOOLS, NOTE_TOOLS, createNote, updateNote, deleteNote } from './_lib/agent.js';
 import { createHmac, timingSafeEqual } from 'crypto';
 
@@ -1048,10 +1049,26 @@ export default async function handler(req, res) {
             calendarEvents = calendarEvents.concat(evs);
           } catch (e) { console.error('CAL ACCOUNT ERR (' + acc.email + '):', e.message); }
         }
+        // Une grants Nylas (Outlook/iCloud/IMAP…) — read-only, já vem no shape Google.
+        // Chaveado por user_id; se userId for null, pula (sem fallback por phone).
+        let nylasGrants = [];
+        if (userId) {
+          try {
+            nylasGrants = await getAllNylasGrants(userId);
+            for (const g of nylasGrants) {
+              try {
+                const evs = await getCalendarEventsNylas(g);
+                evs.forEach(function(e){ e._accountEmail = g.email; });
+                calendarEvents = calendarEvents.concat(evs);
+              } catch (e) { console.error('NYLAS CAL ACCOUNT ERR (' + g.email + '):', e.message); }
+            }
+          } catch (e) { console.error('NYLAS GRANTS ERR:', e.message); }
+        }
         calendarEvents.sort(function(a,b){
           return new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date);
         });
         console.log('CALENDAR EVENTS (agregado):', calendarEvents.length, '| contas:', accounts.length);
+        console.log('CALENDAR EVENTS (com Nylas):', calendarEvents.length, '| nylas grants:', nylasGrants?.length || 0);
       }
       if (needsGmail) {
         gmailMessages = await getGmailMessages(accessToken);
