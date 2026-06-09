@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto';
+import { checkAccountLimit } from '../_lib/plans.js';
 
 function toBase64url(buf) {
   return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -49,7 +50,7 @@ function verifyState(state) {
   return payload;
 }
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   const uidFromCookie = readSession(req);
   let userId = '', phone = '', web = false;
   if (uidFromCookie) {
@@ -64,6 +65,21 @@ export default function handler(req, res) {
   } else {
     return res.redirect('https://pallyum.com/app?google=error&msg=no_auth');
   }
+
+  // Gate de limite (simetria com nylas-connect). Só quando há uid (fluxo web);
+  // no fluxo por telefone (WhatsApp) não há uid p/ contar — segue normal.
+  if (userId) {
+    try {
+      const limit = await checkAccountLimit(userId);
+      if (limit && limit.atLimit) {
+        console.log('GOOGLE CONNECT: limite de contas atingido | uid=' + userId + ' | ' + limit.used + '/' + limit.max);
+        return res.redirect('https://pallyum.com/app?google=limit');
+      }
+    } catch (e) {
+      console.error('GOOGLE CONNECT: checkAccountLimit falhou (segue):', e.message);
+    }
+  }
+
   const state = signState({ user_id: userId, phone, web, exp: Date.now() + 10 * 60 * 1000 });
 
   const GOOGLE_CLIENT_ID    = process.env.GOOGLE_CLIENT_ID;

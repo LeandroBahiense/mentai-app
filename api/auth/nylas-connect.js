@@ -6,6 +6,7 @@
 
 import { createHmac, timingSafeEqual } from 'crypto';
 import { buildNylasAuthUrl } from '../_lib/nylas.js';
+import { checkAccountLimit } from '../_lib/plans.js';
 
 // ── readSession — CÓPIA LITERAL de api/google-accounts.js ───────────────────
 function toBase64url(buf) {
@@ -44,7 +45,7 @@ function signState(payload) {
 // Provedores oferecidos. Google NUNCA entra aqui (é nativo/grátis, card próprio).
 const PROVIDER_ALLOWLIST = ['microsoft', 'imap', 'icloud', 'yahoo', 'ews'];
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'method not allowed' });
 
   const uid = readSession(req);
@@ -55,6 +56,17 @@ export default function handler(req, res) {
   if (!PROVIDER_ALLOWLIST.includes(provider)) {
     console.warn('NYLAS CONNECT: provider inválido/ausente:', provider);
     return res.redirect(302, 'https://pallyum.com/app?nylas=provider_invalid');
+  }
+
+  // Gate de limite de contas (admin/design_partner já voltam atLimit:false).
+  try {
+    const limit = await checkAccountLimit(uid);
+    if (limit && limit.atLimit) {
+      console.log('NYLAS CONNECT: limite de contas atingido | uid=' + uid + ' | ' + limit.used + '/' + limit.max);
+      return res.redirect(302, 'https://pallyum.com/app?nylas=limit');
+    }
+  } catch (e) {
+    console.error('NYLAS CONNECT: checkAccountLimit falhou (segue):', e.message);
   }
 
   const state = signState({ user_id: uid, ts: Date.now() });
