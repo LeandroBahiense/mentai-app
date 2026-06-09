@@ -65,14 +65,16 @@ export async function nylasFetch(path, opts = {}) {
 }
 
 // ─── Auth: hosted connect + troca de code por grant ──────────────────────────
-// Sem provider (Nylas mostra o seletor) e sem PKCE.
-export function buildNylasAuthUrl(state) {
+// Sem PKCE. Se `provider` truthy, força o provedor e pula o seletor genérico
+// (Google nunca é oferecido — controle no nosso lado; ver allowlist no connect).
+export function buildNylasAuthUrl(state, provider) {
   const params = new URLSearchParams({
     client_id:     NYLAS_CLIENT_ID,
     redirect_uri:  NYLAS_REDIRECT_URI,
     response_type: 'code',
     state:         state,
   });
+  if (provider) params.append('provider', provider);
   return NYLAS_API_URI + '/v3/connect/auth?' + params.toString();
 }
 
