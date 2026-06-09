@@ -339,7 +339,15 @@ export async function checkAccountLimit(uid) {
   } catch (e) { console.error('checkAccountLimit nylas count error:', e.message); }
 
   const used = gCount + nCount;
-  const max  = MAX_ACCOUNTS[plano] != null ? MAX_ACCOUNTS[plano] : 1;
+
+  // Add-ons pagos (e-mail avulso +R$15/mês, 03.4b): cada um soma +1 ao limite.
+  let paidAddOns = 0;
+  try {
+    const { count } = await sb.from('account_addons').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'active');
+    paidAddOns = count || 0;
+  } catch (e) { console.error('checkAccountLimit addons count error:', e.message); paidAddOns = 0; }
+
+  const max = (MAX_ACCOUNTS[plano] != null ? MAX_ACCOUNTS[plano] : 1) + paidAddOns;
   return { plano, used, max, atLimit: used >= max, isAdmin: false, isDP: false };
 }
 
