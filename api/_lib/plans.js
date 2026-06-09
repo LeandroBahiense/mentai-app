@@ -6,6 +6,8 @@
  * SKUs legados mantidos comentados abaixo de cada mapa — não remover.
  */
 
+import { isAdmin } from './adminAuth.js';
+
 // ── Tabela de SKUs ─────────────────────────────────────────────────────────────
 // FONTE ÚNICA de preço/plano do app. Chave: "{produto}-{tier}-{periodo}".
 // Importada por api/asaas/checkout.js (cobrança) e pelos helpers de proration
@@ -291,6 +293,54 @@ export async function getFeaturesForUser(userId) {
     console.error('getFeaturesForUser error:', e.message);
     return DEFAULT_FEATURES;
   }
+}
+
+// ── Limite de contas de calendário conectadas por plano (03.4) ───────────────
+// Total = google_tokens + nylas_grants ativos. Admin e design_partner (internal)
+// não têm limite. Email avulso (+R$15) é 03.4b — fora daqui.
+export const MAX_ACCOUNTS = { essencial: 1, pro: 2, ultra: 3 };
+
+export async function checkAccountLimit(uid) {
+  // Bypass admin (uid fixo): nunca vê limite.
+  if (isAdmin(uid)) {
+    let plano = '';
+    try {
+      const sb = makeSupabase();
+      const { data } = await sb.from('user_preferences').select('plano').eq('user_id', uid).maybeSingle();
+      plano = data?.plano || '';
+    } catch (e) { console.error('checkAccountLimit admin plano error:', e.message); }
+    return { plano, used: null, max: null, atLimit: false, isAdmin: true, isDP: false, bypass: 'admin' };
+  }
+
+  const sb = makeSupabase();
+
+  // Plano atual.
+  let plano = '';
+  try {
+    const { data } = await sb.from('user_preferences').select('plano').eq('user_id', uid).maybeSingle();
+    plano = data?.plano || '';
+  } catch (e) { console.error('checkAccountLimit plano error:', e.message); }
+
+  // Bypass design_partner (FEATURE_MAP[...].internal === true).
+  const isDP = !!(FEATURE_MAP[plano] && FEATURE_MAP[plano].internal);
+  if (isDP) {
+    return { plano, used: null, max: null, atLimit: false, isAdmin: false, isDP: true, bypass: 'dp' };
+  }
+
+  // Conta contas conectadas (Google + Nylas ativos).
+  let gCount = 0, nCount = 0;
+  try {
+    const { count } = await sb.from('google_tokens').select('id', { count: 'exact', head: true }).eq('user_id', uid);
+    gCount = count || 0;
+  } catch (e) { console.error('checkAccountLimit google count error:', e.message); }
+  try {
+    const { count } = await sb.from('nylas_grants').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'active');
+    nCount = count || 0;
+  } catch (e) { console.error('checkAccountLimit nylas count error:', e.message); }
+
+  const used = gCount + nCount;
+  const max  = MAX_ACCOUNTS[plano] != null ? MAX_ACCOUNTS[plano] : 1;
+  return { plano, used, max, atLimit: used >= max, isAdmin: false, isDP: false };
 }
 
 // ── Vision — fair use mensal (Etapa de Urgência, 06/2026) ─────
