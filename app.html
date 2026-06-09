@@ -3968,8 +3968,7 @@ function buildSysPrompt(){
 Responda em português brasileiro. Seja conciso e direto.
 Use **negrito** para pontos importantes.
 Use [[NomeDaNota]] ao referenciar notas do vault.
-Você tem acesso ao vault de notas do usuário mas NÃO tem acesso direto ao Google Calendar ou Gmail pelo chat — esses dados estão disponíveis apenas pelo WhatsApp.
-Se perguntado sobre agenda, explique que pelo chat só acessa o vault de notas, e que pelo WhatsApp o assistente tem acesso completo ao Google Calendar.
+Você tem acesso ao vault de notas e à agenda Google do usuário pelo chat, e pode criar, atualizar e apagar notas e eventos quando solicitado — use as ferramentas para agir, não apenas descreva.
 
 VAULT (${notes.length} notas):
 ${notes.map(n => `### ${n.title}\nGaveta: ${n.folder}\nStatus: ${n.status||'inbox'}\n${n.content||''}`).join('\n---\n')}`;
