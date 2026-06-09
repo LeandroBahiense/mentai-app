@@ -1048,6 +1048,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
               <div style="font-size:26px;flex-shrink:0;">📆</div>
               <div style="font-size:13px;font-weight:500;color:var(--text);">Outras agendas (Outlook, iCloud, IMAP…)</div>
             </div>
+            <div id="nylas-accounts-list" style="margin-bottom:10px;"></div>
             <a href="/api/auth/nylas-connect" class="ss-btn primary" style="display:block;text-align:center;text-decoration:none;width:100%;font-size:12px;box-sizing:border-box;">+ Conectar outra conta (Outlook, iCloud, IMAP…)</a>
           </div>
         </div>
@@ -2924,6 +2925,43 @@ async function removeAccount(id, email) {
   checkGoogleConnection();
 }
 
+// ── Contas Nylas (Outlook/iCloud/IMAP…) — listar + remover ────────────────────
+async function checkNylasAccounts() {
+  const listEl = document.getElementById('nylas-accounts-list');
+  if (!listEl) return;
+  listEl.textContent = 'Verificando…';
+  try {
+    const r = await fetch('/api/nylas-accounts', { credentials: 'same-origin' });
+    if (!r.ok) { listEl.textContent = ''; return; } // silencioso (provável sem grants)
+    const data = await r.json();
+    const accounts = data.accounts || [];
+    if (accounts.length === 0) { listEl.innerHTML = ''; return; }
+    listEl.innerHTML = accounts.map(function(acc) {
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">'
+        + '<div style="flex:1;min-width:0;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
+        +   acc.email
+        + '</div>'
+        + (acc.provider ? '<span style="font-size:10px;font-weight:600;color:var(--text2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">' + acc.provider + '</span>' : '')
+        + '<button class="ss-btn" style="font-size:10px;padding:2px 8px;white-space:nowrap;color:var(--coral);border-color:rgba(216,90,48,.3);" onclick="removeNylasAccount(\'' + acc.id + '\',\'' + (acc.email || '').replace(/'/g, "\\'") + '\')">Remover</button>'
+        + '</div>';
+    }).join('');
+  } catch(e) {
+    console.warn('checkNylasAccounts error:', e);
+    if (listEl) listEl.innerHTML = '';
+  }
+}
+
+async function removeNylasAccount(id, email) {
+  if (!confirm('Remover a conta ' + email + '?')) return;
+  try {
+    await fetch('/api/nylas-accounts?id=' + encodeURIComponent(id), {
+      method: 'DELETE',
+      credentials: 'same-origin',
+    });
+  } catch(e) { console.warn('removeNylasAccount error:', e); return; }
+  checkNylasAccounts();
+}
+
 async function loadUserEmails() {
   if (!currentUser || !_supabase) return;
   const { data } = await _supabase
@@ -3125,6 +3163,7 @@ function navigate(view) {
     loadUserEmails();
     updateSystemStatus();
     checkGoogleConnection();
+    checkNylasAccounts();
     loadPlanInfo();
   }
   if (view === 'admin') {
@@ -5621,6 +5660,9 @@ function initSupabaseAuth() {
       } else if (urlParams.get('nylas') === 'error') {
         history.replaceState(null, '', window.location.pathname);
         if (typeof showAdminToast === 'function') showAdminToast('Não consegui conectar a conta. Tente novamente.', 'err');
+      } else if (urlParams.get('nylas') === 'google_blocked') {
+        history.replaceState(null, '', window.location.pathname);
+        if (typeof showAdminToast === 'function') showAdminToast('Para contas Google use o card "Google Calendar + Gmail" acima.', 'err');
       }
 
       checkOnboarding().catch(function(e) { console.warn('onboarding skip:', e); });
