@@ -1049,7 +1049,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
               <div style="font-size:13px;font-weight:500;color:var(--text);">Outras agendas (Outlook, iCloud, IMAP…)</div>
             </div>
             <div id="nylas-accounts-list" style="margin-bottom:10px;"></div>
-            <a href="/api/auth/nylas-connect" class="ss-btn primary" style="display:block;text-align:center;text-decoration:none;width:100%;font-size:12px;box-sizing:border-box;">+ Conectar outra conta (Outlook, iCloud, IMAP…)</a>
+            <div id="nylas-provider-buttons" style="display:flex;flex-direction:column;gap:8px;"></div>
           </div>
         </div>
         <div class="settings-section">
@@ -2926,6 +2926,21 @@ async function removeAccount(id, email) {
 }
 
 // ── Contas Nylas (Outlook/iCloud/IMAP…) — listar + remover ────────────────────
+// Provedores habilitados (fácil de estender; em produção entram icloud, yahoo, ews).
+const NYLAS_PROVIDERS = [
+  { id: 'microsoft', label: 'Outlook / Microsoft' },
+  { id: 'imap',      label: 'Outro e-mail (IMAP)' },
+];
+
+function renderNylasProviderButtons() {
+  const wrap = document.getElementById('nylas-provider-buttons');
+  if (!wrap) return;
+  wrap.innerHTML = NYLAS_PROVIDERS.map(function(p) {
+    return '<a href="/api/auth/nylas-connect?provider=' + encodeURIComponent(p.id) + '" class="ss-btn primary" '
+      + 'style="display:block;text-align:center;text-decoration:none;width:100%;font-size:12px;box-sizing:border-box;">+ Conectar ' + p.label + '</a>';
+  }).join('');
+}
+
 async function checkNylasAccounts() {
   const listEl = document.getElementById('nylas-accounts-list');
   if (!listEl) return;
@@ -3164,6 +3179,7 @@ function navigate(view) {
     updateSystemStatus();
     checkGoogleConnection();
     checkNylasAccounts();
+    renderNylasProviderButtons();
     loadPlanInfo();
   }
   if (view === 'admin') {
@@ -5663,6 +5679,9 @@ function initSupabaseAuth() {
       } else if (urlParams.get('nylas') === 'google_blocked') {
         history.replaceState(null, '', window.location.pathname);
         if (typeof showAdminToast === 'function') showAdminToast('Para contas Google use o card "Google Calendar + Gmail" acima.', 'err');
+      } else if (urlParams.get('nylas') === 'provider_invalid') {
+        history.replaceState(null, '', window.location.pathname);
+        if (typeof showAdminToast === 'function') showAdminToast('Provedor não suportado.', 'warn');
       }
 
       checkOnboarding().catch(function(e) { console.warn('onboarding skip:', e); });
