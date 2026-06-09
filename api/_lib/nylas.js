@@ -114,6 +114,23 @@ export async function exchangeCodeForGrant(code) {
   return { grantId: json.grant_id, email: json.email, provider: json.provider };
 }
 
+// Revoga (deleta) um grant na Nylas. Best-effort: loga e retorna bool; NÃO lança.
+export async function revokeGrant(grantId) {
+  try {
+    const res = await fetch(NYLAS_API_URI + '/v3/grants/' + encodeURIComponent(grantId), {
+      method:  'DELETE',
+      headers: { 'Authorization': 'Bearer ' + NYLAS_API_KEY, 'Accept': 'application/json' },
+    });
+    let body = null;
+    try { body = await res.json(); } catch { body = null; }
+    console.log('NYLAS REVOKE:', res.status, JSON.stringify(body));
+    return res.ok;
+  } catch (e) {
+    console.error('NYLAS REVOKE ERR:', e.message);
+    return false;
+  }
+}
+
 // ─── Grants (Supabase) ────────────────────────────────────────────────────────
 // Lê nylas_grants reusando EXATAMENTE o padrão/headers/envs do google_tokens.
 export async function getAllNylasGrants(userId) {
