@@ -16,6 +16,9 @@ import { parsePlanFromSku } from '../_lib/plans.js';
 // Marker de cobrança avulsa da diferença de upgrade (Bloco C). NÃO é evento de
 // plano — é receita pontual. O webhook ignora (não toca plano/validade).
 const DIFF_MARKER_SKU = 'plan_upgrade_diff';
+// Marker do add-on de e-mail avulso (+R$15/mês, 03.4b) — receita recorrente do
+// add-on, NÃO evento de plano. O webhook ignora igual ao DIFF_MARKER_SKU.
+const ADDON_MARKER_SKU = 'email_extra';
 
 const SUPABASE_URL        = process.env.SUPABASE_URL;
 const SUPABASE_SVC_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -423,9 +426,9 @@ export default async function handler(req, res) {
     const resolved = await resolveUserAndSku(payment);
 
     // Guard Bloco C: cobrança avulsa da diferença de upgrade — receita, não plano.
-    if (resolved && resolved.refSku === DIFF_MARKER_SKU) {
-      console.log(`ASAAS WEBHOOK: ignorando ${event?.event} de diferença de upgrade (plan_upgrade_diff) | uid=${resolved.refUserId} — sem tocar plano/validade`);
-      return res.status(200).json({ ok: true, source: 'plan_upgrade_diff', event_type: event?.event });
+    if (resolved && (resolved.refSku === DIFF_MARKER_SKU || resolved.refSku === ADDON_MARKER_SKU)) {
+      console.log(`ASAAS WEBHOOK: ignorando ${event?.event} de receita não-plano (${resolved.refSku}) | uid=${resolved.refUserId} — sem tocar plano/validade`);
+      return res.status(200).json({ ok: true, ignored: true, source: resolved.refSku, event_type: event?.event });
     }
 
     if (resolved) {
@@ -467,9 +470,9 @@ export default async function handler(req, res) {
     const resolved = await resolveUserAndSku(payment);
 
     // Guard Bloco C: cobrança avulsa da diferença de upgrade — receita, não plano.
-    if (resolved && resolved.refSku === DIFF_MARKER_SKU) {
-      console.log(`ASAAS WEBHOOK: ignorando ${event?.event} de diferença de upgrade (plan_upgrade_diff) | uid=${resolved.refUserId} — sem tocar plano/validade`);
-      return res.status(200).json({ ok: true, source: 'plan_upgrade_diff', event_type: event?.event });
+    if (resolved && (resolved.refSku === DIFF_MARKER_SKU || resolved.refSku === ADDON_MARKER_SKU)) {
+      console.log(`ASAAS WEBHOOK: ignorando ${event?.event} de receita não-plano (${resolved.refSku}) | uid=${resolved.refUserId} — sem tocar plano/validade`);
+      return res.status(200).json({ ok: true, ignored: true, source: resolved.refSku, event_type: event?.event });
     }
 
     if (resolved) {
