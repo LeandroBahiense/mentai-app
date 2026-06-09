@@ -1043,6 +1043,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           <p style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.55;">
             Ao conectar, o Pallyum poderá ler e criar eventos no seu Google Calendar e ler e-mails do Gmail para responder pelo WhatsApp.
           </p>
+          <div style="padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-top:12px;">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">
+              <div style="font-size:26px;flex-shrink:0;">📆</div>
+              <div style="font-size:13px;font-weight:500;color:var(--text);">Outras agendas (Outlook, iCloud, IMAP…)</div>
+            </div>
+            <a href="/api/auth/nylas-connect" class="ss-btn primary" style="display:block;text-align:center;text-decoration:none;width:100%;font-size:12px;box-sizing:border-box;">+ Conectar outra conta (Outlook, iCloud, IMAP…)</a>
+          </div>
         </div>
         <div class="settings-section">
           <div class="ss-title">📊 Status do sistema</div>
@@ -5605,6 +5612,15 @@ function initSupabaseAuth() {
       } else if (sessionStorage.getItem('pallyum-return-to') === 'settings') {
         sessionStorage.removeItem('pallyum-return-to');
         setTimeout(() => navigate('settings'), 500);
+      }
+
+      // Detectar retorno da adesão Nylas (Outlook/iCloud/IMAP…)
+      if (urlParams.get('nylas') === 'connected') {
+        history.replaceState(null, '', window.location.pathname);
+        if (typeof showAdminToast === 'function') showAdminToast('Conta conectada com sucesso. ✅', 'ok');
+      } else if (urlParams.get('nylas') === 'error') {
+        history.replaceState(null, '', window.location.pathname);
+        if (typeof showAdminToast === 'function') showAdminToast('Não consegui conectar a conta. Tente novamente.', 'err');
       }
 
       checkOnboarding().catch(function(e) { console.warn('onboarding skip:', e); });
