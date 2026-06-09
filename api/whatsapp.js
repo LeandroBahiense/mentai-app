@@ -1050,11 +1050,23 @@ export default async function handler(req, res) {
           } catch (e) { console.error('CAL ACCOUNT ERR (' + acc.email + '):', e.message); }
         }
         // Une grants Nylas (Outlook/iCloud/IMAP…) — read-only, já vem no shape Google.
-        // Chaveado por user_id; se userId for null, pula (sem fallback por phone).
+        // nylas_grants é chaveada por user_id (sem coluna phone). No WhatsApp o `userId`
+        // vem de getUserIdByPhone(phone) e pode ser null se o número não estiver em
+        // phone_users — mas as contas Google já carregadas (google_tokens filtradas por
+        // phone) trazem o user_id real. Resolve em camadas; pula só se NÃO houver id.
+        let nylasUserId = userId;
+        if (!nylasUserId) {
+          try { nylasUserId = await getUserIdByPhone(phone); }
+          catch (e) { console.error('NYLAS userId via phone_users ERR:', e.message); }
+        }
+        if (!nylasUserId) {
+          const _accComUid = accounts.find(function (a) { return a && a.user_id; });
+          nylasUserId = _accComUid ? _accComUid.user_id : null;
+        }
         let nylasGrants = [];
-        if (userId) {
+        if (nylasUserId) {
           try {
-            nylasGrants = await getAllNylasGrants(userId);
+            nylasGrants = await getAllNylasGrants(nylasUserId);
             for (const g of nylasGrants) {
               try {
                 const evs = await getCalendarEventsNylas(g);
