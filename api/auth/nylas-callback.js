@@ -5,7 +5,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'crypto';
-import { exchangeCodeForGrant, getPrimaryCalendarId } from '../_lib/nylas.js';
+import { exchangeCodeForGrant, getPrimaryCalendarId, revokeGrant } from '../_lib/nylas.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -65,6 +65,14 @@ export default async function handler(req, res) {
     if (!grantId) {
       console.error('NYLAS CALLBACK: exchange sem grant_id');
       return res.redirect(302, 'https://pallyum.com/app?nylas=error');
+    }
+
+    // ── Guarda anti-Google: Google é nativo/grátis no Pallyum (card próprio).
+    // Bloqueia e revoga o grant pra não pagar Nylas à toa nem deixar grant órfão.
+    if (provider === 'google') {
+      await revokeGrant(grantId);
+      console.log('NYLAS GOOGLE BLOCKED:', email);
+      return res.redirect(302, 'https://pallyum.com/app?nylas=google_blocked');
     }
 
     // ── Resolve calendar primário (best-effort: null se não houver) ───────────
