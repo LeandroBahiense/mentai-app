@@ -41,12 +41,22 @@ function signState(payload) {
   return b64 + '.' + sig;
 }
 
+// Provedores oferecidos. Google NUNCA entra aqui (é nativo/grátis, card próprio).
+const PROVIDER_ALLOWLIST = ['microsoft', 'imap', 'icloud', 'yahoo', 'ews'];
+
 export default function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'method not allowed' });
 
   const uid = readSession(req);
   if (!uid) return res.status(401).json({ error: 'unauthorized' });
 
+  // Provider obrigatório e dentro da allowlist (bloqueia 'google' e qualquer outro).
+  const provider = (req.query && req.query.provider) || '';
+  if (!PROVIDER_ALLOWLIST.includes(provider)) {
+    console.warn('NYLAS CONNECT: provider inválido/ausente:', provider);
+    return res.redirect(302, 'https://pallyum.com/app?nylas=provider_invalid');
+  }
+
   const state = signState({ user_id: uid, ts: Date.now() });
-  return res.redirect(302, buildNylasAuthUrl(state));
+  return res.redirect(302, buildNylasAuthUrl(state, provider));
 }
