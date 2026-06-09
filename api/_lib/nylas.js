@@ -14,6 +14,10 @@
 const NYLAS_API_URI = process.env.NYLAS_API_URI;
 const NYLAS_API_KEY = process.env.NYLAS_API_KEY;
 
+// OAuth (hosted auth). No método API-key, o client_secret na troca É a NYLAS_API_KEY.
+const NYLAS_CLIENT_ID = process.env.NYLAS_CLIENT_ID;
+const NYLAS_REDIRECT_URI = 'https://pallyum.com/api/auth/nylas-callback';
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -58,6 +62,56 @@ export async function nylasFetch(path, opts = {}) {
     throw new Error('Nylas ' + res.status);
   }
   return json;
+}
+
+// ─── Auth: hosted connect + troca de code por grant ──────────────────────────
+// Sem provider (Nylas mostra o seletor) e sem PKCE.
+export function buildNylasAuthUrl(state) {
+  const params = new URLSearchParams({
+    client_id:     NYLAS_CLIENT_ID,
+    redirect_uri:  NYLAS_REDIRECT_URI,
+    response_type: 'code',
+    state:         state,
+  });
+  return NYLAS_API_URI + '/v3/connect/auth?' + params.toString();
+}
+
+let _loggedExchange = false;
+// Troca o code por grant. client_secret = NYLAS_API_KEY (método API-key).
+// Retorna { grantId, email, provider }. Na 1ª execução loga a resposta crua
+// (só nomes/valores não-sensíveis — a resposta NÃO contém o client_secret/key).
+export async function exchangeCodeForGrant(code) {
+  const res = await fetch(NYLAS_API_URI + '/v3/connect/token', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({
+      code:          code,
+      client_id:     NYLAS_CLIENT_ID,
+      client_secret: NYLAS_API_KEY,
+      redirect_uri:  NYLAS_REDIRECT_URI,
+      grant_type:    'authorization_code',
+    }),
+  });
+  let json = null;
+  try { json = await res.json(); } catch { json = null; }
+
+  if (!_loggedExchange) {
+    _loggedExchange = true;
+    // Loga campos esperados + lista de chaves (sem valores sensíveis) p/ confirmar nomes.
+    console.log('NYLAS EXCHANGE (1ª vez):', JSON.stringify({
+      status:   res.status,
+      grant_id: json && json.grant_id,
+      email:    json && json.email,
+      provider: json && json.provider,
+      keys:     json ? Object.keys(json) : [],
+    }));
+  }
+
+  if (!res.ok || !json || !json.grant_id) {
+    console.error('NYLAS EXCHANGE ERR ' + res.status);
+    throw new Error('Nylas token exchange falhou: ' + res.status);
+  }
+  return { grantId: json.grant_id, email: json.email, provider: json.provider };
 }
 
 // ─── Grants (Supabase) ────────────────────────────────────────────────────────
