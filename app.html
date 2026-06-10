@@ -1462,7 +1462,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     <div id="account-limit-text" style="font-size:13px;color:var(--text2);line-height:1.6;">Você atingiu o limite de contas do seu plano.</div>
     <div style="display:flex;flex-direction:column;gap:8px;width:100%;margin-top:4px;">
       <button onclick="closeAccountLimitModal(); navigate('planos');" class="ss-btn primary" style="width:100%;">Fazer upgrade</button>
-      <button onclick="accountLimitExtraStub()" class="ss-btn" style="width:100%;">Adicionar e-mail avulso (+R$15/mês)</button>
+      <button id="account-limit-addon-btn" onclick="addEmailExtra()" class="ss-btn" style="width:100%;">Adicionar e-mail avulso (+R$15/mês)</button>
       <button onclick="closeAccountLimitModal()" class="ss-btn" style="width:100%;">Fechar</button>
     </div>
   </div>
@@ -2883,7 +2883,7 @@ async function connectGoogle() {
   if (!currentUser) return;
   // Gate de limite (03.4a): se já no limite, abre o modal em vez de conectar.
   const _lim = await checkLimitBeforeConnect();
-  if (_lim && _lim.atLimit) { openAccountLimitModal(_lim.used, _lim.max); return; }
+  if (_lim && _lim.atLimit) { _pendingConnect = 'google'; openAccountLimitModal(_lim.used, _lim.max); return; }
   sessionStorage.setItem('pallyum-return-to', 'settings');
   // Tenta incluir o phone do usuário pra o callback vincular à tabela phone_users
   let phone = '';
@@ -3023,8 +3023,58 @@ function closeAccountLimitModal() {
 }
 
 // Stub — a cobrança do e-mail avulso (+R$15/mês) é o passo 03.4b.
-function accountLimitExtraStub() {
-  if (typeof showAdminToast === 'function') showAdminToast('Em breve: adicionar e-mail avulso.', 'warn');
+// Connect que o usuário tentou e foi barrado pelo limite — retomado após a compra.
+let _pendingConnect = null;
+
+function resumePendingConnect() {
+  const pc = _pendingConnect;
+  _pendingConnect = null;
+  if (pc === 'google') {
+    connectGoogle();
+  } else if (pc && pc.nylas) {
+    window.location.href = '/api/auth/nylas-connect?provider=' + encodeURIComponent(pc.nylas);
+  }
+}
+
+// Compra do slot de e-mail avulso (+R$15/mês) → POST /api/email-extra/add.
+async function addEmailExtra() {
+  const btn = document.getElementById('account-limit-addon-btn');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Processando...'; }
+
+  let resp, data;
+  try {
+    resp = await fetch('/api/email-extra/add', { method: 'POST', credentials: 'same-origin' });
+    data = await resp.json().catch(() => ({}));
+  } catch (e) {
+    if (typeof showAdminToast === 'function') showAdminToast('Erro ao processar. Tente de novo.', 'err');
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+    return;
+  }
+
+  if (resp.ok && data && data.ok) {
+    closeAccountLimitModal();
+    if (typeof showAdminToast === 'function') showAdminToast('E-mail avulso adicionado (+R$15/mês). Conectando...', 'ok');
+    resumePendingConnect();
+    return;
+  }
+
+  // Erros — mensagem por código/status.
+  const code = data && data.error;
+  let msg, tipo = 'warn';
+  if (resp.status === 400 && (code === 'sem_assinatura' || code === 'sem_cartao')) {
+    msg = 'Pra adicionar e-mail avulso você precisa de assinatura ativa com cartão. Faça upgrade/ative um cartão primeiro.';
+  } else if (resp.status === 402 || code === 'cobranca_recusada') {
+    msg = 'Cobrança recusada. Confira seu cartão e tente de novo.';
+  } else if (resp.status === 500 && code === 'addon_partial') {
+    msg = 'Pagamento processado, mas houve um problema ao ativar. Fale com o suporte.';
+    tipo = 'err';
+  } else {
+    msg = 'Erro ao processar. Tente de novo.';
+    tipo = 'err';
+  }
+  if (typeof showAdminToast === 'function') showAdminToast(msg, tipo);
+  if (btn) { btn.disabled = false; btn.textContent = orig; }
 }
 
 // Intercepta os links de provedor Nylas: checa limite antes de navegar.
@@ -3032,7 +3082,12 @@ async function gateNylasConnect(ev) {
   ev.preventDefault();
   const href = ev.currentTarget.getAttribute('href');
   const lim = await checkLimitBeforeConnect();
-  if (lim && lim.atLimit) { openAccountLimitModal(lim.used, lim.max); return false; }
+  if (lim && lim.atLimit) {
+    const provider = (href.match(/provider=([^&]+)/) || [])[1] || '';
+    _pendingConnect = { nylas: decodeURIComponent(provider) };
+    openAccountLimitModal(lim.used, lim.max);
+    return false;
+  }
   window.location.href = href;
   return false;
 }
