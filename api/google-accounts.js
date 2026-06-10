@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto';
+import { syncAddOnsAfterRemoval } from './_lib/plans.js';
 
 const SUPABASE_URL  = process.env.SUPABASE_URL;
 const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -73,6 +74,11 @@ export default async function handler(req, res) {
       return res.status(409).json({ error: 'principal', message: 'Defina outra conta como principal antes de remover esta.' });
     }
     await sb('?user_id=eq.' + encodeURIComponent(uid) + '&id=eq.' + encodeURIComponent(id), { method: 'DELETE' });
+
+    // Conta removida → cancela add-ons que deixaram de ser necessários (best-effort).
+    try { await syncAddOnsAfterRemoval(uid); }
+    catch (e) { console.error('[google-accounts] syncAddOnsAfterRemoval falhou (não bloqueia):', e.message); }
+
     const last = all.length === 1; // sinaliza ao front que era a última
     return res.status(200).json({ ok: true, wasLast: last });
   }

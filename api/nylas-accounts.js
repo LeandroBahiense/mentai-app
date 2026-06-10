@@ -6,6 +6,7 @@
 
 import { createHmac, timingSafeEqual } from 'crypto';
 import { revokeGrant } from './_lib/nylas.js';
+import { syncAddOnsAfterRemoval } from './_lib/plans.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -69,6 +70,11 @@ export default async function handler(req, res) {
     }
 
     await sb('?user_id=eq.' + encodeURIComponent(uid) + '&id=eq.' + encodeURIComponent(id), { method: 'DELETE' });
+
+    // Conta removida → cancela add-ons que deixaram de ser necessários (best-effort).
+    try { await syncAddOnsAfterRemoval(uid); }
+    catch (e) { console.error('[nylas-accounts] syncAddOnsAfterRemoval falhou (não bloqueia):', e.message); }
+
     return res.status(200).json({ ok: true });
   }
 
