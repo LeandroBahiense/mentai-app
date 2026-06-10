@@ -8,6 +8,12 @@
 
 import { isAdmin } from './adminAuth.js';
 
+// Asaas — para cancelar a assinatura recorrente de add-ons excedentes (03.4b).
+const ASAAS_API_KEY  = process.env.ASAAS_API_KEY;
+const ASAAS_BASE_URL = process.env.ASAAS_ENV === 'production'
+  ? 'https://api.asaas.com/v3'
+  : 'https://sandbox.asaas.com/api/v3';
+
 // ── Tabela de SKUs ─────────────────────────────────────────────────────────────
 // FONTE ÚNICA de preço/plano do app. Chave: "{produto}-{tier}-{periodo}".
 // Importada por api/asaas/checkout.js (cobrança) e pelos helpers de proration
@@ -349,6 +355,83 @@ export async function checkAccountLimit(uid) {
 
   const max = (MAX_ACCOUNTS[plano] != null ? MAX_ACCOUNTS[plano] : 1) + paidAddOns;
   return { plano, used, max, atLimit: used >= max, isAdmin: false, isDP: false };
+}
+
+// ── Sync de add-ons após remover uma conta (03.4b) ───────────────────────────
+// Quando o usuário remove uma conta conectada, pode haver add-ons pagos que
+// deixaram de ser necessários (used caiu). Cancela os add-ons EXCEDENTES: para
+// cada um, DELETE da assinatura recorrente no Asaas (best-effort) + marca a
+// linha como 'canceled'. Mantém os que ainda cobrem uso acima do tier.
+export async function syncAddOnsAfterRemoval(uid) {
+  try {
+    const sb = makeSupabase();
+
+    // Plano atual.
+    let plano = '';
+    try {
+      const { data } = await sb.from('user_preferences').select('plano').eq('user_id', uid).maybeSingle();
+      plano = data?.plano || '';
+    } catch (e) { console.error('syncAddOns plano error:', e.message); }
+
+    // used = contas conectadas (Google + Nylas ativos), recomputado AGORA.
+    let gCount = 0, nCount = 0;
+    try {
+      const { count } = await sb.from('google_tokens').select('id', { count: 'exact', head: true }).eq('user_id', uid);
+      gCount = count || 0;
+    } catch (e) { console.error('syncAddOns google count error:', e.message); }
+    try {
+      const { count } = await sb.from('nylas_grants').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'active');
+      nCount = count || 0;
+    } catch (e) { console.error('syncAddOns nylas count error:', e.message); }
+    const used = gCount + nCount;
+
+    const tierMax = MAX_ACCOUNTS[plano] != null ? MAX_ACCOUNTS[plano] : 1;
+    const needed  = Math.max(0, used - tierMax); // add-ons ainda justificados pelo uso
+
+    // Add-ons ativos (mais antigos primeiro).
+    let addons = [];
+    try {
+      const { data } = await sb.from('account_addons')
+        .select('id, asaas_subscription_id')
+        .eq('user_id', uid).eq('status', 'active')
+        .order('created_at', { ascending: true });
+      addons = Array.isArray(data) ? data : [];
+    } catch (e) { console.error('syncAddOns read addons error:', e.message); return; }
+
+    const surplus = Math.max(0, addons.length - needed);
+    if (surplus === 0) {
+      console.log(`syncAddOns | uid=${uid} | used=${used} tierMax=${tierMax} needed=${needed} | ativos=${addons.length} | nada a cancelar`);
+      return;
+    }
+
+    let canceled = 0;
+    for (let k = 0; k < surplus; k++) {
+      const addon = addons[k];
+      // 1) Cancela a assinatura recorrente no Asaas (best-effort; 404 = já não existe).
+      if (addon.asaas_subscription_id) {
+        try {
+          const r = await fetch(`${ASAAS_BASE_URL}/subscriptions/${encodeURIComponent(addon.asaas_subscription_id)}`, {
+            method:  'DELETE',
+            headers: { 'Content-Type': 'application/json', 'access_token': ASAAS_API_KEY },
+          });
+          if (!r.ok && r.status !== 404) {
+            console.error('syncAddOns: DELETE subscription Asaas falhou (segue):', addon.asaas_subscription_id, r.status);
+          }
+        } catch (e) { console.error('syncAddOns: DELETE subscription erro (segue):', e.message); }
+      }
+      // 2) Marca a linha como cancelada.
+      try {
+        const { error } = await sb.from('account_addons')
+          .update({ status: 'canceled', canceled_at: new Date().toISOString() })
+          .eq('id', addon.id);
+        if (error) console.error('syncAddOns: update account_addons falhou:', error.message);
+        else canceled++;
+      } catch (e) { console.error('syncAddOns: update account_addons erro:', e.message); }
+    }
+    console.log(`syncAddOns | uid=${uid} | used=${used} tierMax=${tierMax} needed=${needed} | ativos=${addons.length} cancelados=${canceled}`);
+  } catch (e) {
+    console.error('syncAddOnsAfterRemoval error:', e.message);
+  }
 }
 
 // ── Vision — fair use mensal (Etapa de Urgência, 06/2026) ─────
