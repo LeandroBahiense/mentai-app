@@ -1474,6 +1474,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   </div>
 </div>
 
+<!-- Modal: lembrete de renovação (Etapa 04.3a) — D-7/D-3/D-1 -->
+<div id="renew-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:14px;text-align:center;">
+    <div style="font-size:40px;line-height:1;">⏳</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Seu acesso está terminando</div>
+    <div id="renew-popup-msg" style="font-size:13px;color:var(--text2);line-height:1.6;"></div>
+    <div style="display:flex;flex-direction:column;gap:8px;width:100%;margin-top:4px;">
+      <button onclick="goToPlans()" class="ss-btn primary" style="width:100%;">Escolher plano</button>
+      <button onclick="closeRenewPopup()" class="ss-btn" style="width:100%;">Agora não</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: consentimento Nylas (LGPD just-in-time) — chokepoint antes do OAuth Nylas -->
 <div id="nylas-consent-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:center;justify-content:center;">
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:14px;text-align:center;">
@@ -4198,6 +4211,22 @@ VAULT (${notes.length} notas):
 ${notes.map(n => `### ${n.title}\nGaveta: ${n.folder}\nStatus: ${n.status||'inbox'}\n${n.content||''}`).join('\n---\n')}`;
 }
 // ── Modo leitura (Etapa 04.2): plano inativo ─────────────────────────────────
+// ── Popup de renovação (Etapa 04.3a): D-7/D-3/D-1, uma vez por marco/ciclo ─────
+function maybeShowRenewPopup(dias, validade) {
+  if (dias == null || dias > 7 || !validade) return;
+  let marco, msg;
+  if (dias <= 1) { marco = 'd1'; msg = 'Amanhã sua conta entra em modo leitura: suas informações continuam guardadas, mas o Jarvis e o WhatsApp pausam até você escolher um plano. Renove agora pra não interromper.'; }
+  else if (dias <= 3) { marco = 'd3'; msg = 'Faltam ' + dias + ' dias para seu acesso terminar. Suas notas e eventos estão preservados. Escolha o plano que melhor encaixa.'; }
+  else { marco = 'd7'; msg = 'Seu acesso termina em ' + dias + ' dias. Quando você escolher um plano, tudo continua de onde parou — agenda, notas, briefing e vault.'; }
+  const key = 'pallyum_renov_' + validade + '_' + marco;
+  try { if (localStorage.getItem(key)) return; } catch(e) {}
+  const el = document.getElementById('renew-popup-msg'); if (el) el.textContent = msg;
+  const m = document.getElementById('renew-popup'); if (m) m.style.display = 'flex';
+  try { localStorage.setItem(key, '1'); } catch(e) {}
+}
+function closeRenewPopup() {
+  const m = document.getElementById('renew-popup'); if (m) m.style.display = 'none';
+}
 function enterReadOnlyMode() {
   if (APP.readOnly) return;
   APP.readOnly = true;
@@ -5815,6 +5844,7 @@ function initSupabaseAuth() {
             showAdminToast('Conta restaurada.', 'ok');
           }
           if (asData.planoAtivo === false) enterReadOnlyMode();
+          else if (asData.planoAtivo === true) maybeShowRenewPopup(asData.diasParaVencer, asData.planoValidade);
           // 'active' → segue o bootstrap normal
         } else {
           console.error('[account-status] HTTP ' + asResp.status + ' — seguindo como active (fail-open)');
