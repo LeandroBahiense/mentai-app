@@ -10,6 +10,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'crypto';
+import { cancelAllAddOns } from '../_lib/plans.js';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -120,6 +121,10 @@ export default async function handler(req, res) {
     console.error('[cancel-subscription] erro chamando Asaas:', e.message);
     return res.status(502).json({ error: 'Erro de comunicação com Asaas' });
   }
+
+  // Cascata (Etapa 04.4a): plano cancelado → cancela os add-ons (e-mails extras),
+  // senão seguem cobrando sozinhos. Best-effort: não bloqueia o cancelamento.
+  await cancelAllAddOns(uid);
 
   // 3. Marcar como cancelado no Supabase (duas tabelas, em paralelo)
   try {
