@@ -1,4 +1,4 @@
-import { getModelForUser, calculateCooldown, trackUsage, routeModel, checkVisionQuota, incrementVisionUsage } from './_lib/plans.js';
+import { getModelForUser, calculateCooldown, trackUsage, routeModel, checkVisionQuota, incrementVisionUsage, isPlanActive } from './_lib/plans.js';
 import { searchRelevantNotes, buildRagContext } from './_lib/embeddings.js';
 import { getAllGoogleAccounts, ensureAccountToken, getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, getGmailMessages, formatCalendarEvents, formatGmailMessages } from './_lib/google.js';
 import { getAllNylasGrants, getCalendarEventsNylas } from './_lib/nylas.js';
@@ -834,6 +834,14 @@ export default async function handler(req, res) {
     // ── Número desconhecido sem código válido → instrução de ativação ─────────
     if (!userId) {
       await sendWhatsApp(phone, 'Olá! Para ativar o WhatsApp no Pallyum, abra o app → aba WhatsApp e siga as instruções. 📱');
+      return res.status(200).send('OK');
+    }
+
+    // Gate de plano ativo (Etapa 04): plano vencido → modo leitura no WhatsApp.
+    // Ativação e número desconhecido já retornaram acima; aqui userId é válido.
+    // Resposta em texto livre (a janela de 24h acabou de abrir com este inbound).
+    if (!(await isPlanActive(userId))) {
+      await sendWhatsApp(phone, 'Seu plano está inativo no momento. Suas notas e agenda continuam guardadas — escolha um plano em https://pallyum.com/app?view=planos e o Jarvis volta na hora. 🙂');
       return res.status(200).send('OK');
     }
 
