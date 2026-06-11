@@ -1468,6 +1468,23 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   </div>
 </div>
 
+<!-- Modal: consentimento Nylas (LGPD just-in-time) — chokepoint antes do OAuth Nylas -->
+<div id="nylas-consent-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:14px;text-align:center;">
+    <div style="font-size:40px;line-height:1;">📆</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);">Conectar e-mail/agenda externos</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.6;">Para conectar esta conta, seus dados de e-mail e agenda passarão pela Nylas, Inc., nossa sub-processadora (tratamento nos EUA), que faz a ponte segura com seu provedor. O Pallyum acessa apenas o necessário para os recursos de agenda. Você pode desconectar a qualquer momento em Configurações.</div>
+    <div style="display:flex;gap:14px;justify-content:center;font-size:12px;">
+      <a href="/privacidade" target="_blank" rel="noopener noreferrer" style="color:var(--accent2); text-decoration:underline;">Política de Privacidade</a>
+      <a href="/sub-processadores" target="_blank" rel="noopener noreferrer" style="color:var(--accent2); text-decoration:underline;">Sub-processadores</a>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;width:100%;margin-top:4px;">
+      <button onclick="confirmNylasConsent()" class="ss-btn primary" style="width:100%;">Entendi, conectar</button>
+      <button onclick="closeNylasConsent()" class="ss-btn" style="width:100%;">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════
@@ -3032,7 +3049,7 @@ function resumePendingConnect() {
   if (pc === 'google') {
     connectGoogle();
   } else if (pc && pc.nylas) {
-    window.location.href = '/api/auth/nylas-connect?provider=' + encodeURIComponent(pc.nylas);
+    proceedNylasConnect(pc.nylas);
   }
 }
 
@@ -3078,6 +3095,27 @@ async function addEmailExtra() {
 }
 
 // Intercepta os links de provedor Nylas: checa limite antes de navegar.
+// ── Consentimento Nylas (LGPD just-in-time) — chokepoint único antes do OAuth ──
+let _nylasConsentProvider = null;
+function proceedNylasConnect(provider) {
+  _nylasConsentProvider = provider;
+  const modal = document.getElementById('nylas-consent-modal');
+  if (modal) { modal.style.display = 'flex'; }
+  else { window.location.href = '/api/auth/nylas-connect?provider=' + encodeURIComponent(provider); } // fail-open
+}
+function closeNylasConsent() {
+  _nylasConsentProvider = null;
+  const modal = document.getElementById('nylas-consent-modal');
+  if (modal) modal.style.display = 'none';
+}
+function confirmNylasConsent() {
+  const p = _nylasConsentProvider;
+  _nylasConsentProvider = null;
+  const modal = document.getElementById('nylas-consent-modal');
+  if (modal) modal.style.display = 'none';
+  if (p) window.location.href = '/api/auth/nylas-connect?provider=' + encodeURIComponent(p);
+}
+
 async function gateNylasConnect(ev) {
   ev.preventDefault();
   const href = ev.currentTarget.getAttribute('href');
@@ -3088,7 +3126,8 @@ async function gateNylasConnect(ev) {
     openAccountLimitModal(lim.used, lim.max);
     return false;
   }
-  window.location.href = href;
+  const provider = (href.match(/provider=([^&]+)/) || [])[1] || '';
+  proceedNylasConnect(decodeURIComponent(provider));
   return false;
 }
 
