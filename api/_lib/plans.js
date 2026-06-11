@@ -601,3 +601,29 @@ export async function trackUsage(userId, channel, options = {}) {
     console.error('trackUsage error:', e.message);
   }
 }
+
+// ── Gate de plano ativo (Etapa 04 — lógica de plano inativo) ─────────────────
+// Lock EXCLUSIVO por validade: cenários A (trial), B (DP 30d), C (falha recorrente).
+// A string do plano NÃO muda. null/sem data → ATIVO (pré-pagamento/admin, não é
+// "expirou"); data inválida → ATIVO (fail-open).
+export function isPlanActiveFromValidade(planoValidade) {
+  if (!planoValidade) return true;
+  const t = new Date(planoValidade).getTime();
+  if (!Number.isFinite(t)) return true;
+  return t >= Date.now();
+}
+
+// Async por uid. ADMIN nunca expira (bypass). DP expira pela validade (cenário B).
+// Erro de leitura → fail-open (true): não pune o pagante por soluço de banco; o
+// bloqueio real persiste na próxima checagem.
+export async function isPlanActive(uid) {
+  try {
+    if (isAdmin(uid)) return true;
+    const sb = makeSupabase();
+    const { data } = await sb.from('user_preferences').select('plano_validade').eq('user_id', uid).maybeSingle();
+    return isPlanActiveFromValidade(data?.plano_validade);
+  } catch (e) {
+    console.error('isPlanActive error (fail-open):', e.message);
+    return true;
+  }
+}
