@@ -442,9 +442,16 @@ export default async function handler(req, res) {
       );
 
       // Monta mensagem completa
+      // Despedida no ÚLTIMO briefing antes do plano pausar (Etapa 04.3b): validade < 24h.
+      // pref.plano_validade já vem no select (gate da 04.1). Só dispara enquanto AINDA ativo
+      // (validade futura, dentro de 24h) — depois de vencer, o briefing nem roda (gate pula).
+      const _hParaVencer = pref.plano_validade ? (new Date(pref.plano_validade).getTime() - Date.now()) / 36e5 : null;
+      const _despedida = (_hParaVencer != null && _hParaVencer > 0 && _hParaVencer <= 24)
+        ? '\n\n💙 E já que essa parece ser nossa última conversa por agora: foi muito bom poder te acompanhar durante todo esse período. Quando você escolher um plano, eu volto na hora e a gente continua exatamente de onde parou.'
+        : '';
       const message = buildMessage(
         displayName, eventsText, urgentText, urgentNotes.length, jarvisLine
-      );
+      ) + _despedida;
 
       // grava o cache sempre — o toque do botão VER_BRIEFING serve daqui
       await saveBriefingCache(userId, message, calendarEvents.length, urgentNotes.length);
