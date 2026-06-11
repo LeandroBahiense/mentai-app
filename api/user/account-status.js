@@ -16,6 +16,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'crypto';
+import { isPlanActive } from '../_lib/plans.js';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -70,6 +71,10 @@ export default async function handler(req, res) {
   const uid = readSession(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized' });
 
+  // Sinal de plano ativo pro front entrar em modo leitura no boot (Etapa 04.2).
+  // Mesma lógica do gate (bypass admin + fail-open) — fonte única.
+  const planoAtivo = await isPlanActive(uid);
+
   try {
     // 1. Lê o estado de exclusão da conta
     const getRes = await fetch(
@@ -86,7 +91,7 @@ export default async function handler(req, res) {
 
     // Sem linha OU sem pedido de exclusão → conta ativa
     if (!deletedAt) {
-      return res.status(200).json({ status: 'active' });
+      return res.status(200).json({ status: 'active', planoAtivo });
     }
 
     // 2. Há pedido de exclusão — dentro da graça?
@@ -141,7 +146,7 @@ export default async function handler(req, res) {
     }
 
     // Conta está ativa de qualquer forma (transição agora ou já restaurada por concorrência).
-    return res.status(200).json({ status: 'restored' });
+    return res.status(200).json({ status: 'restored', planoAtivo });
 
   } catch (e) {
     console.error('[user/account-status] erro inesperado:', e.message);
