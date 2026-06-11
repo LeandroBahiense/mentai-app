@@ -12,6 +12,7 @@
   "crons": [
     { "path": "/api/cron/briefing", "schedule": "0 * * * *" },
     { "path": "/api/cron/daily-usage", "schedule": "59 23 * * *" },
-    { "path": "/api/cron/index-notes", "schedule": "0 3 * * *" }
+    { "path": "/api/cron/index-notes", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/plan-expiry-email", "schedule": "0 13 * * *" }
   ]
 }
