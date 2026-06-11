@@ -2637,6 +2637,11 @@ async function confirmPlanChange() {
     case 'no_card_token':       msg = 'Não encontramos um cartão salvo na sua assinatura. Tente de novo ou fale com o suporte.'; break;
     case 'plan_change_partial': msg = 'O pagamento foi feito, mas houve um problema ao aplicar. Fale com o suporte se algo parecer errado.'; break;
     case 'trial_cannot_change': msg = 'Durante o teste grátis não é possível trocar de plano.'; break;
+    case 'downgrade_excede_capacidade': {
+      const lbl = (PLAN_LABELS[_pendingTarget] || { label: _pendingTarget }).label;
+      msg = `Você tem ${data.used} conta(s) conectada(s), mas o ${lbl} comporta ${data.capacity}. Desconecte ${data.excedente} em Configurações antes de fazer o downgrade.`;
+      break;
+    }
     default:                    msg = 'Não foi possível concluir a troca agora. Tente novamente.';
   }
   const txtEl = document.getElementById('pc-error-text');
