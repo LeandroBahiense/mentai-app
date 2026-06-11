@@ -6,6 +6,7 @@
 
 import { createHmac, timingSafeEqual } from 'crypto';
 import { exchangeCodeForGrant, getPrimaryCalendarId, revokeGrant } from '../_lib/nylas.js';
+import { NYLAS_NOTICE_VERSION, NYLAS_NOTICE_TEXT_SHOWN } from '../_lib/versions.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -109,6 +110,35 @@ export default async function handler(req, res) {
       const errText = await upsertRes.text();
       console.error('NYLAS CALLBACK: upsert nylas_grants falhou:', upsertRes.status, errText);
       return res.redirect(302, 'https://pallyum.com/app?nylas=error');
+    }
+
+    // ── Prova de transparência (LGPD): registra o aceite do aviso Nylas. Best-effort:
+    //    falha aqui NÃO derruba a conexão (o grant já foi criado). Só grava em conexão real.
+    try {
+      const xff = req.headers['x-forwarded-for'];
+      const ip = (typeof xff === 'string' && xff.length > 0)
+        ? xff.split(',')[0].trim()
+        : (req.headers['x-real-ip'] || null);
+      const consentRes = await fetch(SUPABASE_URL + '/rest/v1/user_consents', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'apikey':        SERVICE_KEY,
+          'Authorization': 'Bearer ' + SERVICE_KEY,
+          'Prefer':        'return=minimal',
+        },
+        body: JSON.stringify({
+          user_id:     uid,
+          doc_type:    'nylas',
+          doc_version: NYLAS_NOTICE_VERSION,
+          ip:          ip,
+          user_agent:  req.headers['user-agent'] || null,
+          text_shown:  NYLAS_NOTICE_TEXT_SHOWN,
+        }),
+      });
+      if (!consentRes.ok) console.error('[nylas-callback] user_consents insert falhou:', consentRes.status);
+    } catch (eC) {
+      console.error('[nylas-callback] user_consents insert erro:', eC.message);
     }
 
     console.log('NYLAS CALLBACK OK | uid=' + uid + ' | provider=' + provider + ' | grant=' + grantId);
