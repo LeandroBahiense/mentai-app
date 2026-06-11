@@ -8,6 +8,8 @@
  * Fonte da verdade: Pallyum-Planos-e-Precos.md seção 9
  */
 
+import { revokeGrant } from '../_lib/nylas.js';
+
 const SUPABASE_URL     = process.env.SUPABASE_URL;
 const SUPABASE_SVC_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const CRON_SECRET      = process.env.CRON_SECRET; // protege o endpoint
@@ -113,6 +115,32 @@ async function purgeDeletedAccounts() {
           continue;
         }
 
+        // d0. Revoga grants Nylas ANTES do CASCADE. O deleteUser (passo d) apaga
+        //     nylas_grants via CASCADE e o grant_id se perde — revoke tem que ser aqui.
+        //     Best-effort: revokeGrant loga e retorna bool, não lança. Falha NÃO bloqueia
+        //     o expurgo (reter PII local além do D+30 seria violação pior que grant órfão).
+        let nylasRevoked = 0;
+        const nylasFailed = [];
+        try {
+          const grantsRes = await fetch(
+            SUPABASE_URL + '/rest/v1/nylas_grants?user_id=eq.' + encodeURIComponent(uid) + '&select=grant_id',
+            { headers: svcHeaders() }
+          );
+          const grantRows = grantsRes.ok ? await grantsRes.json().catch(() => []) : [];
+          for (const g of (Array.isArray(grantRows) ? grantRows : [])) {
+            if (!g || !g.grant_id) continue;
+            const ok = await revokeGrant(g.grant_id);
+            if (ok) nylasRevoked++; else nylasFailed.push(g.grant_id);
+          }
+          if (nylasFailed.length > 0) {
+            console.error('[purge] uid=' + uid + ' | grants Nylas NÃO revogados (órfãos): ' + JSON.stringify(nylasFailed));
+          } else if (nylasRevoked > 0) {
+            console.log('[purge] uid=' + uid + ' | grants Nylas revogados: ' + nylasRevoked);
+          }
+        } catch (eNylas) {
+          console.error('[purge] revogação Nylas falhou (não fatal) uid=' + uid + ':', eNylas.message);
+        }
+
         // d. Deleta o usuário no auth (CASCADE limpa o resto). Non-ok → pula (files já foram).
         const delUserRes = await fetch(
           SUPABASE_URL + '/auth/v1/admin/users/' + encodeURIComponent(uid),
@@ -133,7 +161,7 @@ async function purgeDeletedAccounts() {
               target_user_id: uid,
               action:         'account_purged',
               old_value:      JSON.stringify({ account_deleted_at: ts }),
-              new_value:      JSON.stringify({ purged: true }),
+              new_value:      JSON.stringify({ purged: true, nylas_revoked: nylasRevoked, nylas_failed: nylasFailed }),
               created_at:     new Date().toISOString(),
             }),
           });
