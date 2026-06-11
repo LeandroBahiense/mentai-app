@@ -263,3 +263,58 @@ export async function sendConfirmacaoEmailSecundario({ toEmail, confirmationUrl,
 
   return await resp.json();
 }
+
+function buildPlanoExpiradoHtml() {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seu acesso foi pausado</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f4f0;padding:40px 20px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;">
+<tr><td style="padding:32px 32px 0 32px;">
+<div style="font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:600;color:#7c5cdb;letter-spacing:-0.5px;">Pallyum</div>
+</td></tr>
+<tr><td style="padding:24px 32px 8px 32px;">
+<h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:600;line-height:1.2;color:#1a1a1a;">Seu acesso foi pausado</h1>
+<p style="margin:12px 0 0 0;font-size:15px;color:#666;line-height:1.5;">Seu plano venceu e sua conta entrou em <strong style="color:#1a1a1a;">modo leitura</strong>. Mas pode ficar tranquilo: suas notas, sua agenda e tudo o que você construiu continuam guardados.</p>
+<p style="margin:12px 0 0 0;font-size:15px;color:#666;line-height:1.5;">Quando você escolher um plano, o Jarvis volta na hora e você continua exatamente de onde parou.</p>
+</td></tr>
+<tr><td style="padding:24px 32px 32px 32px;text-align:center;">
+<a href="https://www.pallyum.com/app" target="_blank" style="display:inline-block;padding:14px 36px;background:#7c5cdb;color:#ffffff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:500;">Escolher plano</a>
+</td></tr>
+<tr><td style="padding:24px 32px 32px 32px;font-size:12px;color:#888;line-height:1.6;border-top:1px solid #ebe9e3;">
+Você recebeu este e-mail porque seu plano no Pallyum venceu. Seus dados continuam guardados e acessíveis em modo leitura.<br><br>
+Pallyum é um produto da Somos Vast LTDA · <a href="https://pallyum.com" style="color:#888;text-decoration:underline;">pallyum.com</a>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+export async function sendPlanoExpiradoByUserId({ userId }) {
+  if (!RESEND_API_KEY) throw new Error('[email] RESEND_API_KEY não configurada');
+  const email = await getUserEmailByUserId(userId);
+  if (!email) throw new Error('[email] email não encontrado para userId=' + userId);
+  const resp = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from:    FROM_ADDRESS,
+      to:      [email],
+      subject: 'Seu acesso foi pausado · suas informações estão guardadas',
+      html:    buildPlanoExpiradoHtml(),
+    }),
+  });
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error('[email] Resend API error (' + resp.status + '): ' + err);
+  }
+  return await resp.json();
+}
