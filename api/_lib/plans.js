@@ -671,3 +671,37 @@ export async function cancelAllAddOns(uid) {
     return 0;
   }
 }
+
+// Checa se um downgrade para targetPlano cabe nas contas conectadas (Etapa 04.4c, regra b).
+// Capacidade no destino = MAX_ACCOUNTS[target] + add-ons ativos (os add-ons seguem após
+// o downgrade). Se as contas conectadas excedem, o downgrade é bloqueado e o usuário
+// desconecta o excedente que quiser. Fail-open em erro: não trava por glitch de banco.
+export async function downgradeCapacityCheck(uid, targetPlano) {
+  const out = { ok: true, used: 0, capacity: 0, excedente: 0 };
+  try {
+    const sb = makeSupabase();
+    let gCount = 0, nCount = 0, addons = 0;
+    try {
+      const { count } = await sb.from('google_tokens').select('id', { count: 'exact', head: true }).eq('user_id', uid);
+      gCount = count || 0;
+    } catch (e) { console.error('downgradeCapacityCheck google error:', e.message); }
+    try {
+      const { count } = await sb.from('nylas_grants').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'active');
+      nCount = count || 0;
+    } catch (e) { console.error('downgradeCapacityCheck nylas error:', e.message); }
+    try {
+      const { count } = await sb.from('account_addons').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'active');
+      addons = count || 0;
+    } catch (e) { console.error('downgradeCapacityCheck addons error:', e.message); }
+    const used = gCount + nCount;
+    const tierMax = MAX_ACCOUNTS[targetPlano] != null ? MAX_ACCOUNTS[targetPlano] : 1;
+    out.used = used;
+    out.capacity = tierMax + addons;
+    out.excedente = Math.max(0, used - out.capacity);
+    out.ok = out.excedente === 0;
+    return out;
+  } catch (e) {
+    console.error('downgradeCapacityCheck erro geral (fail-open):', e.message);
+    return out; // ok=true → não bloqueia
+  }
+}
