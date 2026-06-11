@@ -1,3 +1,5 @@
+import { isPlanActiveFromValidade } from '../_lib/plans.js';
+
 const SUPABASE_URL     = process.env.SUPABASE_URL;
 const SUPABASE_KEY     = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SVC_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -71,7 +73,7 @@ async function getPrefsForHour(horaAtual) {
   const res = await fetch(
     SUPABASE_URL + '/rest/v1/user_preferences?briefing_hora=eq.' + encodeURIComponent(horaAtual) +
     '&briefing_optin=eq.true' +
-    '&select=user_id,display_name,assistant_name,briefing_hora',
+    '&select=user_id,display_name,assistant_name,briefing_hora,plano_validade',
     { headers: svcHeaders() }
   );
   const data = await res.json();
@@ -390,6 +392,11 @@ export default async function handler(req, res) {
   const results = [];
 
   for (const pref of prefs) {
+    // Gate de plano (Etapa 04): não envia briefing pra plano expirado.
+    if (!isPlanActiveFromValidade(pref.plano_validade)) {
+      console.log('[briefing] pulado: plano inativo | uid=' + pref.user_id);
+      continue;
+    }
     const { user_id: userId, display_name: displayName, assistant_name: assistantName } = pref;
 
     try {
