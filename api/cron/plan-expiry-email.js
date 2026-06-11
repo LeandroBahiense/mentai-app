@@ -1,9 +1,12 @@
 /**
- * Pallyum — Cron diário: email de "acesso pausado" no D+0 (Etapa 04.3b)
- * Acha quem venceu nas últimas 48h, conta não-excluída, e ainda não avisado neste
- * ciclo (aviso_d0_validade != plano_validade). Envia o email e marca o ciclo.
+ * Pallyum — Cron diário (Etapa 04.3b + 04.4b)
+ * Passo 1: email de "acesso pausado" no D+0 — quem venceu nas últimas 48h, conta
+ *          não-excluída, ainda não avisado neste ciclo (aviso_d0_validade != plano_validade).
+ * Passo 2: limpeza de add-ons (e-mails extras) de planos VENCIDOS — evita add-on
+ *          órfão cobrando depois da expiração.
  */
 import { sendPlanoExpiradoByUserId } from '../_lib/email.js';
+import { cancelAllAddOns } from '../_lib/plans.js';
 
 const SUPABASE_URL     = process.env.SUPABASE_URL;
 const SUPABASE_SVC_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -57,6 +60,40 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'internal error' });
   }
 
-  console.log('[plan-expiry-email] enviados=' + enviados + ' falhas=' + falhas);
-  return res.status(200).json({ ok: true, enviados, falhas });
+  // ── Passo 2 (Etapa 04.4b): cancela add-ons de quem está com plano VENCIDO ──────
+  // Sem janela de 48h: pega qualquer plano vencido que ainda tenha add-on ativo,
+  // evitando add-on órfão cobrando depois da expiração. Idempotente: cancelado sai
+  // de status='active' e não reaparece. Reusa cancelAllAddOns (mecânica provada).
+  let addonsLimpos = 0;
+  try {
+    const ar = await fetch(
+      SUPABASE_URL + '/rest/v1/account_addons?status=eq.active&select=user_id',
+      { headers: svcHeaders() }
+    );
+    const addonRows = ar.ok ? await ar.json().catch(() => []) : [];
+    const uids = [...new Set((Array.isArray(addonRows) ? addonRows : []).map(x => x.user_id).filter(Boolean))];
+
+    for (const uid of uids) {
+      try {
+        const pr = await fetch(
+          SUPABASE_URL + '/rest/v1/user_preferences?user_id=eq.' + encodeURIComponent(uid)
+            + '&plano_validade=lt.' + encodeURIComponent(nowIso)
+            + '&account_deleted_at=is.null'
+            + '&select=user_id',
+          { headers: svcHeaders() }
+        );
+        const expired = pr.ok ? await pr.json().catch(() => []) : [];
+        if (Array.isArray(expired) && expired.length > 0) {
+          addonsLimpos += await cancelAllAddOns(uid);
+        }
+      } catch (e) {
+        console.error('[plan-expiry-email] limpeza add-on falhou uid=' + uid + ':', e.message);
+      }
+    }
+  } catch (e) {
+    console.error('[plan-expiry-email] erro no passo de add-on:', e.message);
+  }
+
+  console.log('[plan-expiry-email] enviados=' + enviados + ' falhas=' + falhas + ' addonsLimpos=' + addonsLimpos);
+  return res.status(200).json({ ok: true, enviados, falhas, addonsLimpos });
 }
