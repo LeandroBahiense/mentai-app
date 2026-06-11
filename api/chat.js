@@ -7,7 +7,7 @@
  *  - Tracking de uso em usage_logs
  */
 
-import { getModelForUser, calculateCooldown, trackUsage } from './_lib/plans.js';
+import { getModelForUser, calculateCooldown, trackUsage, isPlanActive } from './_lib/plans.js';
 import { searchRelevantNotes, buildRagContext } from './_lib/embeddings.js';
 import { askClaudeTools, EVENT_TOOLS, NOTE_TOOLS, createNote, updateNote, deleteNote } from './_lib/agent.js';
 import { getAllGoogleAccounts, ensureAccountToken, getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, formatCalendarEvents } from './_lib/google.js';
@@ -94,6 +94,11 @@ export default async function handler(req, res) {
   // Sem sessão válida, recusa: fecha leitura de notas de terceiros e uso anônimo da API.
   const uid = readSession(req);
   if (!uid) return res.status(401).json({ error: 'sessão inválida' });
+
+  // Gate de plano ativo (Etapa 04): expirado → 402; o front mostra o modo leitura.
+  if (!(await isPlanActive(uid))) {
+    return res.status(402).json({ error: 'plano_inativo' });
+  }
 
   try {
     const body   = req.body || {};

@@ -1,5 +1,6 @@
 import { createClient }              from '@supabase/supabase-js';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { isPlanActive } from './_lib/plans.js';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -36,6 +37,12 @@ export default async function handler(req, res) {
   const uid = readSession(req);
   if (!uid) {
     return res.status(401).json({ error: 'sessão inválida' });
+  }
+
+  // Gate de plano (Etapa 04): GET (leitura) sempre liberado; mutações (POST/DELETE)
+  // exigem plano ativo — modo leitura no plano inativo.
+  if (req.method !== 'GET' && !(await isPlanActive(uid))) {
+    return res.status(402).json({ error: 'plano_inativo' });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
