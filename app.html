@@ -559,6 +559,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   </div>
 </div>
 
+<!-- Faixa de modo leitura (Etapa 04.2): plano inativo -->
+<div id="readonly-banner" style="display:none;background:var(--coral);color:#fff;padding:10px 16px;text-align:center;font-size:13px;line-height:1.4;">
+  Seu plano está inativo — você está em <strong>modo leitura</strong>. Suas notas e agenda continuam visíveis.
+  <button onclick="goToPlans()" style="margin-left:10px;background:#fff;color:var(--coral);border:none;border-radius:16px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;">Escolher plano</button>
+</div>
+
 <!-- TOPBAR -->
 <div id="topbar">
   <div id="logo" onclick="navigate('home')">Pally<em>um</em></div>
@@ -1498,6 +1504,7 @@ let _authMode   = 'login'; // 'login' | 'signup'
 let _recoveryEmail = null; // email do fluxo de redefinição de senha (código de 6 dígitos)
 
 const APP = {
+  readOnly: false,
   notes: [],
   currentNoteId: null,
   currentView: 'editor',
@@ -3470,6 +3477,7 @@ function renderNoteMeta(note) {
 }
 
 function newNote() {
+  if (APP.readOnly) { if (typeof showAdminToast === 'function') showAdminToast('Plano inativo — modo leitura.', 'warn'); return; }
   const sel = document.getElementById('new-note-folder-select');
   // Monta opções: gavetas padrão + gavetas do usuário no DOM
   const domFolders = [...document.querySelectorAll('#sidebar .s-item[data-folder]')]
@@ -4189,9 +4197,27 @@ Você tem acesso ao vault de notas e à agenda Google do usuário pelo chat, e p
 VAULT (${notes.length} notas):
 ${notes.map(n => `### ${n.title}\nGaveta: ${n.folder}\nStatus: ${n.status||'inbox'}\n${n.content||''}`).join('\n---\n')}`;
 }
+// ── Modo leitura (Etapa 04.2): plano inativo ─────────────────────────────────
+function enterReadOnlyMode() {
+  if (APP.readOnly) return;
+  APP.readOnly = true;
+  const b = document.getElementById('readonly-banner'); if (b) b.style.display = 'block';
+  const ci = document.getElementById('chat-input'); if (ci) { ci.disabled = true; ci.placeholder = 'Plano inativo — escolha um plano para voltar a conversar.'; }
+  const cs = document.getElementById('chat-send');  if (cs) cs.disabled = true;
+  const ec = document.getElementById('editor-content'); if (ec) ec.setAttribute('contenteditable', 'false');
+  const nt = document.getElementById('note-title'); if (nt) nt.disabled = true;
+  const nb = document.getElementById('new-note-btn'); if (nb) nb.disabled = true;
+}
+function goToPlans() {
+  // Mesma ação que o resto do app usa para abrir a tela de planos (nav-planos,
+  // "Fazer upgrade" do modal de limite, "Voltar aos planos" do checkout).
+  navigate('planos');
+}
+
 async function sendChat(){
   const input=document.getElementById('chat-input');
   const text=input.value.trim(); if(!text) return;
+  if (APP.readOnly) { enterReadOnlyMode(); return; }
   input.value=''; input.style.height='auto';
   addMsg('user',text,[]);
   document.getElementById('chat-send').disabled=true;
@@ -4202,6 +4228,13 @@ async function sendChat(){
     let reply;
     if(APP.apiConnected&&APP.apiKey){
       const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent:true,model:'claude-sonnet-4-5',max_tokens:1000,system:buildSysPrompt(),messages:APP.chatHistory.slice(-10)})});
+      if(res.status===402){
+        document.getElementById('typing').style.display='none';
+        enterReadOnlyMode();
+        addMsg('ai','Seu plano está inativo — escolha um plano para voltar a conversar com o Jarvis.',[]);
+        document.getElementById('chat-send').disabled=false;
+        return;
+      }
       if(!res.ok) throw new Error('API '+res.status);
       const data=await res.json();
       reply=data.content[0]?.text||'';
@@ -4454,6 +4487,7 @@ async function pushNoteToBackend(note) {
       body: JSON.stringify(note),
       signal: AbortSignal.timeout(10000),
     });
+    if (res.status === 402) enterReadOnlyMode();
     return res.ok;
   } catch(e) { return false; }
 }
@@ -5780,6 +5814,7 @@ function initSupabaseAuth() {
           } else if (asData.status === 'restored') {
             showAdminToast('Conta restaurada.', 'ok');
           }
+          if (asData.planoAtivo === false) enterReadOnlyMode();
           // 'active' → segue o bootstrap normal
         } else {
           console.error('[account-status] HTTP ' + asResp.status + ' — seguindo como active (fail-open)');
