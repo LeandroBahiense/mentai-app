@@ -21,7 +21,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'crypto';
-import { SKUS, prorationDiff, parsePlanFromSku, dataHojeSP } from '../_lib/plans.js';
+import { SKUS, prorationDiff, parsePlanFromSku, dataHojeSP, downgradeCapacityCheck } from '../_lib/plans.js';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -196,6 +196,16 @@ export default async function handler(req, res) {
     // 3. Decisão por preço.
     // ── DOWNGRADE: só agenda (repreca p/ o próximo ciclo). Não cobra, não troca já.
     if (targetPrice < effectivePrice) {
+      // Bloqueio por excedente (Etapa 04.4c, regra b): se as contas conectadas não cabem
+      // no tier de destino, o usuário desconecta o que quiser antes de fazer o downgrade.
+      const cap = await downgradeCapacityCheck(uid, targetPlano);
+      if (!cap.ok) {
+        return res.status(409).json({
+          error: `Você tem ${cap.used} conta(s) conectada(s), mas o plano ${targetPlano} comporta ${cap.capacity}. Desconecte ${cap.excedente} conta(s) antes de fazer o downgrade.`,
+          code:  'downgrade_excede_capacidade',
+          used:  cap.used, capacity: cap.capacity, excedente: cap.excedente,
+        });
+      }
       const up = await updateAsaasSubscription(subscriptionId, {
         value:             targetPrice,
         externalReference: `${uid}|${targetPlano}-mensal`,
