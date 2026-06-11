@@ -627,3 +627,47 @@ export async function isPlanActive(uid) {
     return true;
   }
 }
+
+// ── Cancela TODOS os add-ons ativos de um usuário (Etapa 04.4a) ──────────────
+// Usado quando o plano é cancelado: os add-ons (e-mails extras) não fazem sentido
+// sem plano, e não podem seguir cobrando. Mesma mecânica provada do syncAddOnsAfterRemoval,
+// mas cancela TODOS (não só o excedente). Best-effort: loga cada um, nunca lança.
+export async function cancelAllAddOns(uid) {
+  try {
+    const sb = makeSupabase();
+    let addons = [];
+    try {
+      const { data } = await sb.from('account_addons')
+        .select('id, asaas_subscription_id')
+        .eq('user_id', uid).eq('status', 'active');
+      addons = Array.isArray(data) ? data : [];
+    } catch (e) { console.error('cancelAllAddOns read error:', e.message); return 0; }
+
+    let canceled = 0;
+    for (const addon of addons) {
+      if (addon.asaas_subscription_id) {
+        try {
+          const r = await fetch(`${ASAAS_BASE_URL}/subscriptions/${encodeURIComponent(addon.asaas_subscription_id)}`, {
+            method:  'DELETE',
+            headers: { 'Content-Type': 'application/json', 'access_token': ASAAS_API_KEY },
+          });
+          if (!r.ok && r.status !== 404) {
+            console.error('cancelAllAddOns: DELETE subscription Asaas falhou (segue):', addon.asaas_subscription_id, r.status);
+          }
+        } catch (e) { console.error('cancelAllAddOns: DELETE subscription erro (segue):', e.message); }
+      }
+      try {
+        const { error } = await sb.from('account_addons')
+          .update({ status: 'canceled', canceled_at: new Date().toISOString() })
+          .eq('id', addon.id);
+        if (error) console.error('cancelAllAddOns: update account_addons falhou:', error.message);
+        else canceled++;
+      } catch (e) { console.error('cancelAllAddOns: update account_addons erro:', e.message); }
+    }
+    console.log(`cancelAllAddOns | uid=${uid} | add-ons cancelados=${canceled}/${addons.length}`);
+    return canceled;
+  } catch (e) {
+    console.error('cancelAllAddOns erro geral:', e.message);
+    return 0;
+  }
+}
