@@ -78,7 +78,7 @@ export default async function handler(req, res) {
   try {
     // 1. Lê o estado de exclusão da conta
     const getRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}&select=account_deleted_at`,
+      `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}&select=account_deleted_at,plano_validade`,
       { headers: svcHeaders() }
     );
     if (!getRes.ok) {
@@ -88,10 +88,17 @@ export default async function handler(req, res) {
     const rows    = await getRes.json().catch(() => []);
     const profile = Array.isArray(rows) ? rows[0] : null;
     const deletedAt = profile?.account_deleted_at || null;
+    // Dias até vencer (pro popup de renovação, Etapa 04.3a). null = sem validade/já vencido.
+    const planoValidade = profile?.plano_validade || null;
+    let diasParaVencer = null;
+    if (planoValidade) {
+      const ms = new Date(planoValidade).getTime() - Date.now();
+      if (Number.isFinite(ms) && ms > 0) diasParaVencer = Math.ceil(ms / 86400000);
+    }
 
     // Sem linha OU sem pedido de exclusão → conta ativa
     if (!deletedAt) {
-      return res.status(200).json({ status: 'active', planoAtivo });
+      return res.status(200).json({ status: 'active', planoAtivo, diasParaVencer, planoValidade });
     }
 
     // 2. Há pedido de exclusão — dentro da graça?
@@ -146,7 +153,7 @@ export default async function handler(req, res) {
     }
 
     // Conta está ativa de qualquer forma (transição agora ou já restaurada por concorrência).
-    return res.status(200).json({ status: 'restored', planoAtivo });
+    return res.status(200).json({ status: 'restored', planoAtivo, diasParaVencer, planoValidade });
 
   } catch (e) {
     console.error('[user/account-status] erro inesperado:', e.message);
