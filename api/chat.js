@@ -11,7 +11,7 @@ import { getModelForUser, calculateCooldown, trackUsage, isPlanActive } from './
 import { searchRelevantNotes, buildRagContext } from './_lib/embeddings.js';
 import { askClaudeTools, EVENT_TOOLS, NOTE_TOOLS, createNote, updateNote, deleteNote } from './_lib/agent.js';
 import { getAllGoogleAccounts, ensureAccountToken, getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, formatCalendarEvents } from './_lib/google.js';
-import { getAllNylasGrants, getCalendarEventsNylas } from './_lib/nylas.js';
+import { getAllNylasGrants, getCalendarEventsNylas, createCalendarEventNylas, updateCalendarEventNylas, deleteCalendarEventNylas } from './_lib/nylas.js';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
@@ -149,6 +149,11 @@ export default async function handler(req, res) {
       let accounts = [];
       let accessToken = null;
       let calendarEvents = [];
+
+      // Grants Nylas no escopo do HANDLER de tools (busca dedicada p/ ESCRITA de evento).
+      // Separada do bloco de leitura (170–186) — não reusa a var interna nylasGrants de lá.
+      let nylasWrite = [];
+      try { nylasWrite = await getAllNylasGrants(userId); } catch (e) { nylasWrite = []; }
       try {
         accounts = await getAllGoogleAccounts(userId);
         if (accounts.length > 0) {
@@ -230,15 +235,34 @@ export default async function handler(req, res) {
       const toolUses = (content || []).filter(b => b && b.type === 'tool_use');
       console.log('CHAT AGENT REPLY:', (replyText || '').substring(0, 120), '| TOOLS:', toolUses.map(t => t.name).join(','));
 
-      // Resolve token da conta-alvo (fallback principal-primeiro).
-      const resolverContaToken = async (emailAlvo) => {
-        if (accounts.length === 0) return null;
-        const principal = accounts.find(a => a.is_primary) || accounts[0];
-        const contaAlvo = (emailAlvo && accounts.find(a => a.email === emailAlvo)) || principal;
+      // Token Google de uma conta + fallback sequencial principal-primeiro (como antes).
+      const _tokenGoogleSequencial = async (contaAlvo) => {
         const ordenados = [contaAlvo, ...accounts.filter(a => a !== contaAlvo)];
         for (const acc of ordenados) {
           try { return await ensureAccountToken(acc); }
           catch (e) { console.error('CHAT resolverContaToken FAIL (' + acc.email + '):', e.message); }
+        }
+        return null;
+      };
+      // Resolução TYPE-AWARE da conta-alvo p/ ESCRITA de evento.
+      // Retorna { tipo:'google', token } | { tipo:'nylas', grant } | null.
+      const resolverContaAlvo = async (emailAlvo) => {
+        if (emailAlvo) {
+          const g = accounts.find(a => a.email === emailAlvo);
+          if (g) { const token = await _tokenGoogleSequencial(g); return token ? { tipo: 'google', token } : null; }
+          const n = nylasWrite.find(x => x.email === emailAlvo);
+          if (n) return { tipo: 'nylas', grant: n };
+          // alvo não casou: cai pra principal global abaixo.
+        }
+        // Sem conta-alvo (ou alvo não-casado): principal global — Google primeiro, senão Nylas.
+        if (accounts.length > 0) {
+          const principal = accounts.find(a => a.is_primary) || accounts[0];
+          const token = await _tokenGoogleSequencial(principal);
+          return token ? { tipo: 'google', token } : null;
+        }
+        if (nylasWrite.length > 0) {
+          const grant = nylasWrite.find(x => x.is_primary) || nylasWrite[0];
+          return { tipo: 'nylas', grant };
         }
         return null;
       };
@@ -258,21 +282,30 @@ export default async function handler(req, res) {
             const okDel = await deleteNote(inp.title);
             actionConfirm += okDel ? ('🗑️ Nota "' + inp.title + '" movida para a lixeira.\n') : ('⚠️ Não encontrei a nota "' + inp.title + '".\n');
           } else if (tu.name === 'criar_evento' || tu.name === 'atualizar_evento' || tu.name === 'apagar_evento') {
-            if (!accessToken) {
-              actionConfirm += accounts.length === 0
-                ? '⚠️ Conecte sua agenda Google primeiro (Configurações).\n'
-                : '⚠️ Sua conexão com o Google expirou. Reconecte em Configurações → Conexões externas.\n';
+            // Aborta SÓ se não houver conta alguma (Google nem Nylas).
+            if (accounts.length === 0 && nylasWrite.length === 0) {
+              actionConfirm += '⚠️ Conecte uma agenda em Configurações → Conexões externas.\n';
               continue;
             }
-            const tk = await resolverContaToken(inp.account);
+            const alvo = await resolverContaAlvo(inp.account);
+            if (!alvo) {
+              actionConfirm += '⚠️ Não consegui acessar sua agenda. Reconecte em Configurações → Conexões externas.\n';
+              continue;
+            }
             if (tu.name === 'criar_evento') {
-              const r = await createCalendarEvent(tk, inp.title, inp.datetime, inp.description || '');
+              const r = (alvo.tipo === 'nylas')
+                ? await createCalendarEventNylas(alvo.grant, inp.title, inp.datetime, inp.description || '')
+                : await createCalendarEvent(alvo.token, inp.title, inp.datetime, inp.description || '');
               actionConfirm += (r && r.id) ? ('✅ "' + inp.title + '" agendado.\n') : ('⚠️ Não consegui criar "' + inp.title + '".\n');
             } else if (tu.name === 'atualizar_evento') {
-              const ok = await updateCalendarEvent(tk, inp.title, inp.new_datetime);
+              const ok = (alvo.tipo === 'nylas')
+                ? !!(await updateCalendarEventNylas(alvo.grant, inp.title, inp.new_datetime))
+                : await updateCalendarEvent(alvo.token, inp.title, inp.new_datetime);
               actionConfirm += ok ? ('✅ "' + inp.title + '" remarcado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para remarcar.\n');
             } else {
-              const ok = await deleteCalendarEvent(tk, inp.title, inp.datetime);
+              const ok = (alvo.tipo === 'nylas')
+                ? await deleteCalendarEventNylas(alvo.grant, inp.title, inp.datetime)
+                : await deleteCalendarEvent(alvo.token, inp.title, inp.datetime);
               actionConfirm += ok ? ('✅ "' + inp.title + '" cancelado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para cancelar.\n');
             }
           }
