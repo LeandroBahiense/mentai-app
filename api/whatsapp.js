@@ -1225,10 +1225,12 @@ export default async function handler(req, res) {
 
     const _tools = temAgenda ? NOTE_TOOLS.concat(EVENT_TOOLS) : NOTE_TOOLS;
     const _ehAcao = /\b(marc|agend|cri[ae]|cancel|remarc|desmarc|reagend|adia|anot|registr|salv|apag|delet|adicion|exclu|altera|edita|mud[ae])/i.test(userMessage || '');
-    const _toolChoice = (_ehAcao && _tools.length) ? { type: 'any' } : undefined;
+    // _ehAcao segue alimentando o routeModel (Haiku p/ ação). tool_choice agora é auto:
+    // o modelo decide se chama ferramenta (a linha de Distinção orienta), em vez de forçar
+    // { type:'any' } — que fazia perguntas ("qual minha agenda?") virarem criar_evento.
     const _routedModel = routeModel(req._pallyumModel, { isAction: _ehAcao });
     console.log('[G-28] modelo roteado:', _routedModel, '| isAction:', _ehAcao, '| teto:', req._pallyumModel);
-    const _content = await askClaudeTools(system, msgs, _routedModel, _tools, _toolChoice);
+    const _content = await askClaudeTools(system, msgs, _routedModel, _tools, undefined);
     const reply = (_content || []).filter(function (b) { return b && b.type === 'text'; }).map(function (b) { return b.text; }).join('\n');
     const _toolUses = (_content || []).filter(function (b) { return b && b.type === 'tool_use'; });
     console.log('REPLY:', (reply || '').substring(0, 200), '| TOOL_USES:', _toolUses.map(function (t) { return t.name; }).join(','));

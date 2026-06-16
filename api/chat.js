@@ -231,10 +231,11 @@ export default async function handler(req, res) {
       system += 'Distinção: marcar/agendar algo com data ou hora é sempre AGENDA (criar_evento), nunca nota; registrar informação/ideia é NOTA (criar_nota); no conteúdo da nota coloque só a informação, nunca a frase de comando. Para perguntas e conversa, responda em texto sem acionar ferramenta. Confirme cada ação de forma curta e nunca diga que não consegue fazê-las.\n';
 
       const tools = temAgenda ? NOTE_TOOLS.concat(EVENT_TOOLS) : NOTE_TOOLS;
-      const ehAcao = /\b(marc|agend|cri[ae]|cancel|remarc|desmarc|reagend|adia|anot|registr|salv|apag|delet|adicion|exclu|altera|edita|mud[ae])/i.test(userText || '');
-      const toolChoice = (ehAcao && tools.length) ? { type: 'any' } : undefined;
 
-      const content = await askClaudeTools(system, messages, model, tools, toolChoice);
+      // tool_choice auto: o modelo decide se chama ferramenta, guiado pela linha de Distinção
+      // do prompt. Antes, um regex de "ação" forçava { type:'any' } e fazia perguntas
+      // ("qual minha agenda?") virarem chamada de criar_evento.
+      const content = await askClaudeTools(system, messages, model, tools, undefined);
       const replyText = (content || []).filter(b => b && b.type === 'text').map(b => b.text).join('\n');
       const toolUses = (content || []).filter(b => b && b.type === 'tool_use');
       console.log('CHAT AGENT REPLY:', (replyText || '').substring(0, 120), '| TOOLS:', toolUses.map(t => t.name).join(','));
