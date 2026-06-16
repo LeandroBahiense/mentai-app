@@ -705,3 +705,12 @@ export async function downgradeCapacityCheck(uid, targetPlano) {
     return out; // ok=true → não bloqueia
   }
 }
+
+// Invariante de PRINCIPAL ÚNICA GLOBAL: zera is_primary nas DUAS tabelas de conta
+// (google_tokens + nylas_grants) de um usuário. O caller marca a escolhida depois.
+// Service-role (makeSupabase). Update sem match = no-op.
+export async function clearAllPrimary(uid) {
+  const sb = makeSupabase();
+  await sb.from('google_tokens').update({ is_primary: false }).eq('user_id', uid);
+  await sb.from('nylas_grants').update({ is_primary: false }).eq('user_id', uid);
+}
