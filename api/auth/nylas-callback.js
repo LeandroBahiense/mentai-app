@@ -7,6 +7,7 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { exchangeCodeForGrant, getPrimaryCalendarId, revokeGrant } from '../_lib/nylas.js';
 import { NYLAS_NOTICE_VERSION, NYLAS_NOTICE_TEXT_SHOWN } from '../_lib/versions.js';
+import { hasAnyPrimary } from '../_lib/plans.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -84,16 +85,34 @@ export default async function handler(req, res) {
       console.warn('NYLAS CALLBACK: getPrimaryCalendarId falhou (segue com null):', e.message);
     }
 
+    // ── Grants Nylas já existentes do uid → decide se é conta nova ou reconexão ─
+    let jaExisteNylas = false;
+    try {
+      const exRes = await fetch(
+        SUPABASE_URL + '/rest/v1/nylas_grants?user_id=eq.' + encodeURIComponent(uid) + '&select=email',
+        { headers: { 'apikey': SERVICE_KEY, 'Authorization': 'Bearer ' + SERVICE_KEY } }
+      );
+      const exList = await exRes.json().catch(() => []);
+      jaExisteNylas = Array.isArray(exList) && exList.some(g => g.email === email);
+    } catch (e) {
+      console.warn('NYLAS CALLBACK: busca grants existentes falhou (segue como nova):', e.message);
+    }
+
     // ── UPSERT em nylas_grants (service role; on_conflict=user_id,email) ───────
     const upsertBody = {
       user_id:     uid,
       email:       email || null,
       provider:    provider || null,
       grant_id:    grantId,
-      is_primary:  false,
       calendar_id: calendarId,
       status:      'active',
     };
+
+    if (!jaExisteNylas) {
+      // Conta NOVA: vira principal só se for a 1ª do usuário CROSS-TABLE. Reconexão NÃO
+      // inclui is_primary → merge-duplicates preserva o valor já gravado.
+      upsertBody.is_primary = !(await hasAnyPrimary(uid));
+    }
 
     const upsertRes = await fetch(SUPABASE_URL + '/rest/v1/nylas_grants?on_conflict=user_id,email', {
       method: 'POST',

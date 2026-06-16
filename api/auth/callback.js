@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto';
+import { hasAnyPrimary } from '../_lib/plans.js';
 
 function toBase64url(buf) {
   return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -108,7 +109,6 @@ export default async function handler(req, res) {
     const existingList = await existingRes.json().catch(() => []);
     const arr       = Array.isArray(existingList) ? existingList : [];
     const jaExiste  = arr.some(r => r.email === email);
-    const temAlguma = arr.length > 0;
 
     // ── UPSERT em google_tokens (by user_id, email) ───────────────────────────
     const upsertBody = {
@@ -122,7 +122,9 @@ export default async function handler(req, res) {
     };
 
     if (!jaExiste) {
-      upsertBody.is_primary = !temAlguma;  // 1ª conta = principal; adicionais entram como secundárias
+      // 1ª conta do usuário CROSS-TABLE (google_tokens + nylas_grants) = principal;
+      // se já existe principal em qualquer tabela, a nova entra como secundária.
+      upsertBody.is_primary = !(await hasAnyPrimary(userId));
     }
 
     const upsertRes = await fetch(SUPABASE_URL + '/rest/v1/google_tokens?on_conflict=user_id,email', {
