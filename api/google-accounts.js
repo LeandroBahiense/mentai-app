@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto';
-import { syncAddOnsAfterRemoval, clearAllPrimary } from './_lib/plans.js';
+import { syncAddOnsAfterRemoval, clearAllPrimary, totalAccounts } from './_lib/plans.js';
 
 const SUPABASE_URL  = process.env.SUPABASE_URL;
 const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -70,8 +70,8 @@ export default async function handler(req, res) {
     if (!Array.isArray(all)) return res.status(500).json({ error: 'erro ao ler contas' });
     const alvo = all.find(a => a.id === id);
     if (!alvo) return res.status(404).json({ error: 'conta não encontrada' });
-    // regra: principal só pode ser removida se for a única conta
-    if (alvo.is_primary && all.length > 1) {
+    // regra: principal só pode ser removida se for a única conta (CROSS-TABLE: google + nylas)
+    if (alvo.is_primary && (await totalAccounts(uid)) > 1) {
       return res.status(409).json({ error: 'principal', message: 'Defina outra conta como principal antes de remover esta.' });
     }
     await sb('?user_id=eq.' + encodeURIComponent(uid) + '&id=eq.' + encodeURIComponent(id), { method: 'DELETE' });

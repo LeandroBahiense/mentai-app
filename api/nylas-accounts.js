@@ -6,7 +6,7 @@
 
 import { createHmac, timingSafeEqual } from 'crypto';
 import { revokeGrant } from './_lib/nylas.js';
-import { syncAddOnsAfterRemoval, clearAllPrimary } from './_lib/plans.js';
+import { syncAddOnsAfterRemoval, clearAllPrimary, totalAccounts } from './_lib/plans.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -59,9 +59,14 @@ export default async function handler(req, res) {
     if (!id) return res.status(400).json({ error: 'id obrigatório' });
 
     // confirma que o grant é do usuário e lê o grant_id (server-side)
-    const chk = await sb('?user_id=eq.' + encodeURIComponent(uid) + '&id=eq.' + encodeURIComponent(id) + '&select=id,grant_id', {});
+    const chk = await sb('?user_id=eq.' + encodeURIComponent(uid) + '&id=eq.' + encodeURIComponent(id) + '&select=id,grant_id,is_primary', {});
     const found = await chk.json();
     if (!Array.isArray(found) || found.length === 0) return res.status(404).json({ error: 'conta não encontrada' });
+
+    // regra: principal só pode ser removida se for a única conta (CROSS-TABLE: google + nylas)
+    if (found[0].is_primary && (await totalAccounts(uid)) > 1) {
+      return res.status(409).json({ error: 'principal', message: 'Defina outra conta como principal antes de remover esta.' });
+    }
 
     const grantId = found[0].grant_id;
     if (grantId) {
