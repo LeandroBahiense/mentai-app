@@ -714,3 +714,14 @@ export async function clearAllPrimary(uid) {
   await sb.from('google_tokens').update({ is_primary: false }).eq('user_id', uid);
   await sb.from('nylas_grants').update({ is_primary: false }).eq('user_id', uid);
 }
+
+// Existe ALGUMA conta principal do usuário, somando as DUAS tabelas? Usado pelo fluxo de
+// CONEXÃO para só marcar a conta nova como principal quando é a 1ª do usuário (cross-table).
+// Service-role (makeSupabase).
+export async function hasAnyPrimary(uid) {
+  const sb = makeSupabase();
+  const g = await sb.from('google_tokens').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('is_primary', true);
+  if (g.count && g.count > 0) return true;
+  const n = await sb.from('nylas_grants').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('is_primary', true);
+  return !!(n.count && n.count > 0);
+}
