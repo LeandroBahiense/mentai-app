@@ -2960,6 +2960,7 @@ async function setPrimaryAccount(id) {
     });
   } catch(e) { console.warn('setPrimaryAccount error:', e); }
   checkGoogleConnection();
+  checkNylasAccounts();
 }
 
 async function removeAccount(id, email) {
@@ -3016,6 +3017,10 @@ async function checkNylasAccounts() {
         +   acc.email
         + '</div>'
         + (acc.provider ? '<span style="font-size:10px;font-weight:600;color:var(--text2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">' + acc.provider + '</span>' : '')
+        + (acc.is_primary
+            ? '<span style="font-size:10px;font-weight:600;color:var(--green);border:1px solid var(--green);border-radius:4px;padding:1px 6px;white-space:nowrap;">Principal</span>'
+            : '<button class="ss-btn" style="font-size:10px;padding:2px 8px;white-space:nowrap;" onclick="setPrimaryNylas(\'' + acc.id + '\')">Tornar principal</button>'
+          )
         + '<button class="ss-btn" style="font-size:10px;padding:2px 8px;white-space:nowrap;color:var(--coral);border-color:rgba(216,90,48,.3);" onclick="removeNylasAccount(\'' + acc.id + '\',\'' + (acc.email || '').replace(/'/g, "\\'") + '\')">Remover</button>'
         + '</div>';
     }).join('');
@@ -3033,6 +3038,15 @@ async function removeNylasAccount(id, email) {
       credentials: 'same-origin',
     });
   } catch(e) { console.warn('removeNylasAccount error:', e); return; }
+  checkNylasAccounts();
+}
+
+// Marca uma conta Nylas como principal (principal única cross-table) → recarrega AS DUAS listas.
+async function setPrimaryNylas(id) {
+  try {
+    await fetch('/api/nylas-accounts', { method:'PATCH', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
+  } catch(e) { console.warn('setPrimaryNylas error:', e); }
+  checkGoogleConnection();
   checkNylasAccounts();
 }
 
