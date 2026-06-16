@@ -222,7 +222,7 @@ export default async function handler(req, res) {
       const temAgenda = (accounts.length > 0) || (nylasWrite.length > 0);
       if (temAgenda) {
         const listaGoogle = accounts.map(a => a.email + (a.is_primary ? ' (principal)' : ''));
-        const listaNylas  = nylasWrite.map(g => g.email + (g.provider ? ' (' + g.provider + ')' : ''));
+        const listaNylas  = nylasWrite.map(g => g.email + (g.provider ? ' (' + g.provider + ')' : '') + (g.is_primary ? ' (principal)' : ''));
         const listaContas = listaGoogle.concat(listaNylas).join(', ');
         system += 'CONTAS DE AGENDA CONECTADAS (para eventos): ' + listaContas + '.\n';
         system += 'Agenda: use criar_evento, atualizar_evento, apagar_evento para marcar, remarcar ou cancelar compromissos com data ou hora.\n';
@@ -259,15 +259,14 @@ export default async function handler(req, res) {
           // alvo não casou: cai pra principal global abaixo.
         }
         // Sem conta-alvo (ou alvo não-casado): principal global — Google primeiro, senão Nylas.
-        if (accounts.length > 0) {
-          const principal = accounts.find(a => a.is_primary) || accounts[0];
-          const token = await _tokenGoogleSequencial(principal);
-          return token ? { tipo: 'google', token } : null;
-        }
-        if (nylasWrite.length > 0) {
-          const grant = nylasWrite.find(x => x.is_primary) || nylasWrite[0];
-          return { tipo: 'nylas', grant };
-        }
+        // 1) principal global explícita (só UMA conta tem is_primary — backend cross-table garante)
+        const gPrim = accounts.find(a => a.is_primary);
+        if (gPrim) { const token = await _tokenGoogleSequencial(gPrim); return token ? { tipo: 'google', token } : null; }
+        const nPrim = nylasWrite.find(x => x.is_primary);
+        if (nPrim) return { tipo: 'nylas', grant: nPrim };
+        // 2) nenhuma marcada → default: primeira Google, senão primeira Nylas
+        if (accounts.length > 0) { const token = await _tokenGoogleSequencial(accounts[0]); return token ? { tipo: 'google', token } : null; }
+        if (nylasWrite.length > 0) return { tipo: 'nylas', grant: nylasWrite[0] };
         return null;
       };
 
