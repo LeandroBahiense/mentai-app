@@ -789,6 +789,7 @@ export default async function handler(req, res) {
   let googleConnected = false;
   let userId         = null;
   let accounts       = [];
+  let nylasWrite     = []; // grants Nylas p/ ESCRITA de evento — function-level (usada no try#2: system prompt + handler)
 
   try {
     const resolvedUserId = await getUserIdByPhone(phone);
@@ -1054,7 +1055,7 @@ export default async function handler(req, res) {
       const _accComUid = accounts.find(function (a) { return a && a.user_id; });
       nylasWriteUid = _accComUid ? _accComUid.user_id : null;
     }
-    let nylasWrite = [];
+    // nylasWrite é function-level (declarada junto de accounts). Aqui só populamos.
     if (nylasWriteUid) {
       try { nylasWrite = await getAllNylasGrants(nylasWriteUid); } catch (e) { nylasWrite = []; }
     }
