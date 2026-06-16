@@ -219,14 +219,18 @@ export default async function handler(req, res) {
       }
 
       system += 'AÇÕES — use as FERRAMENTAS para agir quando o usuário pedir uma ação (não descreva a ação só em texto). Notas: criar_nota (registrar informação ou ideia), atualizar_nota (acrescentar a uma nota existente, pelo título exato), apagar_nota.\n';
-      if (googleConnected) {
-        const listaContas = accounts.map(a => a.email + (a.is_primary ? ' (principal)' : '')).join(', ');
-        system += 'CONTAS GOOGLE CONECTADAS (para eventos): ' + listaContas + '.\n';
+      const temAgenda = (accounts.length > 0) || (nylasWrite.length > 0);
+      if (temAgenda) {
+        const listaGoogle = accounts.map(a => a.email + (a.is_primary ? ' (principal)' : ''));
+        const listaNylas  = nylasWrite.map(g => g.email + (g.provider ? ' (' + g.provider + ')' : ''));
+        const listaContas = listaGoogle.concat(listaNylas).join(', ');
+        system += 'CONTAS DE AGENDA CONECTADAS (para eventos): ' + listaContas + '.\n';
         system += 'Agenda: use criar_evento, atualizar_evento, apagar_evento para marcar, remarcar ou cancelar compromissos com data ou hora.\n';
+        system += 'Para criar, editar ou apagar um evento numa conta específica, passe o email dela no parâmetro `account` — vale para qualquer conta listada acima, Google ou não.\n';
       }
       system += 'Distinção: marcar/agendar algo com data ou hora é sempre AGENDA (criar_evento), nunca nota; registrar informação/ideia é NOTA (criar_nota); no conteúdo da nota coloque só a informação, nunca a frase de comando. Para perguntas e conversa, responda em texto sem acionar ferramenta. Confirme cada ação de forma curta e nunca diga que não consegue fazê-las.\n';
 
-      const tools = googleConnected ? NOTE_TOOLS.concat(EVENT_TOOLS) : NOTE_TOOLS;
+      const tools = temAgenda ? NOTE_TOOLS.concat(EVENT_TOOLS) : NOTE_TOOLS;
       const ehAcao = /\b(marc|agend|cri[ae]|cancel|remarc|desmarc|reagend|adia|anot|registr|salv|apag|delet|adicion|exclu|altera|edita|mud[ae])/i.test(userText || '');
       const toolChoice = (ehAcao && tools.length) ? { type: 'any' } : undefined;
 
