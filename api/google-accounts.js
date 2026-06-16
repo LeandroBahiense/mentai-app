@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto';
-import { syncAddOnsAfterRemoval } from './_lib/plans.js';
+import { syncAddOnsAfterRemoval, clearAllPrimary } from './_lib/plans.js';
 
 const SUPABASE_URL  = process.env.SUPABASE_URL;
 const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -54,8 +54,9 @@ export default async function handler(req, res) {
     const chk = await sb('?user_id=eq.' + encodeURIComponent(uid) + '&id=eq.' + encodeURIComponent(id) + '&select=id', {});
     const found = await chk.json();
     if (!Array.isArray(found) || found.length === 0) return res.status(404).json({ error: 'conta não encontrada' });
-    // desmarca todas, depois marca a escolhida
-    await sb('?user_id=eq.' + encodeURIComponent(uid), { method: 'PATCH', body: JSON.stringify({ is_primary: false }) });
+    // desmarca a principal nas DUAS tabelas (invariante de principal única global),
+    // depois marca a escolhida nesta (google_tokens).
+    await clearAllPrimary(uid);
     await sb('?user_id=eq.' + encodeURIComponent(uid) + '&id=eq.' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ is_primary: true }) });
     return res.status(200).json({ ok: true });
   }

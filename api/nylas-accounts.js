@@ -6,7 +6,7 @@
 
 import { createHmac, timingSafeEqual } from 'crypto';
 import { revokeGrant } from './_lib/nylas.js';
-import { syncAddOnsAfterRemoval } from './_lib/plans.js';
+import { syncAddOnsAfterRemoval, clearAllPrimary } from './_lib/plans.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -75,6 +75,18 @@ export default async function handler(req, res) {
     try { await syncAddOnsAfterRemoval(uid); }
     catch (e) { console.error('[nylas-accounts] syncAddOnsAfterRemoval falhou (não bloqueia):', e.message); }
 
+    return res.status(200).json({ ok: true });
+  }
+
+  // PATCH (?id=) — marcar uma conta Nylas como principal (invariante de principal única global)
+  if (req.method === 'PATCH') {
+    const id = (req.query && req.query.id) || (req.body && req.body.id) || null;
+    if (!id) return res.status(400).json({ error: 'id obrigatório' });
+    const chk = await sb('?user_id=eq.' + encodeURIComponent(uid) + '&id=eq.' + encodeURIComponent(id) + '&select=id', {});
+    const found = await chk.json();
+    if (!Array.isArray(found) || found.length === 0) return res.status(404).json({ error: 'conta não encontrada' });
+    await clearAllPrimary(uid);
+    await sb('?user_id=eq.' + encodeURIComponent(uid) + '&id=eq.' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ is_primary: true }) });
     return res.status(200).json({ ok: true });
   }
 
