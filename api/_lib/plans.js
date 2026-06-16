@@ -725,3 +725,13 @@ export async function hasAnyPrimary(uid) {
   const n = await sb.from('nylas_grants').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('is_primary', true);
   return !!(n.count && n.count > 0);
 }
+
+// Total de contas do usuário somando as DUAS tabelas (google_tokens + nylas_grants ativos).
+// Espelha o filtro status='active' do Nylas usado em checkAccountLimit. Usado pela trava de
+// remoção: não deixar remover a principal enquanto houver outra conta (cross-table).
+export async function totalAccounts(uid) {
+  const sb = makeSupabase();
+  const g = await sb.from('google_tokens').select('id', { count: 'exact', head: true }).eq('user_id', uid);
+  const n = await sb.from('nylas_grants').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'active');
+  return (g.count || 0) + (n.count || 0);
+}
