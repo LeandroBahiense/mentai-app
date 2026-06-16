@@ -1114,6 +1114,16 @@ export default async function handler(req, res) {
         gmailMessages = await getGmailMessages(accessToken);
         console.log('GMAIL MESSAGES:', gmailMessages.length);
       }
+    } else if (nylasWrite.length > 0 && needsCalendar) {
+      // Só-Nylas (zero contas Google): lê a agenda direto dos grants Nylas. Precisa vir
+      // ANTES do ramo needsGoogle, senão o usuário só-Nylas receberia link de login Google.
+      for (const g of nylasWrite) {
+        try { const evs = await getCalendarEventsNylas(g); calendarEvents = calendarEvents.concat(evs); }
+        catch (e) { console.error('WA leitura Nylas (só-Nylas) FAIL:', e.message); }
+      }
+      calendarEvents.sort(function(a,b){
+        return new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date);
+      });
     } else if (needsGoogle) {
       const token = signState({ phone, exp: Date.now() + 24 * 60 * 60 * 1000 });
       const authLink = 'https://pallyum.com/api/auth/google?token=' + encodeURIComponent(token);
@@ -1198,15 +1208,16 @@ export default async function handler(req, res) {
       system += ragContext + '\n\n';
     }
 
-    if (googleConnected) {
+    const temAgenda = (accounts.length > 0) || (nylasWrite.length > 0);
+    if (temAgenda) {
       system += 'AGENDA (próximos dias, horário de Brasília):\n' + formatCalendarEvents(calendarEvents) + '\n\n';
-      if (gmailMessages.length > 0) {
-        system += 'EMAILS NÃO LIDOS:\n' + formatGmailMessages(gmailMessages) + '\n\n';
-      }
+    }
+    // Gmail permanece atrás de googleConnected (gate do Gmail intacto).
+    if (googleConnected && gmailMessages.length > 0) {
+      system += 'EMAILS NÃO LIDOS:\n' + formatGmailMessages(gmailMessages) + '\n\n';
     }
 
     system += 'AÇÕES — use as FERRAMENTAS para agir quando o usuário pedir uma ação (não descreva a ação só em texto). Notas: criar_nota (registrar informação, ideia ou ata de reunião que já aconteceu), atualizar_nota (acrescentar a uma nota existente, pelo título exato), apagar_nota.\n';
-    const temAgenda = (accounts.length > 0) || (nylasWrite.length > 0);
     if (temAgenda) {
       const listaGoogle = accounts.map(a => a.email + (a.is_primary ? ' (principal)' : ''));
       const listaNylas  = nylasWrite.map(g => g.email + (g.provider ? ' (' + g.provider + ')' : '') + (g.is_primary ? ' (principal)' : ''));

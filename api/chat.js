@@ -189,6 +189,15 @@ export default async function handler(req, res) {
             new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date));
           console.log('CALENDAR EVENTS (com Nylas):', calendarEvents.length, '| nylas grants:', nylasGrants?.length || 0);
         }
+        else if (nylasWrite.length > 0) {
+          // Só-Nylas (zero contas Google): lê a agenda direto dos grants Nylas já carregados.
+          for (const g of nylasWrite) {
+            try { const evs = await getCalendarEventsNylas(g); calendarEvents = calendarEvents.concat(evs); }
+            catch (e) { console.error('CHAT leitura Nylas (só-Nylas) FAIL:', e.message); }
+          }
+          calendarEvents.sort((a, b) =>
+            new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date));
+        }
       } catch (e) { console.error('CHAT GOOGLE ERR:', e.message); }
       const googleConnected = accounts.length > 0;
 
@@ -214,12 +223,12 @@ export default async function handler(req, res) {
       system += refDatas + '\n';
 
       if (ragContext) system += ragContext + '\n\n';
-      if (googleConnected) {
+      const temAgenda = (accounts.length > 0) || (nylasWrite.length > 0);
+      if (temAgenda) {
         system += 'AGENDA (próximos dias, horário de Brasília):\n' + formatCalendarEvents(calendarEvents) + '\n\n';
       }
 
       system += 'AÇÕES — use as FERRAMENTAS para agir quando o usuário pedir uma ação (não descreva a ação só em texto). Notas: criar_nota (registrar informação ou ideia), atualizar_nota (acrescentar a uma nota existente, pelo título exato), apagar_nota.\n';
-      const temAgenda = (accounts.length > 0) || (nylasWrite.length > 0);
       if (temAgenda) {
         const listaGoogle = accounts.map(a => a.email + (a.is_primary ? ' (principal)' : ''));
         const listaNylas  = nylasWrite.map(g => g.email + (g.provider ? ' (' + g.provider + ')' : '') + (g.is_primary ? ' (principal)' : ''));
