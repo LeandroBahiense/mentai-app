@@ -49,13 +49,13 @@ export async function askClaudeTools(system, messages, model, tools, toolChoice)
 export const EVENT_TOOLS = [
   {
     name: 'criar_evento',
-    description: 'Cria um evento na agenda do Google. Use sempre que o usuário pedir para marcar, agendar ou criar um compromisso, reunião, consulta, call ou lembrete com data e/ou hora — mesmo que não diga a palavra "agenda".',
+    description: 'Cria um evento na agenda conectada do usuário. Use sempre que o usuário pedir para marcar, agendar ou criar um compromisso, reunião, consulta, call ou lembrete com data e/ou hora — mesmo que não diga a palavra "agenda".',
     input_schema: {
       type: 'object',
       properties: {
         title: { type: 'string', description: 'Título curto do evento, ex: "Reunião".' },
         datetime: { type: 'string', description: 'Início em ISO com fuso de Brasília, ex: "2026-05-26T18:00:00-03:00". Use a tabela de datas do sistema para acertar o dia.' },
-        account: { type: 'string', description: 'Opcional. E-mail da conta Google onde criar, se o usuário indicar. Omita para a conta principal.' },
+        account: { type: 'string', description: 'Opcional. E-mail da conta de agenda conectada onde criar, se o usuário indicar. Omita para a conta principal.' },
         description: { type: 'string', description: 'Opcional. Detalhes adicionais.' }
       },
       required: ['title', 'datetime']
