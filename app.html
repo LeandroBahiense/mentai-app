@@ -3012,6 +3012,7 @@ async function checkNylasAccounts() {
     const accounts = data.accounts || [];
     if (accounts.length === 0) { listEl.innerHTML = ''; return; }
     listEl.innerHTML = accounts.map(function(acc) {
+      const canRemove = !acc.is_primary || accounts.length === 1;
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">'
         + '<div style="flex:1;min-width:0;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
         +   acc.email
@@ -3021,7 +3022,10 @@ async function checkNylasAccounts() {
             ? '<span style="font-size:10px;font-weight:600;color:var(--green);border:1px solid var(--green);border-radius:4px;padding:1px 6px;white-space:nowrap;">Principal</span>'
             : '<button class="ss-btn" style="font-size:10px;padding:2px 8px;white-space:nowrap;" onclick="setPrimaryNylas(\'' + acc.id + '\')">Tornar principal</button>'
           )
-        + '<button class="ss-btn" style="font-size:10px;padding:2px 8px;white-space:nowrap;color:var(--coral);border-color:rgba(216,90,48,.3);" onclick="removeNylasAccount(\'' + acc.id + '\',\'' + (acc.email || '').replace(/'/g, "\\'") + '\')">Remover</button>'
+        + (canRemove
+            ? '<button class="ss-btn" style="font-size:10px;padding:2px 8px;white-space:nowrap;color:var(--coral);border-color:rgba(216,90,48,.3);" onclick="removeNylasAccount(\'' + acc.id + '\',\'' + (acc.email || '').replace(/'/g, "\\'") + '\')">Remover</button>'
+            : ''
+          )
         + '</div>';
     }).join('');
   } catch(e) {
@@ -3033,10 +3037,14 @@ async function checkNylasAccounts() {
 async function removeNylasAccount(id, email) {
   if (!confirm('Remover a conta ' + email + '?')) return;
   try {
-    await fetch('/api/nylas-accounts?id=' + encodeURIComponent(id), {
+    const r = await fetch('/api/nylas-accounts?id=' + encodeURIComponent(id), {
       method: 'DELETE',
       credentials: 'same-origin',
     });
+    if (r.status === 409) {
+      alert('Defina outra conta como principal antes de remover esta.');
+      return;
+    }
   } catch(e) { console.warn('removeNylasAccount error:', e); return; }
   checkNylasAccounts();
 }
