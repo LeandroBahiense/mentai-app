@@ -1,7 +1,7 @@
 import { getModelForUser, calculateCooldown, trackUsage, routeModel, checkVisionQuota, incrementVisionUsage, isPlanActive } from './_lib/plans.js';
 import { searchRelevantNotes, buildRagContext } from './_lib/embeddings.js';
 import { getAllGoogleAccounts, ensureAccountToken, getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, getGmailMessages, formatCalendarEvents, formatGmailMessages } from './_lib/google.js';
-import { getAllNylasGrants, getCalendarEventsNylas } from './_lib/nylas.js';
+import { getAllNylasGrants, getCalendarEventsNylas, createCalendarEventNylas, updateCalendarEventNylas, deleteCalendarEventNylas } from './_lib/nylas.js';
 import { askClaudeTools, EVENT_TOOLS, NOTE_TOOLS, createNote, updateNote, deleteNote } from './_lib/agent.js';
 import { createHmac, timingSafeEqual } from 'crypto';
 
@@ -1040,6 +1040,25 @@ export default async function handler(req, res) {
     }
 
     accounts = await getAllGoogleAccounts(userId, phone);
+
+    // Grants Nylas no escopo do HANDLER de tools (busca dedicada p/ ESCRITA de evento).
+    // Separada do bloco de leitura agregada — não reusa a var interna nylasGrants de lá.
+    // Identidade: userId pode ser null no WhatsApp (id por phone). MESMA derivação 3-tier
+    // do bloco de leitura: userId → phone_users → user_id das contas Google já carregadas.
+    let nylasWriteUid = userId;
+    if (!nylasWriteUid) {
+      try { nylasWriteUid = await getUserIdByPhone(phone); }
+      catch (e) { console.error('NYLAS userId via phone_users ERR:', e.message); }
+    }
+    if (!nylasWriteUid) {
+      const _accComUid = accounts.find(function (a) { return a && a.user_id; });
+      nylasWriteUid = _accComUid ? _accComUid.user_id : null;
+    }
+    let nylasWrite = [];
+    if (nylasWriteUid) {
+      try { nylasWrite = await getAllNylasGrants(nylasWriteUid); } catch (e) { nylasWrite = []; }
+    }
+
     if (accounts.length > 0) {
       googleConnected = true;
       // Tenta a principal primeiro; se o refresh dela falhar, cai pra próxima conta saudável.
@@ -1186,10 +1205,14 @@ export default async function handler(req, res) {
     }
 
     system += 'AÇÕES — use as FERRAMENTAS para agir quando o usuário pedir uma ação (não descreva a ação só em texto). Notas: criar_nota (registrar informação, ideia ou ata de reunião que já aconteceu), atualizar_nota (acrescentar a uma nota existente, pelo título exato), apagar_nota.\n';
-    if (googleConnected) {
-      const listaContas = accounts.map(a => a.email + (a.is_primary ? ' (principal)' : '')).join(', ');
-      system += 'CONTAS GOOGLE CONECTADAS (para eventos): ' + listaContas + '.\n';
+    const temAgenda = (accounts.length > 0) || (nylasWrite.length > 0);
+    if (temAgenda) {
+      const listaGoogle = accounts.map(a => a.email + (a.is_primary ? ' (principal)' : ''));
+      const listaNylas  = nylasWrite.map(g => g.email + (g.provider ? ' (' + g.provider + ')' : ''));
+      const listaContas = listaGoogle.concat(listaNylas).join(', ');
+      system += 'CONTAS DE AGENDA CONECTADAS (para eventos): ' + listaContas + '.\n';
       system += 'Agenda: use criar_evento, atualizar_evento, apagar_evento para marcar, remarcar ou cancelar compromissos/reuniões com data ou hora.\n';
+      system += 'Para criar, editar ou apagar um evento numa conta específica, passe o email dela no parâmetro `account` — vale para qualquer conta listada acima, Google ou não.\n';
     }
     system += 'Distinção: marcar/agendar algo com data ou hora é sempre AGENDA (criar_evento), nunca nota; registrar informação/ideia/ata é NOTA (criar_nota); no conteúdo da nota coloque só a informação, nunca a frase de comando. Para perguntas e conversa, responda em texto sem acionar ferramenta. Confirme cada ação de forma curta e nunca diga que não consegue fazê-las.\n';
     system += '- Quando o usuário mencionar dias da semana (sexta, sábado, segunda, etc), sempre converta para a data completa DD/MM/YYYY baseado na data atual.\n';
@@ -1199,7 +1222,7 @@ export default async function handler(req, res) {
       .map(function(m) { return { role: m.role, content: m.content }; })
       .concat([{ role: 'user', content: userMessage }]);
 
-    const _tools = googleConnected ? NOTE_TOOLS.concat(EVENT_TOOLS) : NOTE_TOOLS;
+    const _tools = temAgenda ? NOTE_TOOLS.concat(EVENT_TOOLS) : NOTE_TOOLS;
     const _ehAcao = /\b(marc|agend|cri[ae]|cancel|remarc|desmarc|reagend|adia|anot|registr|salv|apag|delet|adicion|exclu|altera|edita|mud[ae])/i.test(userMessage || '');
     const _toolChoice = (_ehAcao && _tools.length) ? { type: 'any' } : undefined;
     const _routedModel = routeModel(req._pallyumModel, { isAction: _ehAcao });
@@ -1241,19 +1264,38 @@ export default async function handler(req, res) {
     // Se a conta-alvo falhar no refresh, tenta as demais em ordem (principal primeiro).
     // Retorna null se nenhuma conta tiver token renovável — o loop de actions
     // detecta null e usa a mensagem de "conexão expirou".
-    const resolverContaToken = async (emailAlvo) => {
-      const principal = accounts.find(a => a.is_primary) || accounts[0];
-      const contaAlvo = (emailAlvo && accounts.find(a => a.email === emailAlvo)) || principal;
-      // Tenta a conta solicitada primeiro; depois as demais em ordem principal-primeiro
+    // Token Google de uma conta + fallback sequencial principal-primeiro (como antes).
+    const _tokenGoogleSequencial = async (contaAlvo) => {
       const candidatos = [contaAlvo, ...accounts.filter(a => a !== contaAlvo)]
         .sort(function(a, b) { return (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0); });
-      // Garante que contaAlvo é o primeiro (sort é estável só se os valores diferem)
       const ordenados = [contaAlvo, ...candidatos.filter(a => a !== contaAlvo)];
       for (const acc of ordenados) {
         try { return await ensureAccountToken(acc); }
         catch (e) { console.error('resolverContaToken FAIL (' + acc.email + '):', e.message); }
       }
       return null; // todas falharam
+    };
+    // Resolução TYPE-AWARE da conta-alvo p/ ESCRITA de evento.
+    // Retorna { tipo:'google', token } | { tipo:'nylas', grant } | null.
+    const resolverContaAlvo = async (emailAlvo) => {
+      if (emailAlvo) {
+        const g = accounts.find(a => a.email === emailAlvo);
+        if (g) { const token = await _tokenGoogleSequencial(g); return token ? { tipo: 'google', token } : null; }
+        const n = nylasWrite.find(x => x.email === emailAlvo);
+        if (n) return { tipo: 'nylas', grant: n };
+        // alvo não casou: cai pra principal global abaixo.
+      }
+      // Sem conta-alvo (ou alvo não-casado): principal global — Google primeiro, senão Nylas.
+      if (accounts.length > 0) {
+        const principal = accounts.find(a => a.is_primary) || accounts[0];
+        const token = await _tokenGoogleSequencial(principal);
+        return token ? { tipo: 'google', token } : null;
+      }
+      if (nylasWrite.length > 0) {
+        const grant = nylasWrite.find(x => x.is_primary) || nylasWrite[0];
+        return { tipo: 'nylas', grant };
+      }
+      return null;
     };
 
     // ── Executa ações via tool use (notas + agenda) ───────────────────────
@@ -1272,23 +1314,30 @@ export default async function handler(req, res) {
           const okDel = await deleteNote(inp.title);
           actionConfirm += okDel ? ('🗑️ Nota "' + inp.title + '" movida para a lixeira.\n') : ('⚠️ Não encontrei a nota "' + inp.title + '".\n');
         } else if (tu.name === 'criar_evento' || tu.name === 'atualizar_evento' || tu.name === 'apagar_evento') {
-          if (!accessToken) {
-            if (accounts.length === 0) {
-              actionConfirm += '⚠️ Conecte sua agenda Google primeiro (app → Configurações).\n';
-            } else {
-              actionConfirm += '⚠️ Sua conexão com o Google expirou. Reconecte no app em Configurações → Conexões externas.\n';
-            }
+          // Aborta SÓ se não houver conta alguma (Google nem Nylas).
+          if (accounts.length === 0 && nylasWrite.length === 0) {
+            actionConfirm += '⚠️ Conecte uma agenda no app → Configurações → Conexões externas.\n';
             continue;
           }
-          const tk = await resolverContaToken(inp.account);
+          const alvo = await resolverContaAlvo(inp.account);
+          if (!alvo) {
+            actionConfirm += '⚠️ Não consegui acessar sua agenda. Reconecte no app em Configurações → Conexões externas.\n';
+            continue;
+          }
           if (tu.name === 'criar_evento') {
-            const r = await createCalendarEvent(tk, inp.title, inp.datetime, inp.description || '');
+            const r = (alvo.tipo === 'nylas')
+              ? await createCalendarEventNylas(alvo.grant, inp.title, inp.datetime, inp.description || '')
+              : await createCalendarEvent(alvo.token, inp.title, inp.datetime, inp.description || '');
             actionConfirm += (r && r.id) ? ('✅ "' + inp.title + '" agendado.\n') : ('⚠️ Não consegui criar "' + inp.title + '".\n');
           } else if (tu.name === 'atualizar_evento') {
-            const ok = await updateCalendarEvent(tk, inp.title, inp.new_datetime);
+            const ok = (alvo.tipo === 'nylas')
+              ? !!(await updateCalendarEventNylas(alvo.grant, inp.title, inp.new_datetime))
+              : await updateCalendarEvent(alvo.token, inp.title, inp.new_datetime);
             actionConfirm += ok ? ('✅ "' + inp.title + '" remarcado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para remarcar.\n');
           } else {
-            const ok = await deleteCalendarEvent(tk, inp.title, inp.datetime);
+            const ok = (alvo.tipo === 'nylas')
+              ? await deleteCalendarEventNylas(alvo.grant, inp.title, inp.datetime)
+              : await deleteCalendarEvent(alvo.token, inp.title, inp.datetime);
             actionConfirm += ok ? ('✅ "' + inp.title + '" cancelado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para cancelar.\n');
           }
         }
