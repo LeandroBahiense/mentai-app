@@ -161,6 +161,53 @@ export async function deleteCalendarEvent(accessToken, title, datetime) {
   return res.status === 204;
 }
 
+// ─── Endereçamento por ID (sem find por título) ───────────────────────────────
+// Pega 1 evento pelo id nativo. Retorna o objeto do evento | null.
+export async function getGoogleEventById(accessToken, eventId) {
+  try {
+    const res = await fetch(
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events/' + encodeURIComponent(eventId),
+      { headers: { 'Authorization': 'Bearer ' + accessToken } }
+    );
+    const data = await res.json();
+    if (data.error) { console.error('GOOGLE GET EVENT ERR:', JSON.stringify(data.error)); return null; }
+    return data;
+  } catch (e) {
+    console.error('getGoogleEventById error:', e.message);
+    return null;
+  }
+}
+
+// Atualiza SÓ o horário de um evento endereçado por id (start + 1h). Retorna bool.
+export async function patchGoogleEventTime(accessToken, eventId, newDatetimeISO) {
+  const start = new Date(newDatetimeISO);
+  const end   = new Date(start.getTime() + 60 * 60 * 1000);
+  const res = await fetch(
+    'https://www.googleapis.com/calendar/v3/calendars/primary/events/' + encodeURIComponent(eventId),
+    {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
+        end:   { dateTime: end.toISOString(),   timeZone: 'America/Sao_Paulo' },
+      }),
+    }
+  );
+  console.log('GOOGLE CAL PATCH (by id):', res.status, '|', eventId);
+  return res.status >= 200 && res.status < 300;
+}
+
+// Apaga um evento endereçado por id. sendUpdates: 'none' | 'all' | 'externalOnly'. Retorna bool.
+export async function deleteGoogleEventById(accessToken, eventId, sendUpdates = 'none') {
+  const params = new URLSearchParams({ sendUpdates: sendUpdates });
+  const res = await fetch(
+    'https://www.googleapis.com/calendar/v3/calendars/primary/events/' + encodeURIComponent(eventId) + '?' + params,
+    { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + accessToken } }
+  );
+  console.log('GOOGLE CAL DELETE (by id):', res.status, '|', eventId, '| sendUpdates:', sendUpdates);
+  return res.status === 204;
+}
+
 // ─── Gmail ───────────────────────────────────────────────────────────────────
 
 export async function getGmailMessages(accessToken) {

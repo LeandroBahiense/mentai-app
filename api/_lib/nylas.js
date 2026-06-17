@@ -215,6 +215,10 @@ export async function getCalendarEventsNylas(grant, daysAhead = 8) {
         summary:  ev.title || '',
         location: ev.location,
         start:    _whenToGoogleStart(ev.when),
+        // Campos preservados p/ endereçamento por id (não expostos ao modelo no format).
+        calendar_id:  ev.calendar_id,
+        participants: ev.participants || [],
+        organizer:    ev.organizer || null,
       };
     });
     console.log('NYLAS CAL EVENTS:', mapped.length);
@@ -331,4 +335,62 @@ export async function deleteCalendarEventNylas(grant, title, datetime) {
   });
   console.log('NYLAS CAL DELETE:', 200, '|', title);
   return true;
+}
+
+// ─── Endereçamento por ID (sem find por título) ───────────────────────────────
+// Pega 1 evento pelo id nativo. Retorna json.data | null.
+export async function getNylasEventById(grant, eventId, calendarId) {
+  try {
+    const json = await nylasFetch('/v3/grants/' + encodeURIComponent(grant.grant_id) + '/events/' + encodeURIComponent(eventId), {
+      method: 'GET',
+      query: { calendar_id: calendarId },
+    });
+    return json.data || null;
+  } catch (e) {
+    console.error('getNylasEventById error:', e.message);
+    return null;
+  }
+}
+
+// Atualiza SÓ o horário de um evento endereçado por id (start + 1h). Retorna json.data | false.
+export async function updateNylasEventTime(grant, eventId, calendarId, newDatetimeISO) {
+  try {
+    const start = new Date(newDatetimeISO);
+    const end   = new Date(start.getTime() + 60 * 60 * 1000);
+    const json = await nylasFetch('/v3/grants/' + encodeURIComponent(grant.grant_id) + '/events/' + encodeURIComponent(eventId), {
+      method: 'PUT',
+      query: { calendar_id: calendarId },
+      body: {
+        when: {
+          start_time:     Math.floor(start.getTime() / 1000),
+          end_time:       Math.floor(end.getTime() / 1000),
+          start_timezone: TZ,
+          end_timezone:   TZ,
+        },
+      },
+    });
+    console.log('NYLAS CAL UPDATE (by id):', 200, '|', eventId);
+    return json.data || false;
+  } catch (e) {
+    console.error('updateNylasEventTime error:', e.message);
+    return false;
+  }
+}
+
+// Apaga um evento endereçado por id. notifyParticipants=true → &notify_participants=true.
+// Retorna bool.
+export async function deleteNylasEventById(grant, eventId, calendarId, notifyParticipants = false) {
+  try {
+    const query = { calendar_id: calendarId };
+    if (notifyParticipants === true) query.notify_participants = 'true';
+    await nylasFetch('/v3/grants/' + encodeURIComponent(grant.grant_id) + '/events/' + encodeURIComponent(eventId), {
+      method: 'DELETE',
+      query: query,
+    });
+    console.log('NYLAS CAL DELETE (by id):', 200, '|', eventId, '| notify:', notifyParticipants === true);
+    return true;
+  } catch (e) {
+    console.error('deleteNylasEventById error:', e.message);
+    return false;
+  }
 }
