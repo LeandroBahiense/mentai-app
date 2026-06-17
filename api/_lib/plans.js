@@ -173,9 +173,7 @@ const SONNET_MODEL  = 'claude-sonnet-4-6';
 // Só rebaixa AÇÃO (vira tool call + confirmação de texto fixo) quando o teto é Sonnet;
 // nunca sobe; quem já é Haiku (Essencial) não muda; pergunta/redação fica no Sonnet.
 export function routeModel(ceilingModel, opts) {
-  const isAction = opts && opts.isAction;
-  if (isAction && ceilingModel === SONNET_MODEL) return DEFAULT_MODEL; // ação rotineira → Haiku
-  return ceilingModel;                                                 // senão, mantém o teto
+  return ceilingModel; // ação e pergunta usam o teto do plano; sem rebaixar ação pro Haiku
 }
 
 // === SKUs legados desativados em 01/06/2026 — manter pra reativação futura ===
