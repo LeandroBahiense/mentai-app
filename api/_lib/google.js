@@ -84,18 +84,22 @@ export async function getCalendarEvents(accessToken, daysAhead = 8) {
   return data.items || [];
 }
 
-export async function createCalendarEvent(accessToken, title, datetime, description) {
+export async function createCalendarEvent(accessToken, title, datetime, description, attendees) {
   const start = new Date(datetime);
   const end   = new Date(start.getTime() + 60 * 60 * 1000);
-  const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+  const guests = Array.isArray(attendees) ? attendees.filter(Boolean) : [];
+  const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events' + (guests.length ? '?sendUpdates=all' : '');
+  const body = {
+    summary:     title,
+    description: description || '',
+    start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
+    end:   { dateTime: end.toISOString(),   timeZone: 'America/Sao_Paulo' },
+  };
+  if (guests.length) body.attendees = guests.map(function (e) { return { email: e }; });
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      summary:     title,
-      description: description || '',
-      start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
-      end:   { dateTime: end.toISOString(),   timeZone: 'America/Sao_Paulo' },
-    }),
+    body: JSON.stringify(body),
   });
   const data = await res.json();
   console.log('CALENDAR CREATE:', res.status, '|', title);

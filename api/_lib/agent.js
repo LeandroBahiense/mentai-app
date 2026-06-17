@@ -56,7 +56,8 @@ export const EVENT_TOOLS = [
         title: { type: 'string', description: 'Título curto do evento, ex: "Reunião".' },
         datetime: { type: 'string', description: 'Início em ISO com fuso de Brasília, ex: "2026-05-26T18:00:00-03:00". Use a tabela de datas do sistema para acertar o dia.' },
         account: { type: 'string', description: 'Opcional. E-mail da conta de agenda conectada onde criar, se o usuário indicar. Omita para a conta principal.' },
-        description: { type: 'string', description: 'Opcional. Detalhes adicionais.' }
+        description: { type: 'string', description: 'Opcional. Detalhes adicionais.' },
+        attendees: { type: 'array', items: { type: 'string' }, description: 'Opcional. Lista de e-mails dos convidados. Inclua APENAS e-mails que o usuário informou; se o usuário der só um nome, pergunte o e-mail.' }
       },
       required: ['title', 'datetime']
     }

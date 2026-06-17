@@ -230,7 +230,7 @@ export async function getCalendarEventsNylas(grant, daysAhead = 8) {
 }
 
 // ─── Escrita: create ──────────────────────────────────────────────────────────
-export async function createCalendarEventNylas(grant, title, datetime, description) {
+export async function createCalendarEventNylas(grant, title, datetime, description, participants) {
   const calendarId = await resolveCalendarId(grant);
   if (!calendarId) {
     console.error('NYLAS CAL CREATE: sem calendar_id resolvido — abortando', title);
@@ -248,19 +248,22 @@ export async function createCalendarEventNylas(grant, title, datetime, descripti
 
   const start = new Date(datetime);
   const end   = new Date(start.getTime() + 60 * 60 * 1000);
+  const guests = Array.isArray(participants) ? participants.filter(Boolean) : [];
+  const body = {
+    title:       title,
+    description: description || '',
+    when: {
+      start_time:     Math.floor(start.getTime() / 1000),
+      end_time:       Math.floor(end.getTime() / 1000),
+      start_timezone: TZ,
+      end_timezone:   TZ,
+    },
+  };
+  if (guests.length) body.participants = guests.map(function (e) { return { email: e }; });
   const json = await nylasFetch('/v3/grants/' + encodeURIComponent(grant.grant_id) + '/events', {
     method: 'POST',
-    query: { calendar_id: calendarId },
-    body: {
-      title:       title,
-      description: description || '',
-      when: {
-        start_time:     Math.floor(start.getTime() / 1000),
-        end_time:       Math.floor(end.getTime() / 1000),
-        start_timezone: TZ,
-        end_timezone:   TZ,
-      },
-    },
+    query: guests.length ? { calendar_id: calendarId, notify_participants: true } : { calendar_id: calendarId },
+    body: body,
   });
   console.log('NYLAS CAL CREATE:', 200, '|', title);
   return json.data;
