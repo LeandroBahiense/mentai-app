@@ -1069,7 +1069,7 @@ export default async function handler(req, res) {
         try { accessToken = await ensureAccountToken(acc); break; }
         catch (e) { console.error('TOKEN FAIL (' + acc.email + '):', e.message); }
       }
-      if (needsCalendar) {
+      { // Leitura da agenda SEMPRE que há conta (igual ao chat web) — sem gate de texto needsCalendar.
         for (const acc of accounts) {
           try {
             const tk  = await ensureAccountToken(acc);
@@ -1115,9 +1115,10 @@ export default async function handler(req, res) {
         gmailMessages = await getGmailMessages(accessToken);
         console.log('GMAIL MESSAGES:', gmailMessages.length);
       }
-    } else if (nylasWrite.length > 0 && needsCalendar) {
-      // Só-Nylas (zero contas Google): lê a agenda direto dos grants Nylas. Precisa vir
-      // ANTES do ramo needsGoogle, senão o usuário só-Nylas receberia link de login Google.
+    } else if (nylasWrite.length > 0) {
+      // Só-Nylas (zero contas Google): lê a agenda direto dos grants Nylas, SEMPRE (sem gate
+      // needsCalendar, igual ao web). Precisa vir ANTES do ramo needsGoogle, senão o usuário
+      // só-Nylas receberia link de login Google.
       for (const g of nylasWrite) {
         try {
           const evs = await getCalendarEventsNylas(g);
@@ -1239,7 +1240,8 @@ export default async function handler(req, res) {
       system += 'Para remarcar (atualizar_evento) ou cancelar (apagar_evento) um evento já existente, passe essa etiqueta no parâmetro event_ref — é mais preciso que o título.\n';
       system += 'NUNCA mostre a etiqueta [evtN] ao usuário; é interna, só para referenciar nas ferramentas.\n';
     }
-    system += 'Distinção: marcar/agendar algo com data ou hora é sempre AGENDA (criar_evento), nunca nota; registrar informação/ideia/ata é NOTA (criar_nota); no conteúdo da nota coloque só a informação, nunca a frase de comando. Para perguntas e conversa, responda em texto sem acionar ferramenta. Confirme cada ação de forma curta e nunca diga que não consegue fazê-las.\n';
+    system += 'Distinção: marcar/agendar algo com data ou hora é sempre AGENDA (criar_evento), nunca nota; registrar informação/ideia/ata é NOTA (criar_nota); no conteúdo da nota coloque só a informação, nunca a frase de comando. Para perguntas e conversa, responda em texto sem acionar ferramenta.\n';
+    system += 'Para QUALQUER ação na agenda (criar, remarcar, cancelar) você DEVE usar a ferramenta correspondente — criar_evento, atualizar_evento ou apagar_evento. NUNCA diga que marcou, remarcou ou cancelou um evento sem ter chamado a ferramenta; isso engana o usuário. Se faltar informação para agir (qual evento, qual conta, qual horário), PERGUNTE em vez de inventar uma confirmação. Confirme apenas o que a ferramenta fez.\n';
     system += '- Quando o usuário mencionar dias da semana (sexta, sábado, segunda, etc), sempre converta para a data completa DD/MM/YYYY baseado na data atual.\n';
 
     // ── Chamada ao Claude ─────────────────────────────────────────────────
@@ -1408,7 +1410,7 @@ export default async function handler(req, res) {
     await saveMessage(phone, 'user', userMessage);
     await saveMessage(phone, 'assistant', finalReply);
 
-    const msgToSend = finalReply || '✅ Feito!';
+    const msgToSend = finalReply || 'Não consegui processar isso agora. Pode repetir?';
     await sendWhatsApp(phone, msgToSend);
 
     // ── Tracking de uso ───────────────────────────────────────────────────
