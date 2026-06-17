@@ -250,6 +250,7 @@ export default async function handler(req, res) {
         system += 'NUNCA mostre a etiqueta [evtN] ao usuário; é interna, só para referenciar nas ferramentas.\n';
       }
       system += 'Distinção: marcar/agendar algo com data ou hora é sempre AGENDA (criar_evento), nunca nota; registrar informação/ideia é NOTA (criar_nota); no conteúdo da nota coloque só a informação, nunca a frase de comando. Para perguntas e conversa, responda em texto sem acionar ferramenta. Para QUALQUER ação na agenda (criar, remarcar, cancelar) você DEVE usar a ferramenta correspondente — criar_evento, atualizar_evento ou apagar_evento. NUNCA diga que marcou, remarcou ou cancelou um evento sem ter chamado a ferramenta; isso engana o usuário. Se faltar informação para agir (qual evento, qual conta, qual horário), PERGUNTE em vez de inventar uma confirmação. Confirme apenas o que a ferramenta fez.\n';
+      system += 'Convidados: o parâmetro attendees de criar_evento é uma lista opcional de e-mails. Use convidados apenas quando o usuário pedir e apenas por e-mail; se vier só o nome, PERGUNTE o e-mail em vez de inventar. Antes de criar um evento COM convidados, confirme na mesma frase de confirmação nomeando quem será convidado e avisando que um convite será enviado a esses e-mails; só chame criar_evento depois do ok do usuário. Sem convidados, o fluxo segue normal.\n';
 
       const tools = temAgenda ? NOTE_TOOLS.concat(EVENT_TOOLS) : NOTE_TOOLS;
 
@@ -318,10 +319,12 @@ export default async function handler(req, res) {
               continue;
             }
             if (tu.name === 'criar_evento') {
+              const _conv = Array.isArray(inp.attendees) ? inp.attendees.filter(Boolean) : [];
               const r = (alvo.tipo === 'nylas')
-                ? await createCalendarEventNylas(alvo.grant, inp.title, inp.datetime, inp.description || '')
-                : await createCalendarEvent(alvo.token, inp.title, inp.datetime, inp.description || '');
-              actionConfirm += (r && r.id) ? ('✅ "' + inp.title + '" agendado.\n') : ('⚠️ Não consegui criar "' + inp.title + '".\n');
+                ? await createCalendarEventNylas(alvo.grant, inp.title, inp.datetime, inp.description || '', _conv)
+                : await createCalendarEvent(alvo.token, inp.title, inp.datetime, inp.description || '', _conv);
+              const _okMsg = _conv.length ? ('✅ "' + inp.title + '" agendado com convite para ' + _conv.join(', ') + '.\n') : ('✅ "' + inp.title + '" agendado.\n');
+              actionConfirm += (r && r.id) ? _okMsg : ('⚠️ Não consegui criar "' + inp.title + '".\n');
             } else if (tu.name === 'atualizar_evento') {
               if (inp.event_ref && eventIndexMap[inp.event_ref]) {
                 const _e = eventIndexMap[inp.event_ref];
