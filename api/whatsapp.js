@@ -1013,7 +1013,7 @@ export default async function handler(req, res) {
             }
           }
 
-          vReply = (vReply || '✅ Feito!').trim();
+          vReply = (vReply || 'Não consegui processar a imagem agora. Pode tentar de novo?').trim();
           await saveMessage(phone, 'user', userMessage || '[imagem]');
           await saveMessage(phone, 'assistant', vReply);
           await sendWhatsApp(phone, vReply);

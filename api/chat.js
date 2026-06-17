@@ -249,7 +249,7 @@ export default async function handler(req, res) {
         system += 'Para remarcar (atualizar_evento) ou cancelar (apagar_evento) um evento já existente, passe essa etiqueta no parâmetro event_ref — é mais preciso que o título.\n';
         system += 'NUNCA mostre a etiqueta [evtN] ao usuário; é interna, só para referenciar nas ferramentas.\n';
       }
-      system += 'Distinção: marcar/agendar algo com data ou hora é sempre AGENDA (criar_evento), nunca nota; registrar informação/ideia é NOTA (criar_nota); no conteúdo da nota coloque só a informação, nunca a frase de comando. Para perguntas e conversa, responda em texto sem acionar ferramenta. Confirme cada ação de forma curta e nunca diga que não consegue fazê-las.\n';
+      system += 'Distinção: marcar/agendar algo com data ou hora é sempre AGENDA (criar_evento), nunca nota; registrar informação/ideia é NOTA (criar_nota); no conteúdo da nota coloque só a informação, nunca a frase de comando. Para perguntas e conversa, responda em texto sem acionar ferramenta. Para QUALQUER ação na agenda (criar, remarcar, cancelar) você DEVE usar a ferramenta correspondente — criar_evento, atualizar_evento ou apagar_evento. NUNCA diga que marcou, remarcou ou cancelou um evento sem ter chamado a ferramenta; isso engana o usuário. Se faltar informação para agir (qual evento, qual conta, qual horário), PERGUNTE em vez de inventar uma confirmação. Confirme apenas o que a ferramenta fez.\n';
 
       const tools = temAgenda ? NOTE_TOOLS.concat(EVENT_TOOLS) : NOTE_TOOLS;
 
@@ -369,7 +369,7 @@ export default async function handler(req, res) {
         } catch (e) { console.error('CHAT TOOL ERR:', tu.name, e.message); actionConfirm += '⚠️ Erro ao processar a ação.\n'; }
       }
 
-      const finalReply = (actionConfirm ? actionConfirm.trim() : replyText) || '✅ Feito!';
+      const finalReply = (actionConfirm ? actionConfirm.trim() : replyText) || 'Não consegui processar isso agora. Pode repetir?';
       trackUsage(userId, 'app', {}).catch(console.error);
       return res.status(200).json({ content: [{ type: 'text', text: finalReply }] });
     }
