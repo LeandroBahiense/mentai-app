@@ -69,7 +69,8 @@ export const EVENT_TOOLS = [
       properties: {
         title: { type: 'string', description: 'Título do evento a alterar.' },
         new_datetime: { type: 'string', description: 'Novo início em ISO com fuso de Brasília, ex: "2026-05-26T19:00:00-03:00".' },
-        account: { type: 'string', description: 'Opcional. E-mail da conta, se o usuário indicar.' }
+        account: { type: 'string', description: 'Opcional. E-mail da conta, se o usuário indicar.' },
+        event_ref: { type: 'string', description: 'Etiqueta interna [evtN] do evento na agenda. PREFIRA isto a `title` para identificar o evento a remarcar.' }
       },
       required: ['title', 'new_datetime']
     }
@@ -82,12 +83,62 @@ export const EVENT_TOOLS = [
       properties: {
         title: { type: 'string', description: 'Título do evento a cancelar.' },
         datetime: { type: 'string', description: 'Importante quando há vários eventos com o mesmo nome: o início (ISO, fuso de Brasília) do evento a cancelar, copiado da AGENDA. Ex: "2026-05-26T19:00:00-03:00".' },
-        account: { type: 'string', description: 'Opcional. E-mail da conta, se o usuário indicar.' }
+        account: { type: 'string', description: 'Opcional. E-mail da conta, se o usuário indicar.' },
+        event_ref: { type: 'string', description: 'Etiqueta interna [evtN] do evento na agenda. PREFIRA isto a `title` para identificar o evento a apagar.' }
       },
       required: ['title']
     }
   }
 ];
+
+// Índice de eventos p/ endereçamento por ID. Recebe eventos JÁ enriquecidos (a camada
+// chamadora anexa _provider/_accountEmail/_calendar_id). Atribui refs estáveis 'evtN' e
+// devolve { text, indexMap } — o text vai ao prompt, o indexMap fica server-side p/ resolver
+// a ref na hora de executar. Helper PURO (sem fetch, agnóstico de provider).
+export function buildEventIndex(events) {
+  if (!events || events.length === 0) return { text: '', indexMap: {} };
+  const TZ = 'America/Sao_Paulo';
+  const hojeBR = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(new Date());
+
+  // Mesma lógica de label do formatCalendarEvents (google.js), replicada inline.
+  const labelOf = function (e) {
+    if (e.start && e.start.dateTime) {
+      const dt     = new Date(e.start.dateTime);
+      const diaSem = new Intl.DateTimeFormat('pt-BR', { timeZone: TZ, weekday: 'short' }).format(dt).replace('.', '');
+      const dataBR = new Intl.DateTimeFormat('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit' }).format(dt);
+      const horaBR = new Intl.DateTimeFormat('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(dt);
+      const eventoDia = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(dt);
+      return eventoDia === hojeBR ? (diaSem + ' ' + horaBR) : (diaSem + ' ' + dataBR + ' ' + horaBR);
+    }
+    const d = (e.start && e.start.date) ? new Date(e.start.date + 'T00:00:00-03:00') : new Date();
+    const diaSem = new Intl.DateTimeFormat('pt-BR', { timeZone: TZ, weekday: 'short' }).format(d).replace('.', '');
+    const dataBR = new Intl.DateTimeFormat('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit' }).format(d);
+    return diaSem + ' ' + dataBR + ' (dia todo)';
+  };
+
+  const startMs = function (e) {
+    if (e.start && e.start.dateTime) return new Date(e.start.dateTime).getTime();
+    if (e.start && e.start.date) return new Date(e.start.date + 'T00:00:00-03:00').getTime();
+    return 0;
+  };
+
+  const ordered = events.slice().sort(function (a, b) { return startMs(a) - startMs(b); });
+  const indexMap = {};
+  const lines = ordered.map(function (e, i) {
+    const ref = 'evt' + (i + 1);
+    indexMap[ref] = {
+      provider:     e._provider,
+      accountEmail: e._accountEmail,
+      eventId:      e.id,
+      calendarId:   e._calendar_id,
+      attendees:    e.attendees || e.participants || [],
+    };
+    return '[' + ref + '] ' + labelOf(e) + ' — ' + (e.summary || 'Sem título') + ' — conta: ' + (e._accountEmail || '?');
+  });
+  return { text: lines.join('\n'), indexMap: indexMap };
+}
 
 export const NOTE_TOOLS = [
   {
