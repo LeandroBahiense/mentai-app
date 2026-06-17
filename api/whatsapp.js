@@ -1,8 +1,8 @@
 import { getModelForUser, calculateCooldown, trackUsage, routeModel, checkVisionQuota, incrementVisionUsage, isPlanActive } from './_lib/plans.js';
 import { searchRelevantNotes, buildRagContext } from './_lib/embeddings.js';
-import { getAllGoogleAccounts, ensureAccountToken, getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, getGmailMessages, formatCalendarEvents, formatGmailMessages } from './_lib/google.js';
-import { getAllNylasGrants, getCalendarEventsNylas, createCalendarEventNylas, updateCalendarEventNylas, deleteCalendarEventNylas } from './_lib/nylas.js';
-import { askClaudeTools, EVENT_TOOLS, NOTE_TOOLS, createNote, updateNote, deleteNote } from './_lib/agent.js';
+import { getAllGoogleAccounts, ensureAccountToken, getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, getGmailMessages, formatCalendarEvents, formatGmailMessages, patchGoogleEventTime, deleteGoogleEventById } from './_lib/google.js';
+import { getAllNylasGrants, getCalendarEventsNylas, createCalendarEventNylas, updateCalendarEventNylas, deleteCalendarEventNylas, updateNylasEventTime, deleteNylasEventById } from './_lib/nylas.js';
+import { askClaudeTools, EVENT_TOOLS, NOTE_TOOLS, createNote, updateNote, deleteNote, buildEventIndex } from './_lib/agent.js';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -778,7 +778,7 @@ export default async function handler(req, res) {
   }
 
   // ── Detecta intenções ─────────────────────────────────────────────────────
-  const needsCalendar = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromisso|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo|livre|ocupad|marcad|dispon[íi]vel/i.test(userMessage);
+  const needsCalendar = /agenda|calend|evento|reuni|hoje|amanh|semana|hor[áa]rio|compromiss|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo|livre|ocupad|marcad|dispon[íi]vel|remarc|cancel|desmarc|reagend|adia|transfer/i.test(userMessage);
   const needsGmail    = /e-?mails?|gmail|caixa|inbox|correio/i.test(userMessage);
   const needsGoogle   = needsCalendar || needsGmail;
 
@@ -790,6 +790,7 @@ export default async function handler(req, res) {
   let userId         = null;
   let accounts       = [];
   let nylasWrite     = []; // grants Nylas p/ ESCRITA de evento — function-level (usada no try#2: system prompt + handler)
+  let eventIndexMap  = {}; // ref [evtN] → { provider, accountEmail, eventId, calendarId, attendees } — function-level (try#2: prompt + loop)
 
   try {
     const resolvedUserId = await getUserIdByPhone(phone);
@@ -1073,7 +1074,7 @@ export default async function handler(req, res) {
           try {
             const tk  = await ensureAccountToken(acc);
             const evs = await getCalendarEvents(tk);
-            evs.forEach(function(e){ e._accountEmail = acc.email; });
+            evs.forEach(function(e){ e._accountEmail = acc.email; e._provider = 'google'; e._calendar_id = 'primary'; });
             calendarEvents = calendarEvents.concat(evs);
           } catch (e) { console.error('CAL ACCOUNT ERR (' + acc.email + '):', e.message); }
         }
@@ -1098,7 +1099,7 @@ export default async function handler(req, res) {
             for (const g of nylasGrants) {
               try {
                 const evs = await getCalendarEventsNylas(g);
-                evs.forEach(function(e){ e._accountEmail = g.email; });
+                evs.forEach(function(e){ e._accountEmail = g.email; e._provider = 'nylas'; e._calendar_id = e.calendar_id; });
                 calendarEvents = calendarEvents.concat(evs);
               } catch (e) { console.error('NYLAS CAL ACCOUNT ERR (' + g.email + '):', e.message); }
             }
@@ -1118,7 +1119,11 @@ export default async function handler(req, res) {
       // Só-Nylas (zero contas Google): lê a agenda direto dos grants Nylas. Precisa vir
       // ANTES do ramo needsGoogle, senão o usuário só-Nylas receberia link de login Google.
       for (const g of nylasWrite) {
-        try { const evs = await getCalendarEventsNylas(g); calendarEvents = calendarEvents.concat(evs); }
+        try {
+          const evs = await getCalendarEventsNylas(g);
+          evs.forEach(function(e){ e._accountEmail = g.email; e._provider = 'nylas'; e._calendar_id = e.calendar_id; });
+          calendarEvents = calendarEvents.concat(evs);
+        }
         catch (e) { console.error('WA leitura Nylas (só-Nylas) FAIL:', e.message); }
       }
       calendarEvents.sort(function(a,b){
@@ -1208,9 +1213,14 @@ export default async function handler(req, res) {
       system += ragContext + '\n\n';
     }
 
+    // Índice de eventos: refs [evtN] p/ endereçamento por id. text → contexto; indexMap → loop de tools.
+    // calendarEvents é function-level (montado no try#1, sob needsCalendar); aqui já está completo.
+    const __idx = buildEventIndex(calendarEvents);
+    eventIndexMap = __idx.indexMap;
+
     const temAgenda = (accounts.length > 0) || (nylasWrite.length > 0);
     if (temAgenda) {
-      system += 'AGENDA (próximos dias, horário de Brasília):\n' + formatCalendarEvents(calendarEvents) + '\n\n';
+      system += 'AGENDA (próximos dias, horário de Brasília):\n' + (__idx.text || 'Nenhum evento nos próximos dias.') + '\n\n';
     }
     // Gmail permanece atrás de googleConnected (gate do Gmail intacto).
     if (googleConnected && gmailMessages.length > 0) {
@@ -1225,6 +1235,9 @@ export default async function handler(req, res) {
       system += 'CONTAS DE AGENDA CONECTADAS (para eventos): ' + listaContas + '.\n';
       system += 'Agenda: use criar_evento, atualizar_evento, apagar_evento para marcar, remarcar ou cancelar compromissos/reuniões com data ou hora.\n';
       system += 'Para criar, editar ou apagar um evento numa conta específica, passe o email dela no parâmetro `account` — vale para qualquer conta listada acima, Google ou não.\n';
+      system += 'Cada evento na agenda começa com uma etiqueta interna [evtN].\n';
+      system += 'Para remarcar (atualizar_evento) ou cancelar (apagar_evento) um evento já existente, passe essa etiqueta no parâmetro event_ref — é mais preciso que o título.\n';
+      system += 'NUNCA mostre a etiqueta [evtN] ao usuário; é interna, só para referenciar nas ferramentas.\n';
     }
     system += 'Distinção: marcar/agendar algo com data ou hora é sempre AGENDA (criar_evento), nunca nota; registrar informação/ideia/ata é NOTA (criar_nota); no conteúdo da nota coloque só a informação, nunca a frase de comando. Para perguntas e conversa, responda em texto sem acionar ferramenta. Confirme cada ação de forma curta e nunca diga que não consegue fazê-las.\n';
     system += '- Quando o usuário mencionar dias da semana (sexta, sábado, segunda, etc), sempre converta para a data completa DD/MM/YYYY baseado na data atual.\n';
@@ -1343,15 +1356,47 @@ export default async function handler(req, res) {
               : await createCalendarEvent(alvo.token, inp.title, inp.datetime, inp.description || '');
             actionConfirm += (r && r.id) ? ('✅ "' + inp.title + '" agendado.\n') : ('⚠️ Não consegui criar "' + inp.title + '".\n');
           } else if (tu.name === 'atualizar_evento') {
-            const ok = (alvo.tipo === 'nylas')
-              ? !!(await updateCalendarEventNylas(alvo.grant, inp.title, inp.new_datetime))
-              : await updateCalendarEvent(alvo.token, inp.title, inp.new_datetime);
-            actionConfirm += ok ? ('✅ "' + inp.title + '" remarcado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para remarcar.\n');
+            if (inp.event_ref && eventIndexMap[inp.event_ref]) {
+              const _e = eventIndexMap[inp.event_ref];
+              let _ok;
+              if (_e.provider === 'google') {
+                const _acc = accounts.find(a => a.email === _e.accountEmail);
+                const _tk  = _acc ? await _tokenGoogleSequencial(_acc) : null;
+                _ok = _tk ? await patchGoogleEventTime(_tk, _e.eventId, inp.new_datetime) : false;
+              } else {
+                const _gr = nylasWrite.find(x => x.email === _e.accountEmail);
+                _ok = _gr ? !!(await updateNylasEventTime(_gr, _e.eventId, _e.calendarId, inp.new_datetime)) : false;
+              }
+              actionConfirm += _ok ? ('🔄 "' + (inp.title || 'evento') + '" remarcado.\n')
+                                   : ('⚠️ Não consegui remarcar "' + (inp.title || 'evento') + '".\n');
+            } else {
+              // FALLBACK (sem event_ref): resolverContaAlvo + busca por título (comportamento atual).
+              const ok = (alvo.tipo === 'nylas')
+                ? !!(await updateCalendarEventNylas(alvo.grant, inp.title, inp.new_datetime))
+                : await updateCalendarEvent(alvo.token, inp.title, inp.new_datetime);
+              actionConfirm += ok ? ('✅ "' + inp.title + '" remarcado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para remarcar.\n');
+            }
           } else {
-            const ok = (alvo.tipo === 'nylas')
-              ? await deleteCalendarEventNylas(alvo.grant, inp.title, inp.datetime)
-              : await deleteCalendarEvent(alvo.token, inp.title, inp.datetime);
-            actionConfirm += ok ? ('✅ "' + inp.title + '" cancelado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para cancelar.\n');
+            if (inp.event_ref && eventIndexMap[inp.event_ref]) {
+              const _e = eventIndexMap[inp.event_ref];
+              let _ok;
+              if (_e.provider === 'google') {
+                const _acc = accounts.find(a => a.email === _e.accountEmail);
+                const _tk  = _acc ? await _tokenGoogleSequencial(_acc) : null;
+                _ok = _tk ? await deleteGoogleEventById(_tk, _e.eventId, 'none') : false;
+              } else {
+                const _gr = nylasWrite.find(x => x.email === _e.accountEmail);
+                _ok = _gr ? await deleteNylasEventById(_gr, _e.eventId, _e.calendarId, false) : false;
+              }
+              actionConfirm += _ok ? ('🗑️ "' + (inp.title || 'evento') + '" cancelado.\n')
+                                   : ('⚠️ Não consegui cancelar "' + (inp.title || 'evento') + '".\n');
+            } else {
+              // FALLBACK (sem event_ref): resolverContaAlvo + busca por título (comportamento atual).
+              const ok = (alvo.tipo === 'nylas')
+                ? await deleteCalendarEventNylas(alvo.grant, inp.title, inp.datetime)
+                : await deleteCalendarEvent(alvo.token, inp.title, inp.datetime);
+              actionConfirm += ok ? ('✅ "' + inp.title + '" cancelado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para cancelar.\n');
+            }
           }
         }
       } catch (e) { console.error('TOOL ERR:', tu.name, e.message); actionConfirm += '⚠️ Erro ao processar a ação.\n'; }
