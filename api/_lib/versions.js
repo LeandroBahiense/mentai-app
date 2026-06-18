@@ -8,7 +8,7 @@
  */
 
 export const TERMS_VERSION   = '2026-06-06';
-export const PRIVACY_VERSION = '2026-06-06';
+export const PRIVACY_VERSION = '2026-06-17';
 
 // Texto literal mostrado ao usuário no momento do aceite (prova LGPD).
 export const CONSENT_TEXT_SHOWN = 'Li e concordo com os Termos de Uso e a Política de Privacidade, incluindo o tratamento dos meus dados pessoais conforme a LGPD.';
