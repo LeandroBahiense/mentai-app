@@ -1,8 +1,8 @@
 import { getModelForUser, calculateCooldown, trackUsage, routeModel, checkVisionQuota, incrementVisionUsage, isPlanActive } from './_lib/plans.js';
 import { searchRelevantNotes, buildRagContext } from './_lib/embeddings.js';
-import { getAllGoogleAccounts, ensureAccountToken, getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, getGmailMessages, formatCalendarEvents, formatGmailMessages, patchGoogleEventTime, deleteGoogleEventById } from './_lib/google.js';
-import { getAllNylasGrants, getCalendarEventsNylas, createCalendarEventNylas, updateCalendarEventNylas, deleteCalendarEventNylas, updateNylasEventTime, deleteNylasEventById } from './_lib/nylas.js';
-import { askClaudeTools, EVENT_TOOLS, NOTE_TOOLS, createNote, updateNote, deleteNote, buildEventIndex } from './_lib/agent.js';
+import { getAllGoogleAccounts, ensureAccountToken, getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, getGmailMessages, formatCalendarEvents, formatGmailMessages, patchGoogleEventTime, patchGoogleEventAttendees, deleteGoogleEventById } from './_lib/google.js';
+import { getAllNylasGrants, getCalendarEventsNylas, createCalendarEventNylas, updateCalendarEventNylas, deleteCalendarEventNylas, updateNylasEventTime, updateNylasEventParticipants, deleteNylasEventById } from './_lib/nylas.js';
+import { askClaudeTools, EVENT_TOOLS, NOTE_TOOLS, createNote, updateNote, deleteNote, buildEventIndex, mergeAttendees } from './_lib/agent.js';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -1243,6 +1243,7 @@ export default async function handler(req, res) {
     system += 'Distinção: marcar/agendar algo com data ou hora é sempre AGENDA (criar_evento), nunca nota; registrar informação/ideia/ata é NOTA (criar_nota); no conteúdo da nota coloque só a informação, nunca a frase de comando. Para perguntas e conversa, responda em texto sem acionar ferramenta.\n';
     system += 'Para QUALQUER ação na agenda (criar, remarcar, cancelar) você DEVE usar a ferramenta correspondente — criar_evento, atualizar_evento ou apagar_evento. NUNCA diga que marcou, remarcou ou cancelou um evento sem ter chamado a ferramenta; isso engana o usuário. Se faltar informação para agir (qual evento, qual conta, qual horário), PERGUNTE em vez de inventar uma confirmação. Confirme apenas o que a ferramenta fez.\n';
     system += 'Convidados: o parâmetro attendees de criar_evento é uma lista opcional de e-mails. Use convidados apenas quando o usuário pedir e apenas por e-mail; se vier só o nome, PERGUNTE o e-mail em vez de inventar. Antes de criar um evento COM convidados, confirme na mesma frase de confirmação nomeando quem será convidado e avisando que um convite será enviado a esses e-mails; só chame criar_evento depois do ok do usuário. Sem convidados, o fluxo segue normal.\n';
+    system += 'Editar convidados: para adicionar ou remover convidado de um evento que JÁ existe, use editar_convidados com a etiqueta [evtN] do evento e os e-mails em add/remove (só e-mails; se vier só o nome, pergunte o e-mail). Antes de chamar, confirme com o usuário nomeando quem entra ou sai e avisando que o adicionado recebe convite e o removido recebe aviso. Nunca use apagar_evento para tirar um convidado — isso cancela o evento inteiro.\n';
     system += '- Quando o usuário mencionar dias da semana (sexta, sábado, segunda, etc), sempre converta para a data completa DD/MM/YYYY baseado na data atual.\n';
 
     // ── Chamada ao Claude ─────────────────────────────────────────────────
@@ -1402,6 +1403,38 @@ export default async function handler(req, res) {
                 : await deleteCalendarEvent(alvo.token, inp.title, inp.datetime);
               actionConfirm += ok ? ('✅ "' + inp.title + '" cancelado.\n') : ('⚠️ Não encontrei "' + inp.title + '" para cancelar.\n');
             }
+          }
+        } else if (tu.name === 'editar_convidados') {
+          if (accounts.length === 0 && nylasWrite.length === 0) {
+            actionConfirm += '⚠️ Conecte uma agenda no app → Configurações → Conexões externas.\n';
+            continue;
+          }
+          const _e = inp.event_ref ? eventIndexMap[inp.event_ref] : null;
+          if (!_e) {
+            actionConfirm += '⚠️ Não identifiquei qual evento alterar. Me diga qual é.\n';
+            continue;
+          }
+          const _mrg = mergeAttendees(_e.attendees, inp.add, inp.remove);
+          if (!_mrg.added.length && !_mrg.removed.length) {
+            actionConfirm += 'ℹ️ Nada a alterar nos convidados de "' + (inp.title || 'evento') + '".\n';
+            continue;
+          }
+          let _okE;
+          if (_e.provider === 'google') {
+            const _accE = accounts.find(a => a.email === _e.accountEmail);
+            const _tkE  = _accE ? await _tokenGoogleSequencial(_accE) : null;
+            _okE = _tkE ? await patchGoogleEventAttendees(_tkE, _e.eventId, _mrg.list) : false;
+          } else {
+            const _grE = nylasWrite.find(x => x.email === _e.accountEmail);
+            _okE = _grE ? !!(await updateNylasEventParticipants(_grE, _e.eventId, _e.calendarId, _mrg.list)) : false;
+          }
+          if (_okE) {
+            let _msgE = '✅ Convidados de "' + (inp.title || 'evento') + '" atualizados.';
+            if (_mrg.added.length)   _msgE += ' Convite enviado para ' + _mrg.added.join(', ') + '.';
+            if (_mrg.removed.length) _msgE += ' Removido(s): ' + _mrg.removed.join(', ') + '.';
+            actionConfirm += _msgE + '\n';
+          } else {
+            actionConfirm += '⚠️ Não consegui alterar os convidados de "' + (inp.title || 'evento') + '".\n';
           }
         }
       } catch (e) { console.error('TOOL ERR:', tu.name, e.message); actionConfirm += '⚠️ Erro ao processar a ação.\n'; }
