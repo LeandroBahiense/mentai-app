@@ -201,6 +201,20 @@ export async function patchGoogleEventTime(accessToken, eventId, newDatetimeISO)
   return res.status >= 200 && res.status < 300;
 }
 
+// Substitui a lista de convidados de um evento (by id) e notifica todos. attendees: array de {email,...}.
+export async function patchGoogleEventAttendees(accessToken, eventId, attendees) {
+  const res = await fetch(
+    'https://www.googleapis.com/calendar/v3/calendars/primary/events/' + encodeURIComponent(eventId) + '?sendUpdates=all',
+    {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attendees: Array.isArray(attendees) ? attendees : [] }),
+    }
+  );
+  console.log('GOOGLE CAL PATCH attendees (by id):', res.status, '|', eventId);
+  return res.status >= 200 && res.status < 300;
+}
+
 // Apaga um evento endereçado por id. sendUpdates: 'none' | 'all' | 'externalOnly'. Retorna bool.
 export async function deleteGoogleEventById(accessToken, eventId, sendUpdates = 'none') {
   const params = new URLSearchParams({ sendUpdates: sendUpdates });

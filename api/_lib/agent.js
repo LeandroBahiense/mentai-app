@@ -89,6 +89,20 @@ export const EVENT_TOOLS = [
       },
       required: ['title']
     }
+  },
+  {
+    name: 'editar_convidados',
+    description: 'Adiciona ou remove convidados de um evento JÁ EXISTENTE na agenda. Use quando o usuário pedir para convidar mais alguém para um evento que já existe, ou para tirar/remover um convidado. NÃO use para criar evento novo (isso é criar_evento) nem para cancelar o evento inteiro (isso é apagar_evento).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        event_ref: { type: 'string', description: 'Etiqueta interna [evtN] do evento. Obrigatório; se não tiver a etiqueta, pergunte ao usuário qual evento.' },
+        add: { type: 'array', items: { type: 'string' }, description: 'E-mails a convidar. Apenas e-mails que o usuário informou; se vier só um nome, pergunte o e-mail.' },
+        remove: { type: 'array', items: { type: 'string' }, description: 'E-mails a remover do evento. Apenas e-mails; se vier só um nome, pergunte o e-mail.' },
+        title: { type: 'string', description: 'Título do evento, só para a mensagem de confirmação.' }
+      },
+      required: ['event_ref']
+    }
   }
 ];
 
@@ -139,6 +153,23 @@ export function buildEventIndex(events) {
     return '[' + ref + '] ' + labelOf(e) + ' — ' + (e.summary || 'Sem título') + ' — conta: ' + (e._accountEmail || '?');
   });
   return { text: lines.join('\n'), indexMap: indexMap };
+}
+
+// Aplica add/remove sobre a lista atual de convidados (objetos {email,...}).
+// Preserva os objetos de quem fica (mantém RSVP). add entram como { email }. remove ganha de add no mesmo e-mail.
+// Retorna { list, added, removed } — added/removed são os e-mails efetivamente mexidos.
+export function mergeAttendees(current, add, remove) {
+  const cur = Array.isArray(current) ? current : [];
+  const addList = Array.isArray(add) ? add.filter(Boolean) : [];
+  const remList = Array.isArray(remove) ? remove.filter(Boolean) : [];
+  const emailOf = function (a) { return String((a && a.email) || '').toLowerCase(); };
+  const remSet = new Set(remList.map(function (e) { return String(e).toLowerCase(); }));
+  const removed = cur.filter(function (a) { return remSet.has(emailOf(a)); }).map(function (a) { return a.email; });
+  const kept = cur.filter(function (a) { return !remSet.has(emailOf(a)); });
+  const keptSet = new Set(kept.map(emailOf));
+  const added = addList.filter(function (e) { const le = String(e).toLowerCase(); return !keptSet.has(le) && !remSet.has(le); });
+  const list = kept.concat(added.map(function (e) { return { email: e }; }));
+  return { list: list, added: added, removed: removed };
 }
 
 export const NOTE_TOOLS = [

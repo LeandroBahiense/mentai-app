@@ -380,6 +380,22 @@ export async function updateNylasEventTime(grant, eventId, calendarId, newDateti
   }
 }
 
+// Substitui a lista de participantes de um evento (by id) e notifica. participants: array de {email,...}.
+export async function updateNylasEventParticipants(grant, eventId, calendarId, participants) {
+  try {
+    const json = await nylasFetch('/v3/grants/' + encodeURIComponent(grant.grant_id) + '/events/' + encodeURIComponent(eventId), {
+      method: 'PUT',
+      query: { calendar_id: calendarId, notify_participants: true },
+      body: { participants: Array.isArray(participants) ? participants : [] },
+    });
+    console.log('NYLAS CAL PUT participants (by id):', 200, '|', eventId);
+    return json.data || false;
+  } catch (e) {
+    console.error('updateNylasEventParticipants error:', e.message);
+    return false;
+  }
+}
+
 // Apaga um evento endereçado por id. notifyParticipants=true → &notify_participants=true.
 // Retorna bool.
 export async function deleteNylasEventById(grant, eventId, calendarId, notifyParticipants = false) {
