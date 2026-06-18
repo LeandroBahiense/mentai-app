@@ -78,7 +78,7 @@ export const EVENT_TOOLS = [
   },
   {
     name: 'apagar_evento',
-    description: 'Cancela/apaga um evento da agenda. Use quando o usuário pedir para cancelar ou desmarcar um compromisso.',
+    description: 'Cancela/apaga um evento INTEIRO da agenda, para TODOS os convidados. Use quando o usuário pedir para cancelar ou desmarcar o compromisso em si. NUNCA use para apenas tirar/remover um convidado de um evento que continua existindo — para isso use editar_convidados.',
     input_schema: {
       type: 'object',
       properties: {
@@ -92,16 +92,17 @@ export const EVENT_TOOLS = [
   },
   {
     name: 'editar_convidados',
-    description: 'Adiciona ou remove convidados de um evento JÁ EXISTENTE na agenda. Use quando o usuário pedir para convidar mais alguém para um evento que já existe, ou para tirar/remover um convidado. NÃO use para criar evento novo (isso é criar_evento) nem para cancelar o evento inteiro (isso é apagar_evento).',
+    description: 'Remove OU adiciona convidados de um evento que JÁ EXISTE, mantendo o evento. Use SEMPRE que o usuário pedir para tirar/remover um convidado, cancelar o convite de alguém, ou convidar mais alguém para um evento existente. NUNCA use apagar_evento para tirar convidado (isso cancela o evento inteiro para todos) nem criar_evento (isso duplica o evento).',
     input_schema: {
       type: 'object',
       properties: {
-        event_ref: { type: 'string', description: 'Etiqueta interna [evtN] do evento. Obrigatório; se não tiver a etiqueta, pergunte ao usuário qual evento.' },
+        event_ref: { type: 'string', description: 'Etiqueta interna [evtN] do evento. PREFIRA isto para identificar o evento; se não tiver a etiqueta, use o title.' },
         add: { type: 'array', items: { type: 'string' }, description: 'E-mails a convidar. Apenas e-mails que o usuário informou; se vier só um nome, pergunte o e-mail.' },
         remove: { type: 'array', items: { type: 'string' }, description: 'E-mails a remover do evento. Apenas e-mails; se vier só um nome, pergunte o e-mail.' },
-        title: { type: 'string', description: 'Título do evento, só para a mensagem de confirmação.' }
+        title: { type: 'string', description: 'Título do evento. Usado para identificar o evento quando não há etiqueta [evtN], e na mensagem de confirmação.' },
+        account: { type: 'string', description: 'Opcional. E-mail da conta de agenda, se o usuário indicar.' }
       },
-      required: ['event_ref']
+      required: []
     }
   }
 ];
