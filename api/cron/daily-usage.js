@@ -9,6 +9,7 @@
  */
 
 import { revokeGrant } from '../_lib/nylas.js';
+import { mirrorPlanCluster } from '../_lib/plans.js';
 
 const SUPABASE_URL     = process.env.SUPABASE_URL;
 const SUPABASE_SVC_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -367,6 +368,8 @@ export default async function handler(req, res) {
         }
 
         await updateUserPrefs(userId, updates);
+        // Dual-write (04.5/F2): espelha o cluster (cooldown/suspension) em subscriptions.
+        await mirrorPlanCluster(userId, updates);
         results.processed++;
 
       } catch (userErr) {
