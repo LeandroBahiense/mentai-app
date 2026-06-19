@@ -733,3 +733,22 @@ export async function totalAccounts(uid) {
   const n = await sb.from('nylas_grants').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'active');
   return (g.count || 0) + (n.count || 0);
 }
+
+// Bloco 04.5 / Fase 2 — DUAL-WRITE do cluster de plano para a tabela `subscriptions`.
+// Espelho ADITIVO: cada escrita do cluster em user_preferences chama isto DEPOIS, com os
+// mesmos campos. Best-effort: erro aqui NÃO derruba a escrita primária (só loga). Não troca
+// nenhuma leitura. Whitelist de colunas — ignora qualquer campo fora do cluster.
+export async function mirrorPlanCluster(userId, fields) {
+  if (!userId || !fields || typeof fields !== 'object') return;
+  const allowed = ['plano','plano_validade','is_trial','upgrade_locked',
+                   'pending_suspension','current_cooldown_ms','subscription_canceled_at'];
+  const row = { user_id: userId, updated_at: new Date().toISOString() };
+  for (const k of allowed) { if (k in fields) row[k] = fields[k]; }
+  try {
+    const sb = makeSupabase();
+    const { error } = await sb.from('subscriptions').upsert(row, { onConflict: 'user_id' });
+    if (error) console.error('mirrorPlanCluster upsert error (nao critico):', error.message);
+  } catch (e) {
+    console.error('mirrorPlanCluster error (nao critico):', e.message);
+  }
+}
