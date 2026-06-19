@@ -11,7 +11,7 @@
 
 import { timingSafeEqual } from 'crypto';
 import { sendPlanoAtivadoByUserId, sendPlanoAtivadoByCustomerId } from '../_lib/email.js';
-import { parsePlanFromSku } from '../_lib/plans.js';
+import { parsePlanFromSku, mirrorPlanCluster } from '../_lib/plans.js';
 
 // Marker de cobrança avulsa da diferença de upgrade (Bloco C). NÃO é evento de
 // plano — é receita pontual. O webhook ignora (não toca plano/validade).
@@ -155,6 +155,9 @@ async function grantTrialIfInactive(userId, plano, dueDate, customerId, subscrip
     throw new Error('PATCH user_preferences falhou: ' + await patchRes.text());
   }
 
+  // Dual-write (04.5/F2): espelha o cluster de plano em subscriptions (aditivo, best-effort).
+  await mirrorPlanCluster(userId, { plano, plano_validade: planoValidade, subscription_canceled_at: null, is_trial: true });
+
   // Persiste os ids do Asaas em subscriptions — MESMO padrão do PAYMENT_CONFIRMED.
   // Destrava o botão "Cancelar assinatura" durante o trial. Campos só entram no body
   // se truthy → null nunca sobrescreve id já salvo. NÃO toca no cluster de plano (Etapa 04).
@@ -206,6 +209,9 @@ async function updateUserPlanByUserId(userId, plano, meses, subscriptionId, cust
     const err = await res.text();
     throw new Error('Supabase PATCH user_preferences falhou: ' + err);
   }
+
+  // Dual-write (04.5/F2): espelha o cluster de plano em subscriptions (aditivo, best-effort).
+  await mirrorPlanCluster(userId, { plano, plano_validade: validade.toISOString(), subscription_canceled_at: null, is_trial: false });
 
   // Grava asaas_customer_id + asaas_subscription_id em subscriptions.
   // ?on_conflict=user_id mira a constraint UNIQUE simples — sem isso o PostgREST
@@ -272,6 +278,9 @@ async function updateUserPlanByCustomer(customerId, plano, meses, subscriptionId
     const err = await res.text();
     throw new Error('Supabase PATCH user_preferences falhou: ' + err);
   }
+
+  // Dual-write (04.5/F2): espelha o cluster de plano em subscriptions (aditivo, best-effort).
+  await mirrorPlanCluster(userId, { plano, plano_validade: validade.toISOString(), subscription_canceled_at: null, is_trial: false });
 
   // 3. Grava asaas_customer_id + asaas_subscription_id em subscriptions.
   //    Chaves omitidas quando falsy — merge-duplicates do PostgREST preserva

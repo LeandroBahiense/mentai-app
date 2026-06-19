@@ -10,7 +10,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'crypto';
-import { cancelAllAddOns } from '../_lib/plans.js';
+import { cancelAllAddOns, mirrorPlanCluster } from '../_lib/plans.js';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -156,6 +156,10 @@ export default async function handler(req, res) {
       console.error(`[cancel-subscription] CRÍTICO: Asaas cancelou subscription=${subscriptionId} mas Supabase falhou. uid=${uid}`);
       return res.status(500).json({ error: 'Cancelamento parcial — entre em contato com suporte' });
     }
+
+    // Dual-write (04.5/F2): espelha o cancelamento em subscriptions (aditivo, best-effort).
+    await mirrorPlanCluster(uid, { subscription_canceled_at: now });
+
     if (!patchSubRes.ok) {
       // Não crítico: Asaas cancelou e prefs foi atualizado; apenas loga para reconciliação
       const err = await patchSubRes.text();

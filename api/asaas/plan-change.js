@@ -21,7 +21,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'crypto';
-import { SKUS, prorationDiff, parsePlanFromSku, dataHojeSP, downgradeCapacityCheck } from '../_lib/plans.js';
+import { SKUS, prorationDiff, parsePlanFromSku, dataHojeSP, downgradeCapacityCheck, mirrorPlanCluster } from '../_lib/plans.js';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -310,6 +310,9 @@ export default async function handler(req, res) {
     } catch (e) {
       patchErr = e.message;
     }
+
+    // Dual-write (04.5/F2): espelha o cluster em subscriptions só se o PATCH primário deu certo.
+    if (!patchErr) await mirrorPlanCluster(uid, { plano: targetPlano, is_trial: false });
 
     if (subUpdateErr || patchErr) {
       // Cliente pode já ter pago. Estado completo logado para reconciliação manual.
