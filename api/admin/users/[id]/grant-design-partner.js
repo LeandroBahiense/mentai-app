@@ -13,6 +13,7 @@
  */
 
 import { readSession, isAdmin } from '../../../_lib/adminAuth.js';
+import { mirrorPlanCluster } from '../../../_lib/plans.js';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -81,6 +82,9 @@ export default async function handler(req, res) {
     console.error('[admin/grant-design-partner] PATCH user_preferences falhou:', err);
     return res.status(500).json({ error: 'Erro ao conceder Design Partner' });
   }
+
+  // Dual-write (04.5/F2): espelha o cluster em subscriptions (aditivo, best-effort).
+  await mirrorPlanCluster(targetUserId, { plano: 'design_partner', plano_validade: planoValidade });
 
   console.log(`[admin/grant-design-partner] OK | admin=${adminUid} | target=${targetUserId} | validade=${planoValidade}`);
 
