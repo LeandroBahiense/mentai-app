@@ -16,6 +16,7 @@
  */
 
 import { readSession, isAdmin } from '../../_lib/adminAuth.js';
+import { mirrorPlanCluster } from '../../_lib/plans.js';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -97,6 +98,9 @@ export default async function handler(req, res) {
     console.error('[admin/users/[id]] PATCH user_preferences falhou:', err);
     return res.status(500).json({ error: 'Erro ao atualizar usuário' });
   }
+
+  // Dual-write (04.5/F2): espelha o mesmo patch do cluster em subscriptions (aditivo, best-effort).
+  await mirrorPlanCluster(targetUserId, patch);
 
   console.log(`[admin/users/[id]] OK | admin=${adminUid} | target=${targetUserId} | patch=${JSON.stringify(patch)}`);
 
