@@ -268,7 +268,7 @@ export async function getModelForUser(userId) {
   try {
     const sb = makeSupabase();
     const { data } = await sb
-      .from('user_preferences')
+      .from('subscriptions')
       .select('plano')
       .eq('user_id', userId)
       .maybeSingle();
@@ -287,7 +287,7 @@ export async function getFeaturesForUser(userId) {
   try {
     const sb = makeSupabase();
     const { data } = await sb
-      .from('user_preferences')
+      .from('subscriptions')
       .select('plano')
       .eq('user_id', userId)
       .maybeSingle();
@@ -310,7 +310,7 @@ export async function checkAccountLimit(uid) {
     let plano = '';
     try {
       const sb = makeSupabase();
-      const { data } = await sb.from('user_preferences').select('plano').eq('user_id', uid).maybeSingle();
+      const { data } = await sb.from('subscriptions').select('plano').eq('user_id', uid).maybeSingle();
       plano = data?.plano || '';
     } catch (e) { console.error('checkAccountLimit admin plano error:', e.message); }
     return { plano, used: null, max: null, atLimit: false, isAdmin: true, isDP: false, bypass: 'admin' };
@@ -321,7 +321,7 @@ export async function checkAccountLimit(uid) {
   // Plano atual.
   let plano = '';
   try {
-    const { data } = await sb.from('user_preferences').select('plano').eq('user_id', uid).maybeSingle();
+    const { data } = await sb.from('subscriptions').select('plano').eq('user_id', uid).maybeSingle();
     plano = data?.plano || '';
   } catch (e) { console.error('checkAccountLimit plano error:', e.message); }
 
@@ -367,7 +367,7 @@ export async function syncAddOnsAfterRemoval(uid) {
     // Plano atual.
     let plano = '';
     try {
-      const { data } = await sb.from('user_preferences').select('plano').eq('user_id', uid).maybeSingle();
+      const { data } = await sb.from('subscriptions').select('plano').eq('user_id', uid).maybeSingle();
       plano = data?.plano || '';
     } catch (e) { console.error('syncAddOns plano error:', e.message); }
 
@@ -457,7 +457,7 @@ export async function checkVisionQuota(userId) {
   try {
     const sb = makeSupabase();
     const { data: prefs } = await sb
-      .from('user_preferences')
+      .from('subscriptions')
       .select('plano')
       .eq('user_id', userId)
       .maybeSingle();
@@ -509,7 +509,7 @@ export async function calculateCooldown(userId) {
 
     // Verificar suspensão pendente
     const { data: prefs } = await sb
-      .from('user_preferences')
+      .from('subscriptions')
       .select('pending_suspension, current_cooldown_ms')
       .eq('user_id', userId)
       .maybeSingle();
@@ -557,7 +557,7 @@ export async function trackUsage(userId, channel, options = {}) {
     let planAtTime = options.plano || null;
     if (!planAtTime) {
       const { data } = await sb
-        .from('user_preferences')
+        .from('subscriptions')
         .select('plano')
         .eq('user_id', userId)
         .maybeSingle();
@@ -618,7 +618,7 @@ export async function isPlanActive(uid) {
   try {
     if (isAdmin(uid)) return true;
     const sb = makeSupabase();
-    const { data } = await sb.from('user_preferences').select('plano_validade').eq('user_id', uid).maybeSingle();
+    const { data } = await sb.from('subscriptions').select('plano_validade').eq('user_id', uid).maybeSingle();
     return isPlanActiveFromValidade(data?.plano_validade);
   } catch (e) {
     console.error('isPlanActive error (fail-open):', e.message);
