@@ -192,6 +192,29 @@ async function updateUserPlanByUserId(userId, plano, meses, subscriptionId, cust
   const validade = new Date();
   validade.setMonth(validade.getMonth() + meses);
 
+  // Guard cobranca-fantasma (Bloco 04.5): nao reativar plano cancelado a partir de
+  // pagamento de uma assinatura antiga. Fail-open em erro de leitura.
+  if (subscriptionId) {
+    let canceledAt = null, currentSubId = null;
+    try {
+      const gRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}&select=subscription_canceled_at,asaas_subscription_id&limit=1`,
+        { headers: svcHeaders() }
+      );
+      if (gRes.ok) {
+        const rows = await gRes.json();
+        canceledAt   = rows?.[0]?.subscription_canceled_at ?? null;
+        currentSubId = rows?.[0]?.asaas_subscription_id ?? null;
+      }
+    } catch (e) {
+      console.error('[webhook] guard fantasma: leitura falhou (fail-open):', e.message);
+    }
+    if (canceledAt && currentSubId !== subscriptionId) {
+      console.warn(`[webhook] cobranca-fantasma ignorada | userId=${userId} | pagamento_sub=${subscriptionId} | sub_atual=${currentSubId} | cancelado_em=${canceledAt}`);
+      return null;
+    }
+  }
+
   // Plano e validade ficam em user_preferences (não mudou)
   const patchBody = {
     plano,
@@ -249,7 +272,7 @@ async function updateUserPlanByCustomer(customerId, plano, meses, subscriptionId
 
   // 1. Resolve user_id a partir de subscriptions (migrado de user_preferences)
   const lookupRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/subscriptions?asaas_customer_id=eq.${encodeURIComponent(customerId)}&select=user_id`,
+    `${SUPABASE_URL}/rest/v1/subscriptions?asaas_customer_id=eq.${encodeURIComponent(customerId)}&select=user_id,subscription_canceled_at,asaas_subscription_id`,
     { headers: svcHeaders() }
   );
   if (!lookupRes.ok) {
@@ -260,6 +283,16 @@ async function updateUserPlanByCustomer(customerId, plano, meses, subscriptionId
   const userId = lookupRows?.[0]?.user_id;
   if (!userId) {
     throw new Error('customer_id não encontrado em subscriptions: ' + customerId);
+  }
+
+  // Guard cobranca-fantasma (Bloco 04.5): mesma regra do caminho por user_id.
+  if (subscriptionId) {
+    const canceledAt   = lookupRows?.[0]?.subscription_canceled_at ?? null;
+    const currentSubId = lookupRows?.[0]?.asaas_subscription_id ?? null;
+    if (canceledAt && currentSubId !== subscriptionId) {
+      console.warn(`[webhook] cobranca-fantasma ignorada (por customer) | userId=${userId} | pagamento_sub=${subscriptionId} | sub_atual=${currentSubId} | cancelado_em=${canceledAt}`);
+      return null;
+    }
   }
 
   // 2. Atualiza plano em user_preferences por user_id
@@ -491,6 +524,10 @@ export default async function handler(req, res) {
         const { plano, meses } = parsed;
         const subscriptionId = payment.subscription || null;
         const validade = await updateUserPlanByUserId(resolved.refUserId, plano, meses, subscriptionId, customerId);
+        if (!validade) {
+          console.warn(`[webhook] reativacao ignorada (cobranca-fantasma) | userId=${resolved.refUserId} | sub=${subscriptionId}`);
+          return res.status(200).json({ ok: true, skipped: 'phantom_reactivation' });
+        }
         // Dispara email transacional. Não-bloqueante — webhook ainda responde 200 mesmo se Resend falhar.
         try {
           await sendPlanoAtivadoByUserId({
@@ -526,6 +563,10 @@ export default async function handler(req, res) {
     const { plano, meses } = parsed;
     const subscriptionId = payment.subscription || null;
     const validade = await updateUserPlanByCustomer(customerId, plano, meses, subscriptionId);
+    if (!validade) {
+      console.warn(`[webhook] reativacao ignorada (cobranca-fantasma, por customer) | customerId=${customerId} | sub=${subscriptionId}`);
+      return res.status(200).json({ ok: true, skipped: 'phantom_reactivation' });
+    }
     try {
       await sendPlanoAtivadoByCustomerId({
         customerId:    customerId,
