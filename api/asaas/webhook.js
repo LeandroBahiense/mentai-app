@@ -109,7 +109,7 @@ function dataSPplusDias(dias) {
 async function grantTrialIfInactive(userId, plano, dueDate, customerId, subscriptionId) {
   // 1. Lê estado atual do plano
   const checkRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(userId)}&select=plano,plano_validade`,
+    `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}&select=plano,plano_validade`,
     { headers: svcHeaders() }
   );
   const rows = checkRes.ok ? await checkRes.json() : [];

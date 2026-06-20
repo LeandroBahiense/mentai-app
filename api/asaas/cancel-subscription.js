@@ -72,7 +72,7 @@ export default async function handler(req, res) {
   try {
     const [prefsRes, subRes] = await Promise.all([
       fetch(
-        `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}&select=plano_validade,subscription_canceled_at`,
+        `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(uid)}&select=plano_validade,subscription_canceled_at`,
         { headers: svcHeaders() }
       ),
       fetch(

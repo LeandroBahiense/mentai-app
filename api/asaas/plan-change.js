@@ -120,7 +120,7 @@ export default async function handler(req, res) {
     // 1. effectivePlano (user_preferences) + asaas_subscription_id/customer_id (subscriptions)
     const [prefRes, subRes] = await Promise.all([
       fetch(
-        `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}&select=plano,is_trial&limit=1`,
+        `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(uid)}&select=plano,is_trial&limit=1`,
         { headers: svcHeaders() }
       ),
       fetch(

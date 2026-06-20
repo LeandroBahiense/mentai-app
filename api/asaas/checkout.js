@@ -156,7 +156,7 @@ export default async function handler(req, res) {
   let _jaUsouTrial = false;
   try {
     const _prefRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}&select=is_trial`,
+      `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(uid)}&select=is_trial`,
       { headers: svcHeaders() }
     );
     if (_prefRes.ok) {
