@@ -39,7 +39,7 @@ export default async function handler(req, res) {
   try {
     // ── 1. Buscar todos os registros de user_preferences ───────────────────────
     const prefsResp = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_preferences?select=user_id,plano,plano_validade`,
+      `${SUPABASE_URL}/rest/v1/subscriptions?select=user_id,plano,plano_validade&user_id=not.is.null`,
       { headers: svcHeaders() }
     );
     if (!prefsResp.ok) {
