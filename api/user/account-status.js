@@ -77,10 +77,16 @@ export default async function handler(req, res) {
 
   try {
     // 1. Lê o estado de exclusão da conta
-    const getRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}&select=account_deleted_at,plano_validade`,
-      { headers: svcHeaders() }
-    );
+    const [getRes, subRes] = await Promise.all([
+      fetch(
+        `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}&select=account_deleted_at`,
+        { headers: svcHeaders() }
+      ),
+      fetch(
+        `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(uid)}&select=plano_validade&limit=1`,
+        { headers: svcHeaders() }
+      ),
+    ]);
     if (!getRes.ok) {
       console.error('[user/account-status] GET user_preferences falhou:', getRes.status);
       return res.status(500).json({ error: 'internal error' });
@@ -89,7 +95,8 @@ export default async function handler(req, res) {
     const profile = Array.isArray(rows) ? rows[0] : null;
     const deletedAt = profile?.account_deleted_at || null;
     // Dias até vencer (pro popup de renovação, Etapa 04.3a). null = sem validade/já vencido.
-    const planoValidade = profile?.plano_validade || null;
+    const subRows = subRes.ok ? await subRes.json().catch(() => []) : [];
+    const planoValidade = (Array.isArray(subRows) ? subRows[0]?.plano_validade : null) || null;
     let diasParaVencer = null;
     if (planoValidade) {
       const ms = new Date(planoValidade).getTime() - Date.now();
