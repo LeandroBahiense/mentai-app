@@ -46,7 +46,7 @@ export default async function handler(req, res) {
   let oldValidade = null;
   try {
     const oldResp = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(targetUserId)}&select=plano,plano_validade`,
+      `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(targetUserId)}&select=plano,plano_validade`,
       { headers: svcHeaders() }
     );
     if (oldResp.ok) {
