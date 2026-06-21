@@ -299,7 +299,7 @@ export default async function handler(req, res) {
     let patchErr = null;
     try {
       const patchR = await fetch(
-        `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}`,
+        `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(uid)}`,
         {
           method:  'PATCH',
           headers: svcHeaders(),
@@ -310,9 +310,6 @@ export default async function handler(req, res) {
     } catch (e) {
       patchErr = e.message;
     }
-
-    // Dual-write (04.5/F2): espelha o cluster em subscriptions só se o PATCH primário deu certo.
-    if (!patchErr) await mirrorPlanCluster(uid, { plano: targetPlano, is_trial: false });
 
     if (subUpdateErr || patchErr) {
       // Cliente pode já ter pago. Estado completo logado para reconciliação manual.

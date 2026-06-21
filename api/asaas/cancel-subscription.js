@@ -132,7 +132,7 @@ export default async function handler(req, res) {
     const [patchPrefsRes, patchSubRes] = await Promise.all([
       // user_preferences: marca cancelamento (subscription_canceled_at)
       fetch(
-        `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(uid)}`,
+        `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(uid)}`,
         {
           method:  'PATCH',
           headers: svcHeaders(),
@@ -156,9 +156,6 @@ export default async function handler(req, res) {
       console.error(`[cancel-subscription] CRÍTICO: Asaas cancelou subscription=${subscriptionId} mas Supabase falhou. uid=${uid}`);
       return res.status(500).json({ error: 'Cancelamento parcial — entre em contato com suporte' });
     }
-
-    // Dual-write (04.5/F2): espelha o cancelamento em subscriptions (aditivo, best-effort).
-    await mirrorPlanCluster(uid, { subscription_canceled_at: now });
 
     if (!patchSubRes.ok) {
       // Não crítico: Asaas cancelou e prefs foi atualizado; apenas loga para reconciliação

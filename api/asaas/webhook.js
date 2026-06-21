@@ -148,15 +148,12 @@ async function grantTrialIfInactive(userId, plano, dueDate, customerId, subscrip
     updated_at:               new Date().toISOString(),
   };
   const patchRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(userId)}`,
+    `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}`,
     { method: 'PATCH', headers: svcHeaders(), body: JSON.stringify(patchBody) }
   );
   if (!patchRes.ok) {
     throw new Error('PATCH user_preferences falhou: ' + await patchRes.text());
   }
-
-  // Dual-write (04.5/F2): espelha o cluster de plano em subscriptions (aditivo, best-effort).
-  await mirrorPlanCluster(userId, { plano, plano_validade: planoValidade, subscription_canceled_at: null, is_trial: true });
 
   // Persiste os ids do Asaas em subscriptions — MESMO padrão do PAYMENT_CONFIRMED.
   // Destrava o botão "Cancelar assinatura" durante o trial. Campos só entram no body
@@ -225,16 +222,13 @@ async function updateUserPlanByUserId(userId, plano, meses, subscriptionId, cust
   };
 
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(userId)}`,
+    `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}`,
     { method: 'PATCH', headers: svcHeaders(), body: JSON.stringify(patchBody) }
   );
   if (!res.ok) {
     const err = await res.text();
     throw new Error('Supabase PATCH user_preferences falhou: ' + err);
   }
-
-  // Dual-write (04.5/F2): espelha o cluster de plano em subscriptions (aditivo, best-effort).
-  await mirrorPlanCluster(userId, { plano, plano_validade: validade.toISOString(), subscription_canceled_at: null, is_trial: false });
 
   // Grava asaas_customer_id + asaas_subscription_id em subscriptions.
   // ?on_conflict=user_id mira a constraint UNIQUE simples — sem isso o PostgREST
@@ -304,16 +298,13 @@ async function updateUserPlanByCustomer(customerId, plano, meses, subscriptionId
     updated_at:               new Date().toISOString(),
   };
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(userId)}`,
+    `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}`,
     { method: 'PATCH', headers: svcHeaders(), body: JSON.stringify(patchBody) }
   );
   if (!res.ok) {
     const err = await res.text();
     throw new Error('Supabase PATCH user_preferences falhou: ' + err);
   }
-
-  // Dual-write (04.5/F2): espelha o cluster de plano em subscriptions (aditivo, best-effort).
-  await mirrorPlanCluster(userId, { plano, plano_validade: validade.toISOString(), subscription_canceled_at: null, is_trial: false });
 
   // 3. Grava asaas_customer_id + asaas_subscription_id em subscriptions.
   //    Chaves omitidas quando falsy — merge-duplicates do PostgREST preserva
