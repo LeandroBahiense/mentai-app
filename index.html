@@ -583,7 +583,7 @@ footer a:hover{color:var(--lilac)}
   <div class="container">
     <p class="sec-label" style="color:var(--lilac)">ACESSO ANTECIPADO</p>
     <h2 class="sec-title">Faça parte do início</h2>
-    <p class="sec-sub">Os primeiros 100 usuários ganham 3 meses no plano Pro pelo preço do Essencial. Sem compromisso.</p>
+    <p class="sec-sub">Os primeiros 25 usuários ganham 3 meses no plano Pro pelo preço do Essencial. Sem compromisso.</p>
     <div id="counter-display" class="wl-counter">⏳ Vagas restantes: carregando...</div>
     <p class="spots-msg" id="spots-msg"></p>
     <div class="wl-form-wrap">
@@ -610,7 +610,7 @@ footer a:hover{color:var(--lilac)}
 <script>
 const SUPABASE_URL = 'https://qmsuykfqtiqaauinehfu.supabase.co';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtc3V5a2ZxdGlxYWF1aW5laGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDYyMDMsImV4cCI6MjA5MzY4MjIwM30.fTiJ4pmmYMaDRWooDqClGWPpQM5-pta4zSd0Z5gQ6lM';
-const MAX_SPOTS = 100;
+const MAX_SPOTS = 25;
 
 async function getCount() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?select=id`, {
