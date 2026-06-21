@@ -322,7 +322,7 @@ async function countConsecutiveDaysAbove(userId, threshold) {
 // Atualiza user_preferences para um usuário
 async function updateUserPrefs(userId, updates) {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(userId)}`,
+    `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}`,
     {
       method:  'PATCH',
       headers: svcHeaders(),
@@ -368,8 +368,6 @@ export default async function handler(req, res) {
         }
 
         await updateUserPrefs(userId, updates);
-        // Dual-write (04.5/F2): espelha o cluster (cooldown/suspension) em subscriptions.
-        await mirrorPlanCluster(userId, updates);
         results.processed++;
 
       } catch (userErr) {
