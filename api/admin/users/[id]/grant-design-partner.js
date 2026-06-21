@@ -70,7 +70,7 @@ export default async function handler(req, res) {
 
   // ── Aplicar PATCH em user_preferences ───────────────────────────────────────
   const patchResp = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(targetUserId)}`,
+    `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(targetUserId)}`,
     {
       method:  'PATCH',
       headers: svcHeaders(),
@@ -82,9 +82,6 @@ export default async function handler(req, res) {
     console.error('[admin/grant-design-partner] PATCH user_preferences falhou:', err);
     return res.status(500).json({ error: 'Erro ao conceder Design Partner' });
   }
-
-  // Dual-write (04.5/F2): espelha o cluster em subscriptions (aditivo, best-effort).
-  await mirrorPlanCluster(targetUserId, { plano: 'design_partner', plano_validade: planoValidade });
 
   console.log(`[admin/grant-design-partner] OK | admin=${adminUid} | target=${targetUserId} | validade=${planoValidade}`);
 
