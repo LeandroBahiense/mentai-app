@@ -66,12 +66,15 @@ export default async function handler(req, res) {
   const already = new Set(Array.isArray(noteRow?.connections) ? noteRow.connections : []);
 
   // 2b. Conexões no sentido INVERSO — notas que listam ESTA nota (ligação é não-direcionada).
-  const { data: incoming } = await supabase
+  //     Checagem no código (à prova de quirks de serialização jsonb da lib).
+  const { data: allRows, error: invErr } = await supabase
     .from('notes')
-    .select('id')
-    .eq('user_id', uid)
-    .contains('connections', [noteId]);
-  (incoming || []).forEach(r => already.add(r.id));
+    .select('id, connections')
+    .eq('user_id', uid);
+  if (invErr) console.error('[suggest-connections] inverse error:', invErr.message);
+  (allRows || []).forEach(n => {
+    if (Array.isArray(n.connections) && n.connections.includes(noteId)) already.add(n.id);
+  });
 
   // 3. Filtra (auto, já conectadas, piso), dedup por título, teto de 3.
   const seenTitles = new Set();
