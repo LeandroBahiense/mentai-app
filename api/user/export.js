@@ -217,7 +217,8 @@ export default async function handler(req, res) {
     zip.file(
       'README.txt',
       'Export do vault Pallyum — ' + new Date().toISOString() + '.\n' +
-      'O histórico do chat web não está incluído (ele vive apenas no seu navegador, não em nossos servidores).\n'
+      'O histórico do chat web não está incluído (ele vive apenas no seu navegador, não em nossos servidores).\n' +
+      'Cada nota também possui uma leitura de sentido automática (dado técnico interno, derivado do título e do conteúdo, usado para sugerir conexões entre suas notas). Ela não é legível por pessoas e é apagada junto com a nota — por isso não vai neste pacote.\n'
     );
 
     // 5. Upload da ZIP
