@@ -4622,6 +4622,7 @@ async function loadFromSupabase(){
               updated_at: r.updated_at,
               in_trash:   r.in_trash   || false,
               deleted_at: r.deleted_at || null,
+              connections: Array.isArray(r.connections) ? r.connections : [],
             });
           }
         } else {
@@ -4638,6 +4639,7 @@ async function loadFromSupabase(){
             updated_at: r.updated_at,
             in_trash:   r.in_trash   || false,
             deleted_at: r.deleted_at || null,
+            connections: Array.isArray(r.connections) ? r.connections : [],
           });
         }
       });
