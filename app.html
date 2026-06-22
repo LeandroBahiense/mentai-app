@@ -743,9 +743,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           <!-- Listas -->
           <button class="tool" onclick="document.execCommand('insertUnorderedList');document.getElementById('editor-content').focus();" title="Lista com marcadores">• ≡</button>
           <button class="tool" onclick="document.execCommand('insertOrderedList');document.getElementById('editor-content').focus();" title="Lista numerada">1. ≡</button>
-          <div class="tool-sep"></div>
-          <!-- Wikilink -->
-          <button class="tool" onclick="insWiki()" title="Wikilink" style="color:var(--accent);font-size:11px;">[[]]</button>
           <div style="flex:1"></div>
           <span style="font-size:10px;color:var(--text3)" id="wc">0 palavras</span>
           <button class="tool" onclick="triggerFileUpload()" title="Anexar arquivo" style="color:var(--accent2);margin-left:4px">📎</button>
@@ -753,7 +750,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
             accept=".pdf,.jpg,.jpeg,.png,.mp3,.ogg,.docx,image/*,audio/*"
             onchange="handleFileUpload(event)"/>
         </div>
-        <div id="wiki-tip">💡 Digite <code>[[</code> para conectar a outra nota. A IA cria conexões automaticamente.</div>
         <div id="editor-scroll">
           <div id="editor-content" contenteditable="true" spellcheck="false"
                onkeyup="onEKey(event)" onkeydown="onEKeyDown(event)" oninput="onEInput()"></div>
@@ -1230,7 +1226,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <span>|</span>
   <span id="save-indicator">✓ salvo localmente</span>
   <button id="btn-sync" onclick="manualSync()" title="Sincronizar com o banco" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:12px;padding:0 2px;line-height:1;transition:color .2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">↻</button>
-  <span style="margin-left:auto;color:var(--text3)" id="sb-hint">Dica: [[NomeDaNota]] para criar conexões</span>
+  <span style="margin-left:auto;color:var(--text3)" id="sb-hint">Suas notas, conectadas</span>
 </div>
 
 <!-- AUTOCOMPLETE -->
@@ -3412,7 +3408,7 @@ function navigate(view) {
   document.getElementById('sb-hint').textContent = {
     home:     'Visão geral do seu vault · Clique em qualquer nota para abrir',
     kanban:   'Clique em um card para abrir · + Adicionar nota cria na coluna',
-    editor:   'Dica: [[NomeDaNota]] para criar conexões',
+    editor:   'Escreva sua nota · as conexões aparecem no Graph',
     graph:    'Arraste · Scroll para zoom · Clique para explorar',
     chat:     'Enter para enviar · Shift+Enter nova linha',
     voice:    'Chrome/Edge para reconhecimento de voz real',
@@ -3719,10 +3715,7 @@ function addTag() {
 // ══════════════════════════════════════════════════════════════════
 function renderMD(text) {
   return text
-    .replace(/\[\[([^\]]+)\]\]/g, (_,t) => {
-      const exists = APP.notes.find(n=>n.title.toLowerCase()===t.toLowerCase());
-      return `<span class="wikilink ${exists?'':'broken'}" onclick="wlClick('${exists?.id||''}','${t.replace(/'/g,'\\\'')}')" title="${exists?'Abrir: '+t:'Criar: '+t}">${t}</span>`;
-    })
+    .replace(/\[\[([^\]]+)\]\]/g, (_,t)=>t)
     .replace(/^## (.+)$/gm,'<h2>$1</h2>')
     .replace(/^### (.+)$/gm,'<h3>$1</h3>')
     .replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>')
@@ -3734,17 +3727,6 @@ function renderMD(text) {
     .replace(/\*(.+?)\*/g,'<em>$1</em>')
     .replace(/`(.+?)`/g,'<code>$1</code>')
     .replace(/\n/g,'<br/>');
-}
-
-function wlClick(id, title) {
-  if (id) openNote(id);
-  else {
-    const newId = title.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
-    const note = { id:newId, title, folder:'inbox', cluster:'produto', tags:['nova'], date:'agora', content:`## ${title}\n\nNota criada via wikilink.\n` };
-    APP.notes.push(note);
-    saveNotes();
-    openNote(newId);
-  }
 }
 
 let wikiMode = false, wikiQuery = '';
@@ -3764,19 +3746,7 @@ function moveAC(dir) {
   const next=(idx+dir+items.length)%items.length;
   items[next]?.classList.add('sel');
 }
-function onEKey(e) {
-  const sel=window.getSelection(); if(!sel.rangeCount) return;
-  const range=sel.getRangeAt(0); const node=range.startContainer;
-  if(!node.textContent) return;
-  const text=node.textContent; const pos=range.startOffset;
-  const before=text.lastIndexOf('[[',pos);
-  if(before!==-1 && !text.substring(before,pos).includes(']]')) {
-    wikiMode=true; wikiQuery=text.substring(before+2,pos);
-    const rect=range.getBoundingClientRect();
-    const edRect=document.getElementById('editor-content').getBoundingClientRect();
-    showAC(wikiQuery, rect.left-edRect.left+32, rect.top-edRect.top);
-  } else { hideAC(); }
-}
+function onEKey(e) {}
 function onEInput() {
   const ed=document.getElementById('editor-content');
   const note=APP.notes.find(n=>n.id===APP.currentNoteId);
@@ -3899,45 +3869,28 @@ function showAC(q, x, y) {
   ac.style.display='block'; ac.style.left=(edRect.left+x)+'px'; ac.style.top=(edRect.top+y+20)+'px';
 }
 function hideAC() { document.getElementById('autocomplete').style.display='none'; wikiMode=false; }
-function selectAC(title) {
-  const ed=document.getElementById('editor-content');
-  const sel=window.getSelection(); if(!sel.rangeCount) return;
-  const range=sel.getRangeAt(0); const node=range.startContainer;
-  const text=node.textContent; const pos=range.startOffset;
-  const before=text.lastIndexOf('[[',pos);
-  if(before!==-1){ node.textContent=text.substring(0,before)+'[['+title+']]'+text.substring(pos); }
-  hideAC(); onEInput();
-}
+function selectAC(title) { hideAC(); }
 
 // toolbar
 function fmt(cmd){ document.execCommand(cmd,false,null); }
 function insH(l){ document.execCommand('insertText',false,'\n'+'#'.repeat(l)+' '); }
 function ins(t){ document.execCommand('insertText',false,'\n'+t); }
 function insCode(){ document.execCommand('insertText',false,'`código`'); }
-function insWiki(){ document.execCommand('insertText',false,'[['); document.getElementById('editor-content').dispatchEvent(new KeyboardEvent('keyup')); }
 
 // backlinks / outlinks
 function renderBacklinks() {
   const note=APP.notes.find(n=>n.id===APP.currentNoteId); if(!note) return;
-  const bl=APP.notes.filter(n=>n.id!==APP.currentNoteId&&(n.content||'').includes('[['+note.title+']]'));
+  const my=Array.isArray(note.connections)?note.connections:[];
+  const connected=APP.notes.filter(n=>n.id!==note.id && (my.includes(n.id) || (Array.isArray(n.connections)&&n.connections.includes(note.id))));
   const list=document.getElementById('bl-list');
-  list.innerHTML=bl.length?bl.map(n=>{
-    const idx=(n.content||'').indexOf('[['+note.title+']]');
-    const exc=(n.content||'').substring(Math.max(0,idx-30),idx+note.title.length+50).replace(/\n/g,' ');
-    const hl=exc.replace('[['+note.title+']]',`<span class="hl">${note.title}</span>`);
-    return `<div class="bl-card fade-in" onclick="openNote('${n.id}')"><div class="bl-title">${n.title}</div><div class="bl-excerpt">…${hl}…</div></div>`;
-  }).join(''):`<div style="padding:12px;font-size:11px;color:var(--text3)">Nenhuma nota aponta para cá.</div>`;
-  document.getElementById('sb-conn-count').textContent=bl.length+' backlinks';
+  list.innerHTML=connected.length?connected.map(n=>`<div class="bl-card fade-in" onclick="openNote('${n.id}')"><div class="bl-title">${n.title}</div></div>`).join(''):`<div style="padding:12px;font-size:11px;color:var(--text3)">Nenhuma conexão ainda.</div>`;
+  document.getElementById('sb-conn-count').textContent=connected.length+' conexões';
 }
 function renderOutlinks() {
   const note=APP.notes.find(n=>n.id===APP.currentNoteId); if(!note) return;
-  const matches=[...(note.content||'').matchAll(/\[\[([^\]]+)\]\]/g)];
-  const unique=[...new Set(matches.map(m=>m[1]))];
-  document.getElementById('ol-list').innerHTML=unique.map(t=>{
-    const target=APP.notes.find(n=>n.title.toLowerCase()===t.toLowerCase());
-    return `<div class="ol-item" onclick="${target?`openNote('${target.id}')`:`wlClick('','${t.replace(/'/g,'\\\'')}')`}">
-      <span style="width:5px;height:5px;border-radius:50%;background:${target?'var(--accent)':'var(--coral)'};flex-shrink:0"></span>${t}</div>`;
-  }).join('');
+  const my=Array.isArray(note.connections)?note.connections:[];
+  const targets=APP.notes.filter(n=>n.id!==note.id && my.includes(n.id));
+  document.getElementById('ol-list').innerHTML=targets.map(n=>`<div class="ol-item" onclick="openNote('${n.id}')"><span style="width:5px;height:5px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>${n.title}</div>`).join('');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -3954,7 +3907,7 @@ function buildGraphData() {
     x:GW/2+(Math.random()-.5)*280, y:GH/2+(Math.random()-.5)*200, vx:0,vy:0,
   }));
   const nodeById=new Map(gNodes.map(x=>[x.id,x]));
-  // Arestas a partir do DADO de conexoes (por identidade da nota), nao mais de texto [[ ]].
+  // Arestas a partir do DADO de conexoes (por identidade da nota), nao mais de texto livre.
   gEdges=[];
   APP.notes.forEach(n=>{
     const conns=Array.isArray(n.connections)?n.connections:[];
@@ -4229,7 +4182,7 @@ function addMsg(role,text,sources){
   area.scrollTop=99999;
 }
 function fmtChat(t){
-  return t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\[\[([^\]]+)\]\]/g,'<span class="wikilink">$1</span>').replace(/`(.+?)`/g,'<code>$1</code>').replace(/^- (.+)$/gm,'<div style="padding:2px 0 2px 10px;color:var(--text2)">· $1</div>').replace(/\n/g,'<br/>');
+  return t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\[\[([^\]]+)\]\]/g,'$1').replace(/`(.+?)`/g,'<code>$1</code>').replace(/^- (.+)$/gm,'<div style="padding:2px 0 2px 10px;color:var(--text2)">· $1</div>').replace(/\n/g,'<br/>');
 }
 function buildSysPrompt(){
   const notes = APP.notes.filter(n => APP.activeNotes.has(n.id));
@@ -4238,7 +4191,6 @@ function buildSysPrompt(){
   return `Você é ${assistantName}, assistente pessoal de ${displayName} no Pallyum — Intelligence Layer.
 Responda em português brasileiro. Seja conciso e direto.
 Use **negrito** para pontos importantes.
-Use [[NomeDaNota]] ao referenciar notas do vault.
 Você tem acesso ao vault de notas e à agenda Google do usuário pelo chat, e pode criar, atualizar e apagar notas e eventos quando solicitado — use as ferramentas para agir, não apenas descreva.
 
 VAULT (${notes.length} notas):
@@ -4318,9 +4270,9 @@ async function sendChat(){
 function qSend(t){ document.getElementById('chat-input').value=t; sendChat(); }
 function genDemoReply(m){
   const l=m.toLowerCase();
-  if(l.includes('prioridade')||l.includes('hoje')) return `Com base nas suas notas, a **prioridade de hoje** é:\n\n- Conectar o Supabase para persistência real — próximo passo em [[MVP do Segundo Cérebro]]\n- Status registrado em [[Reunião 06 Mai]]: unificação do app está em andamento\n\nTodas as 4 entregas técnicas estão marcadas como concluídas. O próximo marco é o banco de dados real.`;
-  if(l.includes('projeto')||l.includes('resum')) return `**Projetos ativos:**\n\n**[[MVP do Segundo Cérebro]]** — em construção\nStatus: Editor ✓ · Graph ✓ · Chat ✓ · Voz ✓ · App unificado ✓\n\nDecisões tomadas: [[Decisão Supabase]] e D3.js para visualização.\nPróximo: conectar banco de dados real.`;
-  if(l.includes('decis')) return `**Decisões registradas:**\n\n1. **[[Decisão Supabase]]** — banco PostgreSQL, gratuito, integra com Vercel. Revisão em 3 meses.\n2. **D3.js** — biblioteca de visualização para o [[Graph View]], definida na [[Reunião 06 Mai]].`;
+  if(l.includes('prioridade')||l.includes('hoje')) return `Com base nas suas notas, a **prioridade de hoje** é:\n\n- Conectar o Supabase para persistência real — próximo passo em MVP do Segundo Cérebro\n- Status registrado em Reunião 06 Mai: unificação do app está em andamento\n\nTodas as 4 entregas técnicas estão marcadas como concluídas. O próximo marco é o banco de dados real.`;
+  if(l.includes('projeto')||l.includes('resum')) return `**Projetos ativos:**\n\n**MVP do Segundo Cérebro** — em construção\nStatus: Editor ✓ · Graph ✓ · Chat ✓ · Voz ✓ · App unificado ✓\n\nDecisões tomadas: Decisão Supabase e D3.js para visualização.\nPróximo: conectar banco de dados real.`;
+  if(l.includes('decis')) return `**Decisões registradas:**\n\n1. **Decisão Supabase** — banco PostgreSQL, gratuito, integra com Vercel. Revisão em 3 meses.\n2. **D3.js** — biblioteca de visualização para o Graph View, definida na Reunião 06 Mai.`;
   if(l.includes('briefing')||l.includes('semana')) return `**Briefing executivo**\n\n**Produto:** MVP com 4 módulos entregues e unificados\n**Decisões:** Supabase + D3.js confirmados\n**Reunião:** 06/Mai — ações definidas e em execução\n**Posicionamento:** gap de mercado validado\n\n**Próxima ação crítica:** conectar Supabase para sair do armazenamento local.`;
   return `Com base nas suas **${APP.notes.filter(n=>APP.activeNotes.has(n.id)).length} notas**, posso ajudar com projetos, decisões, reuniões e briefings.\n\nConecte sua chave de API nas Configurações para respostas ainda mais precisas usando o Claude diretamente.`;
 }
@@ -4415,7 +4367,7 @@ async function processVoice(){
   document.getElementById('va-proc').disabled=false;
 }
 async function processVoiceWithAPI(text){
-  const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:800,messages:[{role:'user',content:`Transcrição de voz: "${text}"\n\nNotas existentes: ${APP.notes.map(n=>n.title).join(', ')}\n\nResponda APENAS com JSON:\n{"title":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."],"content":"...markdown com [[wikilinks]]...","connections":["..."]}`}]})});
+  const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:800,messages:[{role:'user',content:`Transcrição de voz: "${text}"\n\nNotas existentes: ${APP.notes.map(n=>n.title).join(', ')}\n\nResponda APENAS com JSON:\n{"title":"...","cluster":"produto|estrategia|equipe|pessoal|inbox","tags":["..."],"content":"...markdown..."}`}]})});
   if(!res.ok) throw new Error('API '+res.status);
   const d=await res.json();
   return JSON.parse((d.content[0]?.text||'{}').replace(/```json|```/g,'').trim());
@@ -4428,13 +4380,12 @@ function genDemoVoiceNote(text){
   else if(l.includes('invest')||l.includes('deck')){cluster='estrategia';title='Preparação para investidor';tags=['estratégia','pitch'];connections=['Posicionamento','MVP do Segundo Cérebro'];}
   else{title=text.trim().split(/\s+/).slice(0,5).join(' ');}
   let content=text;
-  APP.notes.forEach(n=>{const rx=new RegExp(n.title.split(' ')[0],'gi');content=content.replace(rx,`[[${n.title}]]`);});
   return {title,cluster,tags,content:`## ${title}\n\n*Capturado por voz*\n\n${content}`,connections};
 }
 function renderVoiceResult(note){
   const c=CLUSTER_COLORS[note.cluster]||'#6b7fe8';
-  const conns=(note.connections||[]).map(t=>{const f=APP.notes.find(n=>n.title.toLowerCase()===t.toLowerCase());return {title:t,color:f?.color||c};});
-  const body=(note.content||'').replace(/\[\[([^\]]+)\]\]/g,'<span class="wikilink">$1</span>').replace(/^## (.+)$/gm,'<strong style="font-size:14px;color:var(--text);display:block;margin:6px 0 2px">$1</strong>').replace(/^\*(.+)\*$/gm,'<em style="color:var(--text3);font-size:11px">$1</em>').replace(/\n/g,'<br/>');
+  const conns=[];
+  const body=(note.content||'').replace(/\[\[([^\]]+)\]\]/g,'$1').replace(/^## (.+)$/gm,'<strong style="font-size:14px;color:var(--text);display:block;margin:6px 0 2px">$1</strong>').replace(/^\*(.+)\*$/gm,'<em style="color:var(--text3);font-size:11px">$1</em>').replace(/\n/g,'<br/>');
   const r=document.getElementById('voice-result');
   r.style.display='block';
   r.innerHTML=`<div class="vr-card"><div class="vr-head"><div class="vr-title">${note.title}</div><div class="vr-cluster" style="background:${c}20;color:${c};border:1px solid ${c}30">${note.cluster}</div></div><div class="vr-body">${(note.tags||[]).map(t=>`<span style="padding:1px 7px;border-radius:10px;font-size:10px;font-weight:500;background:rgba(107,127,232,.1);color:var(--accent2);border:1px solid var(--border);margin:0 2px">#${t}</span>`).join('')}<br/><br/>${body}</div>${conns.length?`<div class="vr-conns"><span style="font-size:10px;color:var(--text3);margin-right:4px">Conexões:</span>${conns.map(c=>`<div class="conn-chip"><div class="conn-dot" style="background:${c.color}"></div>${c.title}</div>`).join('')}</div>`:''}</div><div class="vr-actions"><button class="va-btn primary" onclick="saveVoiceNote(${JSON.stringify(note).replace(/"/g,'&quot;')})">✓ Salvar no vault</button><button class="va-btn" onclick="document.getElementById('voice-result').style.display='none'">✕ Descartar</button></div>`;
@@ -4709,7 +4660,7 @@ function updateSystemStatus(){
 }
 function updateStatusBar(){
   document.getElementById('sb-note-count').textContent=APP.notes.length+' notas';
-  // Conta arestas REAIS (resolvidas) que o graph desenha, não marcadores [[ crus.
+  // Conta arestas REAIS (resolvidas) que o graph desenha, não marcadores de texto crus.
   const conns=gEdges.length;
   document.getElementById('sb-conn-count').textContent=conns+' conexões';
 }
