@@ -138,6 +138,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .bl-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:5px;cursor:pointer;transition:all .12s;}
 .bl-card:hover{border-color:var(--border2);}
 .bl-title{font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px;}
+#sugg-section{padding:8px 8px 0;}
+.sugg-card{background:var(--bg3);border:1px dashed var(--border2);border-radius:8px;padding:8px 11px;margin-bottom:5px;cursor:pointer;transition:all .12s;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.sugg-card:hover{border-color:var(--accent);background:rgba(124,110,240,.08);}
+.sugg-title{font-size:12px;font-weight:500;color:var(--text);}
+.sugg-add{font-size:10px;color:var(--accent);white-space:nowrap;flex-shrink:0;}
 .bl-excerpt{font-size:11px;color:var(--text2);line-height:1.4;}
 .bl-excerpt .hl{color:var(--accent2);background:rgba(107,127,232,.1);border-radius:2px;padding:0 2px;}
 #ol-section{padding:8px;border-top:1px solid var(--border);}
@@ -761,6 +766,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       </div>
       <div id="backlinks-pane">
         <div id="bl-header">Conexões</div>
+        <div id="sugg-section">
+          <div class="ol-label">Sugestões da IA</div>
+          <div id="sugg-list"></div>
+        </div>
         <div id="bl-list"></div>
         <div id="ol-section">
           <div class="ol-label">Links desta nota</div>
@@ -3497,6 +3506,7 @@ function openNote(id) {
   renderNoteMeta(note);
   renderBacklinks();
   renderOutlinks();
+  renderSuggestions();
   updateWordCount();
   renderSidebar();
   loadNoteAttachments(id);
@@ -3693,6 +3703,7 @@ function openNoteEditor(id) {
   renderNoteMeta(note);
   renderBacklinks();
   renderOutlinks();
+  renderSuggestions();
   updateWordCount();
   loadNoteAttachments(id);
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
@@ -3891,6 +3902,32 @@ function renderOutlinks() {
   const my=Array.isArray(note.connections)?note.connections:[];
   const targets=APP.notes.filter(n=>n.id!==note.id && my.includes(n.id));
   document.getElementById('ol-list').innerHTML=targets.map(n=>`<div class="ol-item" onclick="openNote('${n.id}')"><span style="width:5px;height:5px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>${n.title}</div>`).join('');
+}
+async function renderSuggestions() {
+  const box=document.getElementById('sugg-list'); if(!box) return;
+  const id=APP.currentNoteId;
+  if(!id){ box.innerHTML=''; return; }
+  box.innerHTML='<div style="padding:8px 4px;font-size:11px;color:var(--text3)">buscando sugestões…</div>';
+  try{
+    const res=await fetch('/api/suggest-connections?id='+encodeURIComponent(id),{credentials:'include',cache:'no-store'});
+    if(id!==APP.currentNoteId) return;            // a nota mudou enquanto buscava
+    if(!res.ok){ box.innerHTML=''; return; }
+    const data=await res.json();
+    const sugg=(data.suggestions||[]);
+    if(!sugg.length){ box.innerHTML='<div style="padding:8px 4px;font-size:11px;color:var(--text3)">Nenhuma sugestão no momento.</div>'; return; }
+    box.innerHTML=sugg.map(s=>`<div class="sugg-card" onclick="acceptSuggestion('${String(s.id).replace(/'/g,"\\'")}')" title="Tocar para conectar"><div class="sugg-title">${s.title||'Sem título'}</div><div class="sugg-add">+ conectar</div></div>`).join('');
+  }catch(e){ box.innerHTML=''; }
+}
+async function acceptSuggestion(targetId) {
+  const note=APP.notes.find(n=>n.id===APP.currentNoteId); if(!note) return;
+  if(!Array.isArray(note.connections)) note.connections=[];
+  if(note.connections.includes(targetId)) return;
+  note.connections.push(targetId);
+  note.updated_at=new Date().toISOString();
+  saveNotes();
+  const ok=await pushNoteToBackend(note);
+  if(ok===false){ note.connections=note.connections.filter(x=>x!==targetId); saveNotes(); return; }
+  buildGraphData(); renderBacklinks(); renderOutlinks(); renderSuggestions();
 }
 
 // ══════════════════════════════════════════════════════════════════
