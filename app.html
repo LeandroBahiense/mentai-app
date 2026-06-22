@@ -3975,6 +3975,7 @@ function buildGraphData() {
     }
   });
   document.getElementById('gcl-all-n').textContent=gNodes.length;
+  updateStatusBar(); // realinha o rodapé "X conexões" ao gEdges recém-montado
 }
 
 function initGraph() {
@@ -4700,7 +4701,8 @@ function updateSystemStatus(){
 }
 function updateStatusBar(){
   document.getElementById('sb-note-count').textContent=APP.notes.length+' notas';
-  const conns=APP.notes.reduce((a,n)=>a+((n.content||'').match(/\[\[/g)||[]).length,0);
+  // Conta arestas REAIS (resolvidas) que o graph desenha, não marcadores [[ crus.
+  const conns=gEdges.length;
   document.getElementById('sb-conn-count').textContent=conns+' conexões';
 }
 
