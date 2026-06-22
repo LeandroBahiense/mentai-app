@@ -122,6 +122,17 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: error.message });
     }
 
+    // A leitura de sentido morre JUNTO com a nota (LGPD — exclusão completa, sem esperar a faxina das 3h).
+    // Best-effort: falha não bloqueia o 200, a faxina diária ainda cobre como rede de segurança.
+    const { error: embErr } = await supabase
+      .from('note_embeddings')
+      .delete()
+      .eq('note_id', id)
+      .eq('user_id', uid);
+    if (embErr) {
+      console.error('[api/notes DELETE] limpar leitura de sentido falhou (não crítico):', embErr.message);
+    }
+
     // Lápide: registra exclusão definitiva para sincronizar outros dispositivos.
     // Falha não bloqueia o 200 — a nota já sumiu do banco.
     const { error: tombErr } = await supabase
