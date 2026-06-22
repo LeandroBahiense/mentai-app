@@ -1,6 +1,7 @@
 import { createClient }              from '@supabase/supabase-js';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { isPlanActive } from './_lib/plans.js';
+import { indexNote } from './_lib/embeddings.js';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -79,6 +80,10 @@ export default async function handler(req, res) {
       }
     }
 
+    // Refaz a leitura de sentido só quando a edição é de conteúdo (front sinaliza _reindex).
+    const reindex = note._reindex === true;
+    if ('_reindex' in note) delete note._reindex;
+
     // Força user_id pelo cookie — ignora qualquer valor vindo no corpo
     note = { ...note, user_id: uid };
 
@@ -89,6 +94,11 @@ export default async function handler(req, res) {
     if (error) {
       console.error('[api/notes POST] supabase error:', error.message);
       return res.status(500).json({ error: error.message });
+    }
+
+    if (reindex) {
+      try { await indexNote(note.id, uid, note.title || '', note.content || ''); }
+      catch (e) { console.error('[api/notes POST] reindex error:', e.message); }
     }
 
     return res.status(200).json({ ok: true });
