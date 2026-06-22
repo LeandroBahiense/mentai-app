@@ -3946,22 +3946,28 @@ function renderOutlinks() {
 let GW,GH,gCtx,mmCtx2,gNodes=[],gEdges=[],gParticles=[],gPhase=0,gHover=null,gSelected=null,gDrag=null,gPan=false,gZoom=1,gPanX=0,gPanY=0,gLMX=0,gLMY=0,gLayout='radial',gFilter2='all',gRAF=null;
 
 function buildGraphData() {
+  const idSet=new Set(APP.notes.map(n=>n.id));
   gNodes=APP.notes.map(n=>({
-    ...n, r:8+((n.content||'').match(/\[\[/g)||[]).length*1.5,
+    ...n, r:8,
     color:STATUS_COLORS[n.status||'inbox']||'#7c6ef0',
     phase:Math.random()*Math.PI*2,
     x:GW/2+(Math.random()-.5)*280, y:GH/2+(Math.random()-.5)*200, vx:0,vy:0,
   }));
+  const nodeById=new Map(gNodes.map(x=>[x.id,x]));
+  // Arestas a partir do DADO de conexoes (por identidade da nota), nao mais de texto [[ ]].
   gEdges=[];
   APP.notes.forEach(n=>{
-    const matches=[...(n.content||'').matchAll(/\[\[([^\]]+)\]\]/g)];
-    matches.forEach(m=>{
-      const target=APP.notes.find(t=>t.title.toLowerCase()===m[1].toLowerCase());
-      if(target && !gEdges.find(e=>(e.s===n.id&&e.t===target.id)||(e.s===target.id&&e.t===n.id))) {
-        gEdges.push({s:n.id,t:target.id,src:gNodes.find(x=>x.id===n.id),tgt:gNodes.find(x=>x.id===target.id)});
-      }
+    const conns=Array.isArray(n.connections)?n.connections:[];
+    conns.forEach(targetId=>{
+      if(targetId===n.id||!idSet.has(targetId)) return;          // ignora auto-ligacao e ligacao orfa (nota apagada)
+      if(gEdges.find(e=>(e.s===n.id&&e.t===targetId)||(e.s===targetId&&e.t===n.id))) return; // nao-direcionado, sem duplicar
+      gEdges.push({s:n.id,t:targetId,src:nodeById.get(n.id),tgt:nodeById.get(targetId)});
     });
   });
+  // Tamanho do no escala com o numero REAL de conexoes (o centro emerge sozinho).
+  const deg=new Map();
+  gEdges.forEach(e=>{deg.set(e.s,(deg.get(e.s)||0)+1);deg.set(e.t,(deg.get(e.t)||0)+1);});
+  gNodes.forEach(node=>{node.r=8+Math.min(deg.get(node.id)||0,8)*2.5;});
   // build light particles along edges
   gParticles=[];
   gEdges.forEach((e,ei)=>{
@@ -3975,7 +3981,7 @@ function buildGraphData() {
     }
   });
   document.getElementById('gcl-all-n').textContent=gNodes.length;
-  updateStatusBar(); // realinha o rodapé "X conexões" ao gEdges recém-montado
+  updateStatusBar(); // realinha o rodape "X conexoes" ao gEdges recem-montado
 }
 
 function initGraph() {
