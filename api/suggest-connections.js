@@ -65,6 +65,14 @@ export default async function handler(req, res) {
     .maybeSingle();
   const already = new Set(Array.isArray(noteRow?.connections) ? noteRow.connections : []);
 
+  // 2b. Conexões no sentido INVERSO — notas que listam ESTA nota (ligação é não-direcionada).
+  const { data: incoming } = await supabase
+    .from('notes')
+    .select('id')
+    .eq('user_id', uid)
+    .contains('connections', [noteId]);
+  (incoming || []).forEach(r => already.add(r.id));
+
   // 3. Filtra (auto, já conectadas, piso), dedup por título, teto de 3.
   const seenTitles = new Set();
   const suggestions = [];
