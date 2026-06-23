@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Central de Ajuda — Pallyum</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#06060f;--bg2:#0d0d1e;--text:#e8e8f4;--text2:#8080b0;--accent:#7c3aed;--accent2:#a99cf5;--border:rgba(255,255,255,0.06);}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;line-height:1.7;}
+nav{position:fixed;top:0;left:0;right:0;height:60px;background:rgba(6,6,15,0.9);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 40px;z-index:100;}
+.nav-logo{font-family:'Playfair Display',serif;font-size:20px;color:var(--accent2);text-decoration:none;}
+.container{max-width:760px;margin:0 auto;padding:100px 24px 80px;}
+h1{font-family:'Playfair Display',serif;font-size:36px;color:var(--text);margin-bottom:8px;}
+.subtitle{font-size:13px;color:var(--text2);margin-bottom:32px;}
+.toc{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:48px;padding-bottom:24px;border-bottom:1px solid var(--border);}
+.toc a{display:inline-block;padding:8px 16px;border:1px solid var(--border);border-radius:999px;font-size:14px;color:var(--accent2);text-decoration:none;}
+.toc a:hover{background:rgba(124,58,237,0.1);}
+.section-tag{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin:56px 0 4px;}
+h2{font-family:'Playfair Display',serif;font-size:28px;color:var(--text);margin:0 0 20px;}
+h3{font-family:'DM Sans',sans-serif;font-size:18px;font-weight:500;color:var(--text);margin:32px 0 8px;}
+p{color:var(--text2);margin-bottom:16px;font-size:15px;}
+ul,ol{color:var(--text2);margin:0 0 16px 20px;font-size:15px;}
+li{margin-bottom:10px;}
+li strong{color:var(--text);}
+a{color:var(--accent2);text-decoration:none;}
+a:hover{text-decoration:underline;}
+.highlight{background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:16px 20px;margin:24px 0;}
+.highlight p{margin:0;color:var(--text);}
+.steps{counter-reset:step;list-style:none;margin-left:0;}
+.steps li{position:relative;padding-left:42px;margin-bottom:18px;color:var(--text);}
+.steps li::before{counter-increment:step;content:counter(step);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.4);color:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:14px;}
+.steps li span{color:var(--text2);}
+.faq h3{margin-top:28px;}
+.faq p{margin-bottom:8px;}
+footer{text-align:center;padding:40px 24px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);margin-top:40px;}
+footer a{color:var(--text2);}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">Pallyum</a>
+</nav>
+<div class="container">
+  <h1>Central de Ajuda</h1>
+  <div class="subtitle">Tudo o que você precisa pra tirar o máximo do Pallyum.</div>
+
+  <div class="toc">
+    <a href="#rapido">Guia rápido</a>
+    <a href="#manual">Manual completo</a>
+    <a href="#faq">Perguntas frequentes</a>
+  </div>
+
+  <!-- ============ GUIA RÁPIDO ============ -->
+  <div class="section-tag" id="rapido">Comece por aqui</div>
+  <h2>Guia rápido</h2>
+
+  <p>O Pallyum é o seu segundo cérebro com inteligência artificial. Ele guarda suas ideias e anotações, organiza a sua agenda e conversa com você — tanto no aplicativo quanto pelo WhatsApp. A ideia é simples: você joga as coisas pra dentro, e o Pallyum mantém tudo no lugar e à mão.</p>
+
+  <div class="highlight">
+    <p>Comece em 5 minutos:</p>
+  </div>
+
+  <ol class="steps">
+    <li>Entre na sua conta<br><span>Acesse com seu e-mail e senha. Na primeira vez, crie sua conta na mesma tela.</span></li>
+    <li>Conecte uma agenda<br><span>Ligue sua conta Google (que traz agenda e e-mails) ou uma conta Outlook, iCloud e outras (que trazem a agenda). Assim o Pallyum já enxerga seus compromissos.</span></li>
+    <li>Ative o WhatsApp<br><span>Vincule seu número na aba WhatsApp pra conversar com o assistente direto por mensagem.</span></li>
+    <li>Experimente as três primeiras coisas<br><span>Mande "o que eu tenho hoje?" no WhatsApp · crie sua primeira nota no app · peça "marca dentista quinta às 15h" e veja o compromisso aparecer.</span></li>
+  </ol>
+
+  <!-- ============ MANUAL COMPLETO ============ -->
+  <div class="section-tag" id="manual">Por dentro de cada parte</div>
+  <h2>Manual completo</h2>
+
+  <h3>Notas e o seu vault</h3>
+  <p>O vault é onde tudo o que você guarda fica. Crie uma nota a qualquer momento pelo botão <strong>+ Nova nota</strong>; clique numa nota pra abrir e editar, com direito a anexos. As <strong>gavetas</strong> (Inbox, Projetos, Pessoal, e as que você usar) organizam suas notas por tema — clique numa gaveta pra ver só o que está nela. O painel inicial mostra seus números do dia: total de notas, urgentes, concluídas e as prioridades. Use a <strong>busca</strong>, os <strong>favoritos</strong> e o filtro <strong>com anexos</strong> pra achar as coisas rápido. Apagar uma nota a manda pra <strong>Lixeira</strong> — nada some de vez sem querer.</p>
+
+  <h3>Graph — os neurônios do seu cérebro</h3>
+  <p>O Graph mostra suas notas como pontos de luz ligados entre si, como os neurônios de um cérebro. Notas que se relacionam aparecem conectadas, e tudo se agrupa por categoria. Você pode mudar a forma como o mapa se organiza (em força, em grupos ou em formato radial) e ajustar como os pontos se atraem e se afastam. É a maneira de enxergar, de cima, como suas ideias se conversam.</p>
+
+  <h3>Chat IA</h3>
+  <p>O Chat IA é a conversa com a inteligência do Pallyum dentro do aplicativo. Pergunte coisas, peça um resumo, e peça pra ele criar ou ajustar notas e compromissos pra você — tudo conversando, sem precisar preencher formulário.</p>
+
+  <h3>Voz</h3>
+  <p>A Voz serve pra <strong>criar uma nota por comando de voz</strong>: aperte o microfone, fale o que quiser, e o que você disser vira uma nota — do jeito que saiu ou organizada pela inteligência do Pallyum.</p>
+
+  <h3>WhatsApp</h3>
+  <p>Esse é o seu assistente no lugar onde você já vive o dia. Pelo WhatsApp você pode:</p>
+  <ul>
+    <li><strong>Receber o briefing diário:</strong> um resumo do seu dia. É opcional — você liga e escolhe o horário nas Configurações.</li>
+    <li><strong>Criar notas por mensagem:</strong> mandou, virou nota no seu vault.</li>
+    <li><strong>Cuidar da agenda conversando:</strong> "marca reunião amanhã 10h", "remarca pra sexta", "cancela o almoço", "o que tenho hoje?".</li>
+    <li><strong>Transformar foto em compromisso:</strong> mande a foto de um convite ou cartaz e o Pallyum cria o evento (disponível conforme o seu plano).</li>
+    <li><strong>Dar um nome ao assistente:</strong> você escolhe como ele se chama.</li>
+  </ul>
+
+  <h3>Suas agendas e contas</h3>
+  <p>O Pallyum junta várias contas num lugar só:</p>
+  <ul>
+    <li><strong>Google:</strong> traz a agenda e também os e-mails (ele resume seus não lidos quando você pede).</li>
+    <li><strong>Outlook, iCloud e outras:</strong> trazem a agenda. <em>A leitura de e-mail, hoje, é só da conta Google.</em></li>
+    <li><strong>Conta principal:</strong> é a conta onde os novos compromissos são criados por padrão. Você escolhe qual é.</li>
+    <li><strong>Várias contas:</strong> dá pra conectar mais de uma — quantas depende do seu plano.</li>
+    <li><strong>Compromissos:</strong> criar, remarcar e cancelar, tudo falando naturalmente.</li>
+    <li><strong>Convidados:</strong> adicione ou remova convidados de um compromisso; o convite vai pra eles por e-mail.</li>
+  </ul>
+
+  <h3>Configurações</h3>
+  <ul>
+    <li><strong>Nome do assistente:</strong> personalize como ele se chama.</li>
+    <li><strong>Briefing:</strong> ligue ou desligue o resumo diário e escolha o horário.</li>
+    <li><strong>Exportar seu vault:</strong> baixe tudo o que é seu (notas e anexos) num arquivo.</li>
+    <li><strong>Excluir conta:</strong> apaga sua conta e seus dados. Há um prazo curto de arrependimento antes de tudo ser removido de vez.</li>
+  </ul>
+
+  <h3>Planos e cobrança</h3>
+  <p>O Pallyum começa com <strong>7 dias de teste grátis</strong>. O pagamento é por cartão, e você pode <strong>trocar de plano</strong> a qualquer momento na tela Planos, ou <strong>cancelar</strong> quando quiser. Se o plano vencer ou você cancelar, o Pallyum entra em <strong>modo leitura</strong>: suas notas e sua agenda continuam visíveis e nada é apagado — só a edição e o assistente ficam pausados até você reativar.</p>
+
+  <!-- ============ PERGUNTAS FREQUENTES ============ -->
+  <div class="section-tag" id="faq">Dúvidas comuns</div>
+  <h2>Perguntas frequentes</h2>
+
+  <div class="faq">
+    <h3>Esqueci minha senha. E agora?</h3>
+    <p>Na tela de entrar, use a opção de recuperar senha. Você recebe um código de 8 dígitos no seu e-mail pra criar uma senha nova.</p>
+
+    <h3>Meu briefing não chegou.</h3>
+    <p>Confira nas Configurações se o briefing está ligado e qual o horário escolhido. Mandar a primeira mensagem do dia pro assistente também ajuda a liberar o envio.</p>
+
+    <h3>Conectei o Outlook (ou iCloud) e não vejo meus e-mails.</h3>
+    <p>É esperado. Hoje a leitura de e-mail é só da conta Google. As outras contas entram apenas com a agenda.</p>
+
+    <h3>Posso conectar mais de uma conta?</h3>
+    <p>Pode. Quantas contas você conecta depende do seu plano.</p>
+
+    <h3>O que acontece se eu cancelar ou o plano vencer?</h3>
+    <p>Você entra em modo leitura. Suas notas e sua agenda continuam visíveis e nada é apagado — é só reativar o plano pra voltar ao normal.</p>
+
+    <h3>Como exporto ou apago meus dados?</h3>
+    <p>Direto no aplicativo, nas Configurações: "Exportar vault" baixa tudo o que é seu, e "Excluir conta" remove sua conta e seus dados.</p>
+
+    <h3>Como falo com o suporte?</h3>
+    <p>É só escrever pra <a href="mailto:administrativo@pallyum.com">administrativo@pallyum.com</a>. A gente responde.</p>
+  </div>
+
+</div>
+<footer>
+  Pallyum — Somos Vast LTDA · <a href="/termos">Termos de Uso</a> · <a href="/privacidade">Política de Privacidade</a>
+</footer>
+</body>
+</html>
