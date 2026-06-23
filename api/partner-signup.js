@@ -132,6 +132,6 @@ export default async function handler(req, res) {
   // ── 6. Sucesso ──────────────────────────────────────────────────────────────
   return res.status(200).json({
     ok: true,
-    message: 'Conta criada! Confirme seu e-mail. Seu acesso será liberado manualmente em breve.',
+    message: 'Tudo certo, sua conta foi criada! Agora confirme seu e-mail e é só aguardar — eu libero seu acesso na mão e te aviso assim que estiver pronto.',
   });
 }
