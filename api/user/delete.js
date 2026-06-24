@@ -111,7 +111,7 @@ export default async function handler(req, res) {
     const noProfile = () =>
       res.status(409).json({
         error:   'no_profile',
-        message: 'Não foi possível agendar a exclusão automaticamente. Solicite por leandro@somosvast.com.',
+        message: 'Não foi possível agendar a exclusão automaticamente. Solicite por administrativo@pallyum.com.',
       });
 
     // ── Caminho feliz: PATCH marcou a linha agora (transição null→timestamp) ──────
