@@ -3000,7 +3000,7 @@ async function removeAccount(id, email) {
 // Provedores habilitados (fácil de estender; em produção entram icloud, yahoo, ews).
 const NYLAS_PROVIDERS = [
   { id: 'microsoft', label: 'Outlook / Microsoft' },
-  { id: 'imap',      label: 'Outro e-mail (IMAP)' },
+  // IMAP escondido na fase de amigos (atrito alto p/ usuário final — plano sem IMAP, senha de app, servidor pro). Reabrir como "avançado" depois. Decisão de 24/06.
 ];
 
 function renderNylasProviderButtons() {
@@ -5633,7 +5633,7 @@ async function confirmDeleteAccount() {
     }
     if (res.status === 409) {
       const data = await res.json().catch(() => ({}));
-      showErr(data.message || 'Não foi possível agendar a exclusão automaticamente. Solicite por leandro@somosvast.com.');
+      showErr(data.message || 'Não foi possível agendar a exclusão automaticamente. Solicite por administrativo@pallyum.com.');
       return;
     }
     showErr('Não foi possível concluir. Tente novamente em instantes.');
@@ -5884,7 +5884,7 @@ function initSupabaseAuth() {
           const asData = await asResp.json().catch(() => ({}));
           if (asData.status === 'pending_purge') {
             // Conta excluída fora da graça → não carrega o app. Logout forçado (sem confirm) + mensagem.
-            alert('Esta conta foi excluída e será removida em breve. Em caso de engano, contate leandro@somosvast.com.');
+            alert('Esta conta foi excluída e será removida em breve. Em caso de engano, contate administrativo@pallyum.com.');
             forceLogout();
             return; // interrompe o bootstrap aqui
           } else if (asData.status === 'restored') {
