@@ -1063,7 +1063,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           <div style="padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-top:12px;">
             <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">
               <div style="font-size:26px;flex-shrink:0;">📆</div>
-              <div style="font-size:13px;font-weight:500;color:var(--text);">Outras agendas (Outlook, iCloud, IMAP…)</div>
+              <div style="font-size:13px;font-weight:500;color:var(--text);">Outras agendas (Outlook, iCloud, Yahoo…)</div>
             </div>
             <div id="nylas-accounts-list" style="margin-bottom:10px;"></div>
             <div id="nylas-provider-buttons" style="display:flex;flex-direction:column;gap:8px;"></div>
@@ -3000,6 +3000,8 @@ async function removeAccount(id, email) {
 // Provedores habilitados (fácil de estender; em produção entram icloud, yahoo, ews).
 const NYLAS_PROVIDERS = [
   { id: 'microsoft', label: 'Outlook / Microsoft' },
+  { id: 'icloud',    label: 'iCloud' },
+  { id: 'yahoo',     label: 'Yahoo' },
   // IMAP escondido na fase de amigos (atrito alto p/ usuário final — plano sem IMAP, senha de app, servidor pro). Reabrir como "avançado" depois. Decisão de 24/06.
 ];
 
